@@ -1,0 +1,51 @@
+# Backend Python dependencies — pinned to known-good versions.
+# Install with:  pip install -r requirements.txt
+
+# --- Web framework -----------------------------------------------------------
+fastapi==0.115.4
+uvicorn[standard]==0.32.0
+pydantic==2.9.2
+pydantic-settings==2.6.1
+python-multipart==0.0.17        # required by FastAPI for form/file uploads
+websockets==13.1                # for live run-progress streaming
+
+# --- Database ----------------------------------------------------------------
+SQLAlchemy==2.0.36
+alembic==1.13.3                 # migrations
+# psycopg[binary]==3.2.3        # uncomment to enable Postgres in prod
+
+# --- Data analysis -----------------------------------------------------------
+pandas==2.2.3
+numpy==2.1.2
+scipy==1.14.1                   # statistics for KPI calculations
+
+# --- Market data fetchers ----------------------------------------------------
+yfinance==0.2.46                # equities + FX
+pandas-datareader==0.10.0       # Stooq fallback
+ccxt==4.4.20                    # crypto exchange unified API
+requests==2.32.3                # CoinGecko & general HTTP
+
+# --- Plotting ----------------------------------------------------------------
+plotly==5.24.1                  # build figure JSON server-side; render client-side
+
+# --- Scheduling --------------------------------------------------------------
+APScheduler==3.10.4             # nightly data refresh job
+
+# --- LLM (deferred — providers wired but not required for v1 to run) ---------
+# google-generativeai==0.8.3    # uncomment when activating Gemini
+# anthropic==0.39.0             # alternative provider
+# openai==1.55.0                # alternative provider
+
+# --- Logging & utilities -----------------------------------------------------
+structlog==24.4.0               # structured logging
+python-dateutil==2.9.0
+tenacity==9.0.0                 # retry/backoff for fetchers
+exchange-calendars==4.5.5       # NYSE business-day calendar
+
+# --- Dev tooling -------------------------------------------------------------
+pytest==8.3.3
+pytest-asyncio==0.24.0
+pytest-cov==5.0.0
+httpx==0.27.2                   # async HTTP client used by FastAPI's TestClient
+ruff==0.7.2                     # linter + formatter
+mypy==1.13.0                    # static type checker

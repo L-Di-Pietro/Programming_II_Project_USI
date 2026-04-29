@@ -1,0 +1,73 @@
+# docker-compose.yml — optional prod-like stack with Postgres.
+#
+# For everyday dev you don't need Docker — SQLite works out of the box.
+# Use this stack when you want to:
+#   - test against Postgres before deploying
+#   - run the full app on a colleague's machine without installing Python/Node
+#
+# Bring up the whole stack:
+#   docker compose up --build
+#
+# Tear down + remove the volume (wipes the DB):
+#   docker compose down -v
+
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: quantbacktest
+      POSTGRES_PASSWORD: quantbacktest
+      POSTGRES_DB: quantbacktest
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quantbacktest"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://quantbacktest:quantbacktest@db:5432/quantbacktest
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      LOG_LEVEL: INFO
+      LLM_ENABLED: "false"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend       # hot-reload during dev
+      - ./scripts:/app/scripts
+    command: >
+      sh -c "python scripts/init_db.py &&
+             uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend/src:/app/src       # hot-reload
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  pgdata:
