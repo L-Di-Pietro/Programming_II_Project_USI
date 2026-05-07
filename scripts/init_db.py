@@ -33,6 +33,7 @@ SEED_ASSETS: list[dict[str, str]] = [
     {"symbol": "AAPL", "asset_class": AssetClass.EQUITY, "name": "Apple Inc.", "exchange": "NASDAQ", "currency": "USD"},
     {"symbol": "NVDA", "asset_class": AssetClass.EQUITY, "name": "NVIDIA Corporation", "exchange": "NASDAQ", "currency": "USD"},
     {"symbol": "MSFT", "asset_class": AssetClass.EQUITY, "name": "Microsoft Corporation", "exchange": "NASDAQ", "currency": "USD"},
+    {"symbol": "TSLA", "asset_class": AssetClass.EQUITY, "name": "Tesla, Inc.", "exchange": "NASDAQ", "currency": "USD"},
     # ETF (S&P 500)
     {"symbol": "SPY", "asset_class": AssetClass.ETF, "name": "SPDR S&P 500 ETF", "exchange": "NYSE", "currency": "USD"},
     # Crypto (CoinGecko id)
