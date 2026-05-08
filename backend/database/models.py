@@ -312,6 +312,9 @@ class LLMConversation(Base):
     model: Mapped[str] = mapped_column(String(64), nullable=False, default="")
     prompt_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     completion_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Which ExplanationAgent op produced this turn (e.g. "report_run",
+    # "answer_question"). Used to look up the latest cached report.
+    op: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     run: Mapped[BacktestRun] = relationship(back_populates="conversations")

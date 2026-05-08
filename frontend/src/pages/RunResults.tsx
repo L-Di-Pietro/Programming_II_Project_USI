@@ -6,9 +6,10 @@ import { DrawdownChart } from "@/components/DrawdownChart";
 import { EquityCurve } from "@/components/EquityCurve";
 import { MetricsPanel } from "@/components/MetricsPanel";
 import { MonthlyHeatmap } from "@/components/MonthlyHeatmap";
+import { ReportCard } from "@/components/ReportCard";
 import { TradeList } from "@/components/TradeList";
 
-/** Run results page: charts + KPIs + trades + (LLM panel in demo mode). */
+/** Run results page: charts + KPIs + trades + AI report. */
 export function RunResults() {
   const { runId } = useParams();
   const id = Number(runId);
@@ -18,8 +19,6 @@ export function RunResults() {
   const [drawdownFig, setDrawdownFig] = useState<PlotlyFigure["figure"] | null>(null);
   const [heatmapFig, setHeatmapFig] = useState<PlotlyFigure["figure"] | null>(null);
   const [trades, setTrades] = useState<Trade[]>([]);
-  const [llmText, setLlmText] = useState<string | null>(null);
-  const [llmDemoMode, setLlmDemoMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -48,16 +47,6 @@ export function RunResults() {
     };
   }, [id]);
 
-  const askLLM = async () => {
-    try {
-      const r = await Api.explain({ op: "answer_question", run_id: id, user_question: "Summarise this run." });
-      setLlmText(r.text);
-      setLlmDemoMode(r.demo_mode);
-    } catch (e) {
-      setLlmText(`Error: ${String(e)}`);
-    }
-  };
-
   if (!Number.isFinite(id)) {
     return <div className="card text-accent-red">Invalid run id.</div>;
   }
@@ -77,22 +66,7 @@ export function RunResults() {
 
       <TradeList trades={trades} />
 
-      {/* LLM panel — demo mode in v1 ----------------------------------- */}
-      <div className="card space-y-2">
-        <div className="flex items-center justify-between">
-          <h2>AI explanation</h2>
-          <button className="btn-primary" onClick={askLLM}>
-            Explain this run
-          </button>
-        </div>
-        {llmDemoMode && (
-          <p className="text-xs text-amber-700">
-            LLM is in demo mode (NullProvider). Plug in Google Gemini in a future iteration —
-            see <code>backend/llm/gemini_provider.py</code>.
-          </p>
-        )}
-        {llmText && <pre className="whitespace-pre-wrap text-sm text-slate-700">{llmText}</pre>}
-      </div>
+      <ReportCard runId={id} />
     </div>
   );
 }

@@ -31,10 +31,13 @@ plotly==5.24.1                  # build figure JSON server-side; render client-s
 # --- Scheduling --------------------------------------------------------------
 APScheduler==3.10.4             # nightly data refresh job
 
-# --- LLM (deferred — providers wired but not required for v1 to run) ---------
-# google-generativeai==0.8.3    # uncomment when activating Gemini
-# anthropic==0.39.0             # alternative provider
-# openai==1.55.0                # alternative provider
+# --- LLM ---------------------------------------------------------------------
+# Gemini SDK is installed by default so the report feature works out of the
+# box once LLM_ENABLED=true and GEMINI_API_KEY are set. The provider import is
+# lazy, so the backend still starts cleanly if the package fails to install.
+google-generativeai>=0.7,<1.0
+# anthropic==0.39.0             # alternative provider (uncomment to wire)
+# openai==1.55.0                # alternative provider (uncomment to wire)
 
 # --- Logging & utilities -----------------------------------------------------
 structlog==24.4.0               # structured logging

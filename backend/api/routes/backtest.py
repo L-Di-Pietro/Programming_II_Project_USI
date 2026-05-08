@@ -10,12 +10,14 @@ from sqlalchemy.orm import Session
 
 from backend.agents.analytics_agent import AnalyticsAgent, AnalyticsAgentInput
 from backend.agents.backtest_agent import BacktestAgent, BacktestAgentInput
+from backend.agents.explanation_agent import ExplanationAgent, ExplanationAgentInput
 from backend.api.schemas import (
     BacktestRequest,
     BacktestSummary,
     ChartResponse,
     EquityPointOut,
     MetricsOut,
+    ReportResponse,
     TradeOut,
 )
 from backend.backtest.risk import SizingMode
@@ -152,3 +154,59 @@ def get_chart(
     agent = AnalyticsAgent(db)
     figure = agent.run(AnalyticsAgentInput(op="chart", run_id=run_id, chart=kind)).payload
     return ChartResponse(figure=figure)
+
+
+# -----------------------------------------------------------------------------
+# LLM report
+# -----------------------------------------------------------------------------
+@router.get("/{run_id}/report", response_model=ReportResponse)
+def get_report(run_id: int, db: Session = Depends(get_session)) -> ReportResponse:
+    """Return the cached LLM report for this run, or 404 if none exists.
+
+    No LLM call is ever made on GET — call POST to (re)generate.
+    """
+    if db.get(BacktestRun, run_id) is None:
+        raise HTTPException(404, f"Run {run_id} not found")
+
+    agent = ExplanationAgent(db)
+    cached = agent.get_cached_report(run_id)
+    if cached is None:
+        raise HTTPException(404, "No report generated for this run yet")
+    generated_at = agent.get_cached_report_timestamp(run_id)
+    assert generated_at is not None  # guaranteed by get_cached_report returning non-None
+    return ReportResponse(
+        text=cached.text,
+        model=cached.model,
+        demo_mode=agent.is_demo_mode,
+        generated_at=generated_at,
+        cached=True,
+        prompt_tokens=cached.prompt_tokens,
+        completion_tokens=cached.completion_tokens,
+    )
+
+
+@router.post("/{run_id}/report", response_model=ReportResponse, status_code=201)
+def generate_report(run_id: int, db: Session = Depends(get_session)) -> ReportResponse:
+    """Generate a fresh LLM report and persist it. Used for both initial
+    generation and 'Regenerate' — the cache lookup in GET always returns the
+    most-recent assistant turn, so a new POST overwrites the visible report."""
+    if db.get(BacktestRun, run_id) is None:
+        raise HTTPException(404, f"Run {run_id} not found")
+
+    agent = ExplanationAgent(db)
+    try:
+        result = agent.run(ExplanationAgentInput(op="report_run", run_id=run_id))
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+    generated_at = agent.get_cached_report_timestamp(run_id)
+    assert generated_at is not None  # the run we just persisted is the newest row
+    return ReportResponse(
+        text=result.text,
+        model=result.model,
+        demo_mode=agent.is_demo_mode,
+        generated_at=generated_at,
+        cached=False,
+        prompt_tokens=result.prompt_tokens,
+        completion_tokens=result.completion_tokens,
+    )

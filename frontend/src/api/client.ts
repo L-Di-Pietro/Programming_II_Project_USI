@@ -2,7 +2,7 @@
 // backend's Pydantic schemas. Run `npm run gen:types` against a running
 // backend to regenerate `openapi-types.ts` from the live OpenAPI schema.
 
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 
 // In dev, vite proxies /api/* → backend. In prod, set VITE_API_URL.
 const baseURL = import.meta.env.VITE_API_URL ?? "/api";
@@ -105,6 +105,16 @@ export interface ExplainResponse {
   demo_mode: boolean;
 }
 
+export interface Report {
+  text: string;
+  model: string;
+  demo_mode: boolean;
+  generated_at: string;
+  cached: boolean;
+  prompt_tokens: number;
+  completion_tokens: number;
+}
+
 // -----------------------------------------------------------------------------
 // Endpoint helpers — keep in sync with backend routers.
 // -----------------------------------------------------------------------------
@@ -168,6 +178,26 @@ export const Api = {
   // Explain ------------------------------------------------------------------
   async explain(req: ExplainRequest) {
     const { data } = await api.post<ExplainResponse>("/explain", req);
+    return data;
+  },
+
+  // Report -------------------------------------------------------------------
+  /** Returns the cached report, or null if none has been generated yet. */
+  async getReport(runId: number): Promise<Report | null> {
+    try {
+      const { data } = await api.get<Report>(`/backtests/${runId}/report`);
+      return data;
+    } catch (e) {
+      if (e instanceof AxiosError && e.response?.status === 404) {
+        return null;
+      }
+      throw e;
+    }
+  },
+  /** Triggers fresh LLM generation. Used for both initial generation and
+   * 'Regenerate'. The new report becomes the latest cached one automatically. */
+  async generateReport(runId: number): Promise<Report> {
+    const { data } = await api.post<Report>(`/backtests/${runId}/report`);
     return data;
   },
 };

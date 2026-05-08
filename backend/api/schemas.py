@@ -146,3 +146,18 @@ class ExplainResponse(BaseModel):
     prompt_tokens: int
     completion_tokens: int
     demo_mode: bool
+
+
+# -----------------------------------------------------------------------------
+# Backtest report (LLM-generated post-run summary)
+# -----------------------------------------------------------------------------
+class ReportResponse(BaseModel):
+    """Markdown-formatted post-backtest report. ``cached`` is True when the
+    payload came from the LLMConversation cache (no LLM call was made)."""
+    text: str
+    model: str
+    demo_mode: bool
+    generated_at: datetime
+    cached: bool
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
