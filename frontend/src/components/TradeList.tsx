@@ -2,79 +2,131 @@ import { useState } from "react";
 
 import type { Trade } from "@/api/client";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 12;
 
-/** Paginated trade ledger. Cheap-and-cheerful pagination — no virtualization. */
+type SortKey = keyof Trade | "date";
+type SortDir = 1 | -1;
+
+const COLUMNS: { label: string; key: SortKey; right?: boolean }[] = [
+  { label: "#",       key: "id"           },
+  { label: "Date",    key: "ts"           },
+  { label: "Side",    key: "side"         },
+  { label: "Qty",     key: "qty",    right: true },
+  { label: "Price",   key: "price",  right: true },
+  { label: "Comm.",   key: "commission", right: true },
+  { label: "Net PnL", key: "net_pnl", right: true },
+];
+
 export function TradeList({ trades }: { trades: Trade[] }) {
-  const [page, setPage] = useState(0);
+  const [page, setPage]         = useState(0);
+  const [sortKey, setSortKey]   = useState<SortKey>("id");
+  const [sortDir, setSortDir]   = useState<SortDir>(1);
+
   const totalPages = Math.max(1, Math.ceil(trades.length / PAGE_SIZE));
-  const slice = trades.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  const sorted = [...trades].sort((a, b) => {
+    const av = a[sortKey as keyof Trade];
+    const bv = b[sortKey as keyof Trade];
+    if (av == null || bv == null) return 0;
+    if (typeof av === "string" && typeof bv === "string") return sortDir * av.localeCompare(bv);
+    return sortDir * ((av as number) - (bv as number));
+  });
+
+  const slice = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => (d === 1 ? -1 : 1) as SortDir);
+    else { setSortKey(key); setSortDir(1); }
+  }
 
   return (
-    <div className="card">
-      <div className="flex items-center justify-between mb-2">
-        <h3>Trade ledger</h3>
-        <div className="text-xs text-slate-500">
-          {trades.length} trade{trades.length === 1 ? "" : "s"}
-        </div>
+    <div className="border border-border rounded-lg overflow-hidden">
+
+      {/* Section header */}
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+        <span className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">
+          Trade Log
+        </span>
+        <span className="font-mono text-[11px] text-ink-muted">
+          {trades.length} trade{trades.length === 1 ? "" : "s"} &middot; page {page + 1}/{totalPages}
+        </span>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-slate-500 text-xs uppercase tracking-wide">
-              <th className="py-2 pr-4">Date</th>
-              <th className="py-2 pr-4">Side</th>
-              <th className="py-2 pr-4 text-right">Qty</th>
-              <th className="py-2 pr-4 text-right">Price</th>
-              <th className="py-2 pr-4 text-right">Comm.</th>
-              <th className="py-2 pr-4 text-right">Net PnL</th>
-            </tr>
-          </thead>
-          <tbody>
-            {slice.map((t) => (
-              <tr key={t.id} className="border-t border-slate-100">
-                <td className="py-1.5 pr-4 font-mono text-xs">
-                  {new Date(t.ts).toISOString().slice(0, 10)}
-                </td>
-                <td className={`py-1.5 pr-4 ${t.side === "buy" ? "text-accent-green" : "text-accent-red"}`}>
-                  {t.side.toUpperCase()}
-                </td>
-                <td className="py-1.5 pr-4 text-right">{t.qty.toFixed(4)}</td>
-                <td className="py-1.5 pr-4 text-right">${t.price.toFixed(2)}</td>
-                <td className="py-1.5 pr-4 text-right text-slate-500">${t.commission.toFixed(2)}</td>
-                <td
-                  className={`py-1.5 pr-4 text-right font-medium ${
-                    t.net_pnl > 0 ? "text-accent-green" : t.net_pnl < 0 ? "text-accent-red" : ""
-                  }`}
-                >
-                  {t.net_pnl >= 0 ? "+" : ""}${t.net_pnl.toFixed(2)}
-                </td>
-              </tr>
-            ))}
-            {slice.length === 0 && (
-              <tr>
-                <td colSpan={6} className="py-4 text-center text-slate-400 text-sm">
-                  No trades.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-3 text-xs text-slate-500">
-          <button className="btn-ghost" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
-            ← Prev
-          </button>
-          <div>
-            Page {page + 1} / {totalPages}
-          </div>
+
+      {/* Column headers */}
+      <div
+        className="grid px-5 py-2.5 border-b border-border bg-surface"
+        style={{ gridTemplateColumns: "0.5fr 1fr 0.8fr 1fr 1fr 0.9fr 1fr" }}
+      >
+        {COLUMNS.map((col) => (
           <button
-            className="btn-ghost"
+            key={col.key}
+            onClick={() => toggleSort(col.key)}
+            className={`font-mono text-[10px] uppercase tracking-wider text-left hover:text-ink-primary transition-colors ${
+              col.right ? "text-right" : ""
+            } ${sortKey === col.key ? "text-accent-cyan" : "text-ink-muted"}`}
+          >
+            {col.label}
+            {sortKey === col.key && (
+              <span className="ml-0.5">{sortDir > 0 ? " ↑" : " ↓"}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Rows */}
+      {slice.length === 0 && (
+        <div className="px-5 py-10 text-center text-ink-muted text-sm font-mono">
+          No trades.
+        </div>
+      )}
+
+      {slice.map((t) => {
+        const isWin = t.net_pnl > 0;
+        return (
+          <div
+            key={t.id}
+            className="grid px-5 py-2.5 border-b border-border hover:bg-white/[0.02] transition-colors"
+            style={{
+              gridTemplateColumns: "0.5fr 1fr 0.8fr 1fr 1fr 0.9fr 1fr",
+              borderLeft: `2px solid ${isWin ? "rgba(63,185,80,0.35)" : "rgba(248,81,73,0.35)"}`,
+            }}
+          >
+            <span className="font-mono text-[12px] text-ink-muted">{t.id}</span>
+            <span className="font-mono text-[12px] text-ink-muted">
+              {new Date(t.ts).toISOString().slice(0, 10)}
+            </span>
+            <span className={`font-mono text-[12px] font-bold ${t.side === "buy" ? "text-accent-green" : "text-accent-red"}`}>
+              {t.side.toUpperCase()}
+            </span>
+            <span className="font-mono text-[12px] text-ink-primary text-right">{t.qty.toFixed(4)}</span>
+            <span className="font-mono text-[12px] text-ink-primary text-right">${t.price.toFixed(2)}</span>
+            <span className="font-mono text-[12px] text-ink-muted text-right">${t.commission.toFixed(2)}</span>
+            <span className={`font-mono text-[12px] font-bold text-right ${isWin ? "text-accent-green" : "text-accent-red"}`}>
+              {t.net_pnl >= 0 ? "+" : ""}${t.net_pnl.toFixed(2)}
+            </span>
+          </div>
+        );
+      })}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-6 px-5 py-3.5">
+          <button
+            className="btn-ghost text-xs font-mono"
+            disabled={page === 0}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            &lt; Prev
+          </button>
+          <span className="font-mono text-[12px] text-ink-muted">
+            {page + 1} / {totalPages}
+          </span>
+          <button
+            className="btn-ghost text-xs font-mono"
             disabled={page + 1 >= totalPages}
             onClick={() => setPage((p) => p + 1)}
           >
-            Next →
+            Next &gt;
           </button>
         </div>
       )}

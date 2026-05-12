@@ -4,21 +4,27 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Branded palette — kept minimal so the UI feels professional, not toy.
+        base: "#0d1117",
+        surface: "#161b22",
+        border: {
+          DEFAULT: "#21262d",
+          subtle: "#30363d",
+        },
         ink: {
-          900: "#0b132b",
-          700: "#1c2541",
-          500: "#3a506b",
+          primary: "#e6edf3",
+          muted: "#7d8590",
         },
         accent: {
-          green: "#16a34a",
-          red: "#dc2626",
-          amber: "#d97706",
+          DEFAULT: "#22d3ee",
+          cyan: "#22d3ee",
+          green: "#3fb950",
+          red: "#f85149",
+          amber: "#f0a500",
         },
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "ui-monospace", "monospace"],
+        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+        mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
       },
     },
   },

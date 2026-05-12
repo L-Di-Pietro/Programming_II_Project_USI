@@ -2,31 +2,34 @@ import Plot from "react-plotly.js";
 
 import type { PlotlyFigure } from "@/api/client";
 
-/**
- * Wraps a backend-built Plotly figure for the equity curve. The component is
- * dumb-by-design: backend hands us {data, layout}, we render. This keeps
- * chart logic in Python where it can be unit-tested.
- */
+const DARK_LAYOUT: Partial<Plotly.Layout> = {
+  paper_bgcolor: "#161b22",
+  plot_bgcolor:  "#0d1117",
+  font:          { color: "#7d8590", family: "JetBrains Mono, monospace", size: 11 },
+  xaxis: { gridcolor: "rgba(255,255,255,0.04)", linecolor: "#30363d", tickcolor: "#30363d", zerolinecolor: "#30363d" },
+  yaxis: { gridcolor: "rgba(255,255,255,0.04)", linecolor: "#30363d", tickcolor: "#30363d", zerolinecolor: "#30363d" },
+  margin: { t: 16, r: 16, b: 40, l: 60 },
+};
+
+/** Pure Plotly wrapper — card chrome is handled by the parent tab panel. */
 export function EquityCurve({ figure }: { figure: PlotlyFigure["figure"] | null }) {
   if (!figure) {
-    return <EmptyState label="No equity data yet" />;
+    return <ChartEmpty label="No equity data yet." />;
   }
   return (
-    <div className="card">
-      <Plot
-        data={figure.data as Plotly.Data[]}
-        layout={figure.layout as Partial<Plotly.Layout>}
-        useResizeHandler
-        style={{ width: "100%", height: "360px" }}
-        config={{ displaylogo: false, responsive: true }}
-      />
-    </div>
+    <Plot
+      data={figure.data as Plotly.Data[]}
+      layout={{ ...(figure.layout as Partial<Plotly.Layout>), ...DARK_LAYOUT }}
+      useResizeHandler
+      style={{ width: "100%", height: "320px" }}
+      config={{ displaylogo: false, responsive: true, displayModeBar: false }}
+    />
   );
 }
 
-function EmptyState({ label }: { label: string }) {
+export function ChartEmpty({ label }: { label: string }) {
   return (
-    <div className="card flex items-center justify-center h-[360px] text-slate-400 text-sm">
+    <div className="flex items-center justify-center h-[320px] text-ink-muted text-sm font-mono">
       {label}
     </div>
   );

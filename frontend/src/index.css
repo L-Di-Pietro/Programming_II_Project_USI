@@ -2,56 +2,74 @@
 @tailwind components;
 @tailwind utilities;
 
-/* App-wide CSS variables and small overrides go here. Component styling
- * should otherwise live in Tailwind classes inline. */
-
 @layer base {
   html {
-    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    background-color: #0d1117;
+    color: #e6edf3;
   }
   body {
     @apply min-h-screen;
   }
-  h1 { @apply text-2xl font-semibold; }
-  h2 { @apply text-xl font-semibold; }
-  h3 { @apply text-lg font-medium; }
+  h1 { @apply text-2xl font-bold tracking-tight; }
+  h2 { @apply text-xl font-bold; }
+  h3 { @apply text-sm font-semibold; }
+
+  input, select, textarea {
+    color-scheme: dark;
+  }
 }
 
 @layer components {
   .card {
-    @apply bg-white border border-slate-200 rounded-lg shadow-sm p-4;
+    @apply bg-surface border border-border rounded-lg p-4;
   }
+  /* Primary button: cyan bg, very dark text */
   .btn-primary {
-    @apply px-4 py-2 rounded-md bg-ink-900 text-white text-sm font-medium hover:bg-ink-700 disabled:opacity-50 disabled:cursor-not-allowed transition;
+    @apply inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md
+           bg-accent-cyan text-base text-sm font-semibold
+           hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition;
   }
+  /* Ghost button: transparent, muted text */
   .btn-ghost {
-    @apply px-3 py-2 rounded-md text-sm font-medium text-ink-700 hover:bg-slate-100 transition;
+    @apply inline-flex items-center gap-1 px-3 py-1.5 rounded text-sm
+           text-ink-muted hover:text-ink-primary hover:bg-white/5
+           border border-transparent hover:border-border transition;
+  }
+  /* Secondary button: dark border, muted text */
+  .btn-secondary {
+    @apply inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-sm
+           border border-border-subtle text-ink-muted
+           hover:text-ink-primary hover:border-border transition;
   }
   .input-base {
-    @apply w-full px-3 py-2 rounded-md border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-ink-700 focus:border-ink-700;
+    @apply w-full px-3 py-2 rounded-md border border-border-subtle bg-base
+           text-sm text-ink-primary placeholder-ink-muted font-mono
+           focus:outline-none focus:ring-1 focus:ring-accent-cyan focus:border-accent-cyan;
   }
   .label-base {
-    @apply block text-xs font-medium text-slate-600 mb-1 uppercase tracking-wide;
+    @apply block text-[10px] font-bold text-ink-muted mb-1.5
+           uppercase tracking-widest font-mono;
   }
-  .report-prose h2 {
-    @apply text-base font-semibold mt-3 mb-1 text-slate-900;
+  /* Monospace tag / abbr pill */
+  .tag-mono {
+    @apply inline-block font-mono text-[10px] tracking-wider
+           border px-2 py-0.5 rounded-sm;
   }
-  .report-prose h3 {
-    @apply text-sm font-semibold mt-2 mb-1 text-slate-900;
+  /* Section title inside a card */
+  .section-title {
+    @apply text-[10px] font-mono font-bold uppercase tracking-widest
+           text-ink-muted mb-3;
   }
-  .report-prose p {
-    @apply my-2 leading-relaxed;
-  }
-  .report-prose ul {
-    @apply list-disc pl-5 space-y-1 my-2;
-  }
-  .report-prose ol {
-    @apply list-decimal pl-5 space-y-1 my-2;
-  }
+  /* Report prose */
+  .report-prose h2 { @apply text-sm font-bold mt-4 mb-1 text-ink-primary; }
+  .report-prose h3 { @apply text-xs font-semibold mt-3 mb-1 text-ink-primary; }
+  .report-prose p  { @apply my-2 leading-relaxed text-ink-muted text-sm; }
+  .report-prose ul { @apply list-disc pl-5 space-y-1 my-2 text-ink-muted text-sm; }
+  .report-prose ol { @apply list-decimal pl-5 space-y-1 my-2 text-ink-muted text-sm; }
   .report-prose code {
-    @apply px-1 py-0.5 rounded bg-slate-100 text-slate-800 text-xs;
+    @apply px-1 py-0.5 rounded bg-surface border border-border
+           text-accent-cyan text-xs font-mono;
   }
-  .report-prose strong {
-    @apply font-semibold text-slate-900;
-  }
+  .report-prose strong { @apply font-bold text-ink-primary; }
 }

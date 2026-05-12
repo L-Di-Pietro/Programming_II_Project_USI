@@ -79,7 +79,7 @@ class BacktestAgent(BaseAgent[BacktestAgentInput, BacktestAgentOutput]):
             if bars.empty:
                 raise RuntimeError(
                     f"No OHLCV bars in DB for asset_id={payload.asset_id} "
-                    f"({payload.start_date.date()} → {payload.end_date.date()}). "
+                    f"({payload.start_date.date()} -> {payload.end_date.date()}). "
                     f"Run scripts/load_initial_data.py or POST /assets/{{symbol}}/refresh."
                 )
 

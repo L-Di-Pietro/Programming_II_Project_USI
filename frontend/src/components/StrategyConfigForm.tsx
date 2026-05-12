@@ -1,10 +1,7 @@
 /**
  * StrategyConfigForm — renders a form from a strategy's JSON Schema.
- *
- * The backend exposes each strategy's `params_schema` (JSON Schema dump of
- * the Pydantic config model). We walk the schema and render an input per
- * property. Supports number, integer, boolean, and string today; extending
- * to enum / arrays is straightforward.
+ * Walks schema.properties and renders an input per field.
+ * Supports number, integer, boolean, string, enum.
  */
 import { useEffect, useMemo, useState } from "react";
 
@@ -45,7 +42,11 @@ export function StrategyConfigForm({
   const keys = Object.keys(props);
 
   if (keys.length === 0) {
-    return <div className="text-xs text-slate-500">This strategy has no configurable parameters.</div>;
+    return (
+      <div className="text-xs text-ink-muted">
+        This strategy has no configurable parameters.
+      </div>
+    );
   }
 
   return (
@@ -57,7 +58,7 @@ export function StrategyConfigForm({
             <label className="label-base">{sub.title ?? key}</label>
             {renderField(key, sub, values[key], update)}
             {sub.description && (
-              <p className="text-[11px] text-slate-500 mt-1">{sub.description}</p>
+              <p className="text-[11px] text-ink-muted mt-1">{sub.description}</p>
             )}
           </div>
         );
@@ -66,9 +67,6 @@ export function StrategyConfigForm({
   );
 }
 
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
 function extractDefaults(schema: JSONSchema): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, sub] of Object.entries(schema.properties ?? {})) {
@@ -83,7 +81,6 @@ function renderField(
   value: unknown,
   update: (k: string, v: unknown) => void,
 ) {
-  // Enums → select.
   if (sub.enum) {
     return (
       <select
@@ -107,7 +104,7 @@ function renderField(
           type="checkbox"
           checked={Boolean(value)}
           onChange={(e) => update(key, e.target.checked)}
-          className="w-4 h-4"
+          className="w-4 h-4 accent-accent-cyan"
         />
       );
     case "integer":
@@ -121,7 +118,12 @@ function renderField(
           max={sub.maximum}
           step={sub.type === "integer" ? 1 : 0.01}
           onChange={(e) =>
-            update(key, sub.type === "integer" ? parseInt(e.target.value, 10) : parseFloat(e.target.value))
+            update(
+              key,
+              sub.type === "integer"
+                ? parseInt(e.target.value, 10)
+                : parseFloat(e.target.value),
+            )
           }
         />
       );

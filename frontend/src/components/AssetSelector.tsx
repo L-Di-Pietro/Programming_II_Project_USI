@@ -1,6 +1,5 @@
 import type { Asset } from "@/api/client";
 
-/** Grouped asset selector. Pure / controlled. */
 export function AssetSelector({
   assets,
   value,
