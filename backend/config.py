@@ -58,7 +58,7 @@ class Settings(BaseSettings):
     # env-var change once GeminiProvider.generate is implemented.
     llm_enabled: bool = False
     llm_provider: str = "null"  # null | gemini | (future: anthropic, openai)
-    llm_model: str = "gemini-1.5-flash"
+    llm_model: str = "gemini-2.5-flash-lite"
     gemini_api_key: str = ""
     llm_max_tokens: int = 1024
     llm_temperature: float = 0.2

@@ -69,10 +69,14 @@ def _stop_scheduler() -> None:
 
 
 def _nightly_refresh() -> None:
-    """Run a freshness sweep across all active assets.
+    """Run a daily-timeframe freshness sweep across all active assets.
 
     Imported lazily so APScheduler doesn't trip the SQLAlchemy session-scope
     rules at module load time.
+
+    TODO: an hourly nightly refresh would need a separate, more frequent
+    cron (e.g., every 6h) and would be scoped to the last ~30 days of bars
+    to keep API quotas in check. Not in v1.
     """
     from backend.agents.data_agent import DataAgent, DataAgentInput
     from backend.database.models import Asset

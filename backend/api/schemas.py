@@ -10,9 +10,17 @@ Don't add backend logic here — schemas are pure data carriers.
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class Timeframe(str, Enum):
+    """Bar resolution supported by the API. Mirrors the DB enum but only
+    exposes the timeframes a user can actually request (no minute bars yet)."""
+    DAILY = "1d"
+    HOURLY = "1h"
 
 
 # -----------------------------------------------------------------------------
@@ -78,6 +86,10 @@ class BacktestRequest(BaseModel):
     sizing_mode: str = Field(default="fixed_fraction")
     allow_fractional: bool = False
     max_dd_pct: float | None = Field(default=None, ge=0, le=1.0)
+    timeframe: Timeframe = Field(
+        default=Timeframe.DAILY,
+        description="Bar resolution. Hourly history is limited to ~730 days for equity/FX.",
+    )
 
 
 class BacktestSummary(ORMBase):

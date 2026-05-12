@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, ClassVar
 
 import pandas as pd
 from sqlalchemy import select
@@ -17,7 +17,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from backend.agents.base import BaseAgent
-from backend.data.cleaner import OHLCVCleaner
+from backend.data.cleaner import CalendarChoice, OHLCVCleaner
 from backend.data.fetchers import CryptoFetcher, EquityFetcher, FXFetcher
 from backend.data.fetchers.base import BaseFetcher
 from backend.database.models import Asset, AssetClass, OHLCVBar, Timeframe
@@ -52,17 +52,24 @@ class DataAgent(BaseAgent[DataAgentInput, DataAgentOutput]):
     name = "data"
 
     # asset_class → fetcher instance
-    _FETCHERS: dict[str, type[BaseFetcher]] = {
+    _FETCHERS: ClassVar[dict[str, type[BaseFetcher]]] = {
         AssetClass.EQUITY: EquityFetcher,
         AssetClass.ETF: EquityFetcher,
         AssetClass.CRYPTO: CryptoFetcher,
         AssetClass.FX: FXFetcher,
     }
 
+    # asset_class → native trading calendar
+    _CALENDAR_FOR: ClassVar[dict[str, CalendarChoice]] = {
+        AssetClass.EQUITY: "nyse",
+        AssetClass.ETF: "nyse",
+        AssetClass.FX: "24x5",
+        AssetClass.CRYPTO: "24x7",
+    }
+
     def __init__(self, db: Session) -> None:
         super().__init__()
         self.db = db
-        self.cleaner = OHLCVCleaner(calendar="nyse")
 
     # ------------------------------------------------------------------------
     # Dispatch
@@ -84,7 +91,9 @@ class DataAgent(BaseAgent[DataAgentInput, DataAgentOutput]):
             raise ValueError("refresh requires symbol")
 
         asset = self._asset_by_symbol(payload.symbol)
-        fetcher = self._FETCHERS[AssetClass(asset.asset_class)]()
+        asset_class = AssetClass(asset.asset_class)
+        fetcher = self._FETCHERS[asset_class]()
+        calendar = self._CALENDAR_FOR[asset_class]
 
         end = payload.end or datetime.utcnow()
         # If we already have data, only fetch the gap (incremental). Otherwise
@@ -93,13 +102,18 @@ class DataAgent(BaseAgent[DataAgentInput, DataAgentOutput]):
         if payload.start is not None:
             start = payload.start
         elif last_ts is not None:
-            # Re-fetch the last day too, in case it was incomplete.
+            # Re-fetch the last bar too, in case it was incomplete.
             start = last_ts - timedelta(days=1)
         else:
             start = end - timedelta(days=365 * 10)
 
-        raw = fetcher.fetch(payload.symbol, start, end)
-        clean, _report = self.cleaner.clean(raw, start=start, end=end)
+        # FetcherError (e.g., out-of-range hourly request) propagates as-is;
+        # the API surface inspects the cause on AgentError to translate to
+        # HTTP 400 (vs. 404 for an unknown-asset ValueError).
+        raw = fetcher.fetch(payload.symbol, start, end, timeframe=payload.timeframe)
+
+        cleaner = OHLCVCleaner(calendar=calendar, timeframe=payload.timeframe)
+        clean, _report = cleaner.clean(raw, start=start, end=end)
 
         rows_written = self._upsert_bars(asset.id, clean, payload.timeframe, fetcher.source_name)
         new_last = self._last_bar_ts(asset.id, payload.timeframe)

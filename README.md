@@ -21,8 +21,9 @@ Retail quantitative traders lose money for two related reasons:
 ## Features (v1)
 
 - **Multi–asset-class** backtesting: equities (AAPL, NVDA, MSFT, SPY), crypto (BTC), FX (EUR/USD)
+- **Daily and hourly bar resolution** with per-asset-class trading calendars (NYSE for equities/ETF, 24/5 for FX, 24/7 for crypto)
 - **Four built-in strategies**: SMA Crossover, RSI Mean Reversion, Bollinger Bands, Donchian Breakout
-- **Event-driven backtest engine** with strict bar-`t` → bar-`t+1` fill semantics (no look-ahead)
+- **Event-driven backtest engine** with strict bar-`t` → bar-`t+1` fill semantics (no look-ahead) at any timeframe
 - **Configurable execution model**: commission (bps), slippage (bps or ATR-scaled), variable position sizing
 - **Standard performance dashboard**: Equity curve, Underwater (drawdown) curve, Monthly returns heatmap, full KPI grid
 - **Six-agent architecture** (4 deterministic, 2 LLM-backed and disabled in v1)
@@ -154,7 +155,7 @@ For the deep-dive, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 ## Known limitations (v1)
 
 - **Survivorship bias**: yfinance only carries *currently-listed* tickers. Backtests on a fixed equity universe therefore over-state historical returns. We document this rather than hide it; serious users would need a paid delisted-aware data source.
-- **Calendar simplification**: BTC trades 24/7, equities don't, FX has a quirky weekend window. We standardize everything to the NYSE business-day calendar. This is fine for daily-bar backtests; revisit for intraday.
+- **Hourly history horizon**: equity and FX hourly data is limited to ~730 days back by yfinance — the frontend caps the date picker accordingly. Crypto hourly via Binance is multi-year (BTC back to ~2017) and is **not** capped.
 - **Single-asset strategies**: each backtest run targets exactly one asset. Portfolio-level (multi-asset) strategies are out of scope for v1.
 - **No live trading / paper trading**: this tool is for research, not execution.
 - **LLM disabled in v1**: the Explanation Agent ships with a `NullProvider` that returns canned text. Activating Google Gemini is a follow-up task.
@@ -165,10 +166,10 @@ For the deep-dive, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 | Iteration | Focus |
 |---|---|
-| **v1** *(this delivery)* | Single-asset backtester, 4 strategies, full UI, deterministic agents |
+| **v1** *(this delivery)* | Single-asset backtester, 4 strategies, full UI, daily + hourly bars, deterministic agents |
 | v1.1 | Activate Google Gemini for the Explanation Agent |
 | v1.2 | Walk-forward / out-of-sample UI, parameter sweeps |
-| v2.0 | Multi-asset portfolio strategies, intraday data, paper-trading mode |
+| v2.0 | Multi-asset portfolio strategies, minute-level data, paper-trading mode |
 
 ---
 

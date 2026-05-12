@@ -69,6 +69,7 @@ def submit_backtest(
                 sizing_mode=sizing,
                 allow_fractional=request.allow_fractional,
                 max_dd_pct=request.max_dd_pct,
+                timeframe=request.timeframe.value,
             )
         )
     except (ValueError, RuntimeError) as e:

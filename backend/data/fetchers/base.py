@@ -43,6 +43,7 @@ class BaseFetcher(ABC):
         symbol: str,
         start: datetime,
         end: datetime,
+        timeframe: str = "1d",
     ) -> pd.DataFrame:
         """Fetch historical OHLCV bars between [start, end] inclusive.
 
@@ -55,10 +56,11 @@ class BaseFetcher(ABC):
             symbol=symbol,
             start=start.isoformat(),
             end=end.isoformat(),
+            timeframe=timeframe,
         )
 
-        df = self._fetch_with_retries(symbol, start, end)
-        df = self._normalize(df)
+        df = self._fetch_with_retries(symbol, start, end, timeframe)
+        df = self._normalize(df, timeframe)
         self._validate_shape(df, symbol)
 
         log.info(
@@ -66,6 +68,7 @@ class BaseFetcher(ABC):
             source=self.source_name,
             symbol=symbol,
             rows=len(df),
+            timeframe=timeframe,
         )
         return df
 
@@ -73,7 +76,9 @@ class BaseFetcher(ABC):
     # Subclass hooks
     # ------------------------------------------------------------------------
     @abstractmethod
-    def _fetch_raw(self, symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
+    def _fetch_raw(
+        self, symbol: str, start: datetime, end: datetime, timeframe: str = "1d"
+    ) -> pd.DataFrame:
         """Hit the external API. Return a DataFrame with at least the OHLCV
         columns; column names may differ from the canonical form (we
         normalise in ``_normalize``)."""
@@ -82,7 +87,7 @@ class BaseFetcher(ABC):
     # Internals
     # ------------------------------------------------------------------------
     def _fetch_with_retries(
-        self, symbol: str, start: datetime, end: datetime
+        self, symbol: str, start: datetime, end: datetime, timeframe: str = "1d"
     ) -> pd.DataFrame:
         """Wrap ``_fetch_raw`` with exponential-backoff retries.
 
@@ -98,7 +103,7 @@ class BaseFetcher(ABC):
             reraise=True,
         )
         def _go() -> pd.DataFrame:
-            return self._fetch_raw(symbol, start, end)
+            return self._fetch_raw(symbol, start, end, timeframe)
 
         try:
             return _go()
@@ -111,13 +116,18 @@ class BaseFetcher(ABC):
             )
             raise FetcherError(f"{self.source_name} failed for {symbol}: {e}") from e
 
-    def _normalize(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _normalize(self, df: pd.DataFrame, timeframe: str = "1d") -> pd.DataFrame:
         """Bring whatever the upstream API returned into canonical shape:
 
         * Lowercase column names.
         * Keep only the canonical OHLCV columns.
         * Tz-naive UTC ``DatetimeIndex``, sorted ascending, no dupes.
         * Float64 dtype.
+        * For daily bars, floor the index to midnight UTC so it aligns
+          with daily calendars. For intraday bars, keep the source's
+          original timestamps (yfinance NYSE hourly returns 09:30, 10:30,
+          … ET → 14:30, 15:30, … UTC; Binance/yfinance crypto+FX hourly
+          return whole UTC hours).
         """
         if df.empty:
             return pd.DataFrame(columns=OHLCV_COLUMNS, index=pd.DatetimeIndex([], name="ts"))
@@ -135,12 +145,11 @@ class BaseFetcher(ABC):
         df["high"] = df[["high"]].join(price_cols).max(axis=1)
         df["low"] = df[["low"]].join(price_cols).min(axis=1)
 
-        # Strip timezone info: standardize on tz-naive UTC date at midnight.
-        # yfinance returns Eastern-timezone timestamps (e.g. 2024-01-02 05:00 UTC);
-        # we floor to midnight so they align with the NYSE calendar sessions.
         if df.index.tz is not None:
             df.index = df.index.tz_convert("UTC").tz_localize(None)
-        df.index = df.index.normalize()  # floor to midnight
+        if timeframe == "1d":
+            df.index = df.index.normalize()  # floor to midnight for daily alignment
+        # else: leave intraday timestamps alone (already tz-naive UTC).
         df.index.name = "ts"
         df = df.sort_index()
         df = df[~df.index.duplicated(keep="last")]

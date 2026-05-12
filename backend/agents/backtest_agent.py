@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from backend.agents.base import BaseAgent
 from backend.analytics.metrics import compute_metrics
+from backend.analytics.periods import periods_per_year
 from backend.backtest.engine import BacktestConfig, run_backtest
 from backend.backtest.risk import SizingMode
 from backend.database.models import (
@@ -87,6 +88,12 @@ class BacktestAgent(BaseAgent[BacktestAgentInput, BacktestAgentOutput]):
             strategy_cls = get_strategy(payload.strategy_slug)
             strategy = strategy_cls(strategy_cls.config_cls.model_validate(payload.params or {}))
 
+            # Look up bars/year for this (timeframe, asset_class) for vol scaling.
+            asset = self.db.get(Asset, payload.asset_id)
+            if asset is None:
+                raise ValueError(f"No asset with id={payload.asset_id} in DB.")
+            ppy = periods_per_year(payload.timeframe, asset.asset_class)
+
             # 4. Run engine.
             cfg = BacktestConfig(
                 bars=bars,
@@ -98,13 +105,14 @@ class BacktestAgent(BaseAgent[BacktestAgentInput, BacktestAgentOutput]):
                 risk_fraction=payload.risk_fraction,
                 allow_fractional=payload.allow_fractional,
                 max_dd_pct=payload.max_dd_pct,
+                periods_per_year=ppy,
             )
             result = run_backtest(cfg)
 
             # 5. Persist outputs.
             self._persist_trades(run.id, result.trades)
             self._persist_equity(run.id, result.equity_curve)
-            self._persist_metrics(run.id, result)
+            self._persist_metrics(run.id, result, periods_per_year=ppy)
 
             run.status = RunStatus.COMPLETED
             run.completed_at = datetime.utcnow()
@@ -219,7 +227,9 @@ class BacktestAgent(BaseAgent[BacktestAgentInput, BacktestAgentOutput]):
         )
         self.db.commit()
 
-    def _persist_metrics(self, run_id: int, result) -> None:
+    def _persist_metrics(
+        self, run_id: int, result, periods_per_year: float = 252.0
+    ) -> None:
         # Build equity Series + trade-PnL Series for the metrics function.
         equity = pd.Series(
             [e.equity for e in result.equity_curve],
@@ -227,7 +237,9 @@ class BacktestAgent(BaseAgent[BacktestAgentInput, BacktestAgentOutput]):
         )
         trade_pnls = pd.Series([t.net_pnl for t in result.trades]) if result.trades else None
 
-        metrics = compute_metrics(equity=equity, trade_pnls=trade_pnls)
+        metrics = compute_metrics(
+            equity=equity, trade_pnls=trade_pnls, periods_per_year=periods_per_year
+        )
         rows = [
             Metric(run_id=run_id, metric_name=name, value=float(value), category=cat)
             for name, value, cat in metrics.as_long_rows()

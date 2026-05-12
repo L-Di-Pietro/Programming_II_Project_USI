@@ -10,8 +10,9 @@ match the conventions in:
 Conventions
 -----------
 * Returns are computed from the equity curve, not from individual trades.
-* Annualization factor is **252** (trading days per year). Override if you
-  ever support non-equity calendars in v2.
+* Annualization factor is selected per ``(timeframe, asset_class)`` via
+  ``backend.analytics.periods.periods_per_year``. Default is 252 for
+  backward compatibility with daily-equity tests.
 * Risk-free rate defaults to 0 — appropriate for short backtests where the
   difference is rounding error. Configurable per call.
 """
@@ -74,6 +75,7 @@ def compute_metrics(
     equity: pd.Series,
     trade_pnls: pd.Series | None = None,
     risk_free_rate: float = 0.0,
+    periods_per_year: float = float(TRADING_DAYS_PER_YEAR),
 ) -> MetricsResult:
     """Compute every KPI given an equity curve and (optionally) a trade-PnL
     series.
@@ -87,6 +89,11 @@ def compute_metrics(
         zero out the trade-stat block.
     risk_free_rate
         Annual risk-free rate (e.g. ``0.04`` for 4 %). Default 0.
+    periods_per_year
+        Number of bars per calendar year on the asset's native trading
+        calendar. Used to annualise vol, Sharpe, and Sortino. Default 252
+        (daily equity). For other timeframes/asset classes, use
+        ``backend.analytics.periods.periods_per_year``.
     """
     if equity.empty or len(equity) < 2:
         return _zero_metrics(num_trades=0 if trade_pnls is None else len(trade_pnls))
@@ -95,9 +102,9 @@ def compute_metrics(
 
     total_return = equity.iloc[-1] / equity.iloc[0] - 1.0
     cagr = _cagr(equity)
-    ann_vol = _annualized_vol(returns)
-    sharpe = _sharpe(returns, risk_free_rate)
-    sortino = _sortino(returns, risk_free_rate)
+    ann_vol = _annualized_vol(returns, periods_per_year)
+    sharpe = _sharpe(returns, risk_free_rate, periods_per_year)
+    sortino = _sortino(returns, risk_free_rate, periods_per_year)
     max_dd, max_dd_dur = _max_drawdown(equity)
     calmar = (cagr / abs(max_dd)) if max_dd not in (0.0, None) else float("inf") if cagr > 0 else 0.0
 
@@ -154,44 +161,55 @@ def _cagr(equity: pd.Series) -> float:
     return float((equity.iloc[-1] / equity.iloc[0]) ** (1.0 / years) - 1.0)
 
 
-def _annualized_vol(returns: pd.Series) -> float:
-    """Annualised standard deviation of *daily* returns."""
+def _annualized_vol(
+    returns: pd.Series,
+    periods_per_year: float = float(TRADING_DAYS_PER_YEAR),
+) -> float:
+    """Annualised standard deviation of per-bar returns."""
     if returns.empty:
         return 0.0
-    return float(returns.std(ddof=1) * math.sqrt(TRADING_DAYS_PER_YEAR))
+    return float(returns.std(ddof=1) * math.sqrt(periods_per_year))
 
 
-def _sharpe(returns: pd.Series, risk_free_rate: float) -> float:
+def _sharpe(
+    returns: pd.Series,
+    risk_free_rate: float,
+    periods_per_year: float = float(TRADING_DAYS_PER_YEAR),
+) -> float:
     """Sharpe ratio.
 
-    Sharpe = (mean(R) − r_f / 252) / std(R)  × √252.
+    Sharpe = (mean(R) − r_f / N) / std(R)  × √N, where N = periods_per_year.
     """
     if returns.empty:
         return 0.0
-    daily_rf = risk_free_rate / TRADING_DAYS_PER_YEAR
-    excess = returns - daily_rf
+    per_bar_rf = risk_free_rate / periods_per_year
+    excess = returns - per_bar_rf
     std = excess.std(ddof=1)
     if std == 0 or math.isnan(std):
         return 0.0
-    return float(excess.mean() / std * math.sqrt(TRADING_DAYS_PER_YEAR))
+    return float(excess.mean() / std * math.sqrt(periods_per_year))
 
 
-def _sortino(returns: pd.Series, risk_free_rate: float) -> float:
+def _sortino(
+    returns: pd.Series,
+    risk_free_rate: float,
+    periods_per_year: float = float(TRADING_DAYS_PER_YEAR),
+) -> float:
     """Sortino ratio — like Sharpe but penalises only downside volatility.
 
-    Sortino = (mean(R) − r_f / 252) / std(min(R, 0))  × √252.
+    Sortino = (mean(R) − r_f / N) / std(min(R, 0)) × √N.
 
     Source: Bacon (2008), §6.4.
     """
     if returns.empty:
         return 0.0
-    daily_rf = risk_free_rate / TRADING_DAYS_PER_YEAR
-    excess = returns - daily_rf
+    per_bar_rf = risk_free_rate / periods_per_year
+    excess = returns - per_bar_rf
     downside = excess.clip(upper=0.0)
     downside_std = downside.std(ddof=1)
     if downside_std == 0 or math.isnan(downside_std):
         return 0.0 if excess.mean() <= 0 else float("inf")
-    return float(excess.mean() / downside_std * math.sqrt(TRADING_DAYS_PER_YEAR))
+    return float(excess.mean() / downside_std * math.sqrt(periods_per_year))
 
 
 def _max_drawdown(equity: pd.Series) -> tuple[float, int]:

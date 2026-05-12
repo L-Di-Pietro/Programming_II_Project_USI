@@ -1,14 +1,10 @@
-"""GeminiProvider — Google Gemini API integration.
+"""GeminiProvider — Google Gemini API integration (google-genai SDK).
 
 Activation
 ----------
-1. ``pip install google-generativeai>=0.7`` (already in requirements.txt).
+1. ``pip install google-genai`` (already in requirements.txt).
 2. Set ``LLM_ENABLED=true`` and ``LLM_PROVIDER=gemini`` in ``.env``.
 3. Set ``GEMINI_API_KEY`` in ``.env``.
-
-The SDK is imported lazily inside ``generate()`` so constructing a provider
-(or instantiating the factory in a test) does not require the SDK to be
-installed. Only the first real chat call needs ``google-generativeai``.
 """
 
 from __future__ import annotations
@@ -17,42 +13,32 @@ from backend.llm.base import ChatMessage, ChatResponse, LLMProvider
 
 
 class GeminiProvider(LLMProvider):
-    """Google Gemini chat-completion provider.
+    """Google Gemini chat-completion provider using the google-genai SDK.
 
-    Translates the project's provider-agnostic ``ChatMessage`` / ``ChatResponse``
-    types to/from Gemini's native shape:
-
-    * Roles ``user`` and ``assistant`` map to Gemini's ``user`` and ``model``
-      (Gemini does not have an ``assistant`` role name).
-    * The system prompt is passed via ``system_instruction`` at model
-      construction time (Gemini does not accept a system message inline).
+    Roles ``user`` and ``assistant`` map to Gemini's ``user`` and ``model``.
+    The system prompt is passed via ``system_instruction`` in the config.
     """
 
     name = "gemini"
 
-    def __init__(self, api_key: str, model: str = "gemini-1.5-flash") -> None:
+    def __init__(self, api_key: str, model: str = "gemini-2.5-flash-lite") -> None:
         if not api_key:
             raise ValueError("GeminiProvider requires a non-empty api_key")
         self._api_key = api_key
         self._model_name = model
-        self._configured = False
+        self._client = None
 
-    def _ensure_configured(self):
-        """Lazy SDK import + ``configure`` call. Cached after first invocation."""
-        if self._configured:
-            return self._genai  # type: ignore[has-type]
+    def _ensure_client(self):
+        if self._client is not None:
+            return self._client
         try:
-            import google.generativeai as genai
-        except ImportError as e:  # pragma: no cover - exercised only without the SDK
+            from google import genai
+        except ImportError as e:
             raise RuntimeError(
-                "google-generativeai is not installed. "
-                "Run `pip install google-generativeai>=0.7` or remove "
-                "LLM_PROVIDER=gemini from your .env."
+                "google-genai is not installed. Run `pip install google-genai`."
             ) from e
-        genai.configure(api_key=self._api_key)
-        self._genai = genai
-        self._configured = True
-        return genai
+        self._client = genai.Client(api_key=self._api_key)
+        return self._client
 
     def generate(
         self,
@@ -61,30 +47,29 @@ class GeminiProvider(LLMProvider):
         max_tokens: int = 1024,
         temperature: float = 0.2,
     ) -> ChatResponse:
-        genai = self._ensure_configured()
+        from google.genai import types
 
-        # Build the model with the system instruction baked in. Constructing
-        # per-call is cheap and lets the system prompt change between calls.
-        model = genai.GenerativeModel(
-            model_name=self._model_name,
-            system_instruction=system,
-        )
+        client = self._ensure_client()
 
-        history = [
-            {
-                "role": "user" if m.role == "user" else "model",
-                "parts": [m.content],
-            }
+        contents = [
+            types.Content(
+                role="user" if m.role == "user" else "model",
+                parts=[types.Part(text=m.content)],
+            )
             for m in messages
             if m.role in ("user", "assistant")
         ]
 
-        response = model.generate_content(
-            history,
-            generation_config={
-                "max_output_tokens": max_tokens,
-                "temperature": temperature,
-            },
+        config = types.GenerateContentConfig(
+            max_output_tokens=max_tokens,
+            temperature=temperature,
+            system_instruction=system,
+        )
+
+        response = client.models.generate_content(
+            model=self._model_name,
+            contents=contents,
+            config=config,
         )
 
         usage = getattr(response, "usage_metadata", None)

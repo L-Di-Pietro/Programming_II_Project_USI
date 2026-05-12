@@ -2,17 +2,18 @@
 
 Two-source strategy
 -------------------
-1. **Primary: CoinGecko** — public API, no key required, generous rate limit
-   for daily data. Endpoint: ``/coins/{id}/market_chart`` returns price /
+1. **CoinGecko** — public API, no key required, generous rate limit for
+   daily data. Endpoint: ``/coins/{id}/market_chart`` returns price /
    volume series. CoinGecko does NOT expose OHLC for free over arbitrary
-   ranges, so we resample their close-price series.
-2. **Fallback: ccxt → Binance**: when CoinGecko is unavailable or capped, hit
-   Binance directly via ccxt for true OHLCV candles.
+   ranges, so we resample their close-price series. **Daily only** — for
+   hourly requests we skip CoinGecko entirely.
+2. **ccxt → Binance** — true OHLCV candles, multi-year history at hourly
+   granularity. Primary source for hourly requests; daily fallback.
 
 Symbol convention
 -----------------
 Use **CoinGecko IDs** as the canonical symbol (``bitcoin``, ``ethereum``,
-…). The fallback maps these to Binance pairs (``BTC/USDT``, ``ETH/USDT``).
+…). The Binance path maps these to Binance pairs (``BTC/USDT``, ``ETH/USDT``).
 """
 
 from __future__ import annotations
@@ -34,6 +35,12 @@ _COINGECKO_TO_BINANCE: dict[str, str] = {
     "solana": "SOL/USDT",
 }
 
+# Milliseconds per bar — used to advance ccxt's paging cursor.
+_STRIDE_MS: dict[str, int] = {
+    "1d": 86_400_000,
+    "1h": 3_600_000,
+}
+
 
 class CryptoFetcher(BaseFetcher):
     source_name: ClassVar[str] = "coingecko+ccxt"
@@ -43,13 +50,27 @@ class CryptoFetcher(BaseFetcher):
     # ------------------------------------------------------------------------
     # Public override
     # ------------------------------------------------------------------------
-    def _fetch_raw(self, symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
+    def _fetch_raw(
+        self,
+        symbol: str,
+        start: datetime,
+        end: datetime,
+        timeframe: str = "1d",
+    ) -> pd.DataFrame:
+        if timeframe not in _STRIDE_MS:
+            raise FetcherError(
+                f"CryptoFetcher does not support timeframe={timeframe!r}"
+            )
+        # Hourly skips CoinGecko entirely — its free tier doesn't expose
+        # clean hourly OHLCV. Go straight to Binance.
+        if timeframe == "1h":
+            return self._fetch_binance(symbol, start, end, timeframe)
+
         try:
             return self._fetch_coingecko(symbol, start, end)
         except Exception as primary_error:
-            # CoinGecko had a hiccup. Fall back to Binance via ccxt.
             try:
-                return self._fetch_binance(symbol, start, end)
+                return self._fetch_binance(symbol, start, end, timeframe)
             except Exception as fallback_error:
                 raise FetcherError(
                     f"Both CoinGecko and Binance failed for {symbol}. "
@@ -57,7 +78,7 @@ class CryptoFetcher(BaseFetcher):
                 ) from fallback_error
 
     # ------------------------------------------------------------------------
-    # CoinGecko
+    # CoinGecko (daily only)
     # ------------------------------------------------------------------------
     def _fetch_coingecko(self, symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
         """CoinGecko ``market_chart/range`` returns three series — prices,
@@ -99,33 +120,40 @@ class CryptoFetcher(BaseFetcher):
         return df[["open", "high", "low", "close", "volume"]]
 
     # ------------------------------------------------------------------------
-    # Binance (fallback) — gives real OHLCV candles
+    # Binance via ccxt — gives real OHLCV candles
     # ------------------------------------------------------------------------
-    def _fetch_binance(self, symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
+    def _fetch_binance(
+        self,
+        symbol: str,
+        start: datetime,
+        end: datetime,
+        timeframe: str = "1d",
+    ) -> pd.DataFrame:
         pair = _COINGECKO_TO_BINANCE.get(symbol)
         if pair is None:
             raise FetcherError(
-                f"No Binance fallback mapping for symbol {symbol!r}. "
+                f"No Binance pair mapping for symbol {symbol!r}. "
                 f"Add it to _COINGECKO_TO_BINANCE."
             )
 
+        stride_ms = _STRIDE_MS[timeframe]
         exchange = ccxt.binance({"enableRateLimit": True})
         since = int(start.replace(tzinfo=timezone.utc).timestamp() * 1000)
+        end_ms = int(end.replace(tzinfo=timezone.utc).timestamp() * 1000)
 
         # ccxt fetch_ohlcv pages 1000 candles at a time — loop until we cover
         # the requested range.
         all_candles: list[list[float]] = []
         cursor = since
-        end_ms = int(end.replace(tzinfo=timezone.utc).timestamp() * 1000)
         while True:
-            candles = exchange.fetch_ohlcv(pair, timeframe="1d", since=cursor, limit=1000)
+            candles = exchange.fetch_ohlcv(pair, timeframe=timeframe, since=cursor, limit=1000)
             if not candles:
                 break
             all_candles.extend(candles)
             last_ts = candles[-1][0]
             if last_ts >= end_ms or len(candles) < 1000:
                 break
-            cursor = last_ts + 86_400_000  # one day in ms
+            cursor = last_ts + stride_ms
 
         if not all_candles:
             return pd.DataFrame()

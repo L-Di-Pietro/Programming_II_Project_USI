@@ -28,7 +28,7 @@ export function RunResults() {
   const [drawdownFig, setDrawdownFig] = useState<PlotlyFigure["figure"] | null>(null);
   const [heatmapFig,  setHeatmapFig]  = useState<PlotlyFigure["figure"] | null>(null);
   const [trades,      setTrades]      = useState<Trade[]>([]);
-  const [runDates,    setRunDates]    = useState<{ start: string; end: string } | null>(null);
+  const [runDates,    setRunDates]    = useState<{ start: string; end: string; timeframe: string } | null>(null);
   const [error,       setError]       = useState<string | null>(null);
   const [activeChart, setActiveChart] = useState<ChartTab>("equity");
 
@@ -51,7 +51,11 @@ export function RunResults() {
         setDrawdownFig(dd.figure);
         setHeatmapFig(hm.figure);
         setTrades(ts);
-        setRunDates({ start: run.start_date.slice(0, 4), end: run.end_date.slice(0, 4) });
+        setRunDates({
+          start: run.start_date.slice(0, 4),
+          end: run.end_date.slice(0, 4),
+          timeframe: run.timeframe,
+        });
       })
       .catch((e) => { if (active) setError(String(e)); });
 
@@ -80,6 +84,10 @@ export function RunResults() {
                 <span className="text-border-subtle">&middot;</span>
                 <span className="font-mono text-[12px] text-ink-muted">
                   {runDates.start}&ndash;{runDates.end}
+                </span>
+                <span className="text-border-subtle">&middot;</span>
+                <span className="font-mono text-[12px] text-ink-muted">
+                  {runDates.timeframe === "1h" ? "Hourly" : "Daily"}
                 </span>
               </>
             )}
