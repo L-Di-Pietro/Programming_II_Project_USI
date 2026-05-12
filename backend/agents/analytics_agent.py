@@ -19,11 +19,13 @@ from backend.analytics.visualizations import (
     build_drawdown_figure,
     build_equity_figure,
     build_monthly_heatmap,
+    build_rolling_sharpe_figure,
+    build_trade_pnl_figure,
 )
-from backend.database.models import EquityPoint, Metric
+from backend.database.models import EquityPoint, Metric, Trade
 
 
-ChartKind = Literal["equity", "drawdown", "heatmap"]
+ChartKind = Literal["equity", "drawdown", "heatmap", "trade_pnl", "rolling_sharpe"]
 
 
 @dataclass(slots=True)
@@ -78,6 +80,9 @@ class AnalyticsAgent(BaseAgent[AnalyticsAgentInput, AnalyticsAgentOutput]):
         return out
 
     def _chart(self, run_id: int, kind: ChartKind) -> dict[str, Any]:
+        if kind == "trade_pnl":
+            net_pnl = self._load_net_pnl(run_id)
+            return build_trade_pnl_figure(net_pnl)
         equity = self._load_equity_series(run_id)
         if equity.empty:
             return {}
@@ -87,11 +92,19 @@ class AnalyticsAgent(BaseAgent[AnalyticsAgentInput, AnalyticsAgentOutput]):
             return build_drawdown_figure(equity)
         if kind == "heatmap":
             return build_monthly_heatmap(equity)
+        if kind == "rolling_sharpe":
+            return build_rolling_sharpe_figure(equity)
         raise ValueError(f"Unknown chart kind: {kind!r}")
 
     # ------------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------------
+    def _load_net_pnl(self, run_id: int) -> list[float]:
+        rows = self.db.execute(
+            select(Trade).where(Trade.run_id == run_id).order_by(Trade.ts)
+        ).scalars().all()
+        return [r.net_pnl for r in rows]
+
     def _load_equity_series(self, run_id: int) -> pd.Series:
         rows = self.db.execute(
             select(EquityPoint)
