@@ -53,6 +53,7 @@ class DonchianBreakoutStrategy(BaseStrategy):
 
     slug: ClassVar[str] = "donchian-breakout"
     name: ClassVar[str] = "Donchian Channel Breakout"
+    category: ClassVar[str] = "Trend Following"
     description: ClassVar[str] = (
         "Momentum strategy from the Turtle Traders: enter long when price "
         "breaks above its rolling N-bar high, exit when it breaks below its "

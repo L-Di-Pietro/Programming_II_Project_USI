@@ -47,6 +47,7 @@ class BollingerBandsStrategy(BaseStrategy):
 
     slug: ClassVar[str] = "bollinger-bands"
     name: ClassVar[str] = "Bollinger Bands Mean Reversion"
+    category: ClassVar[str] = "Mean Reversion"
     description: ClassVar[str] = (
         "Mean-reversion strategy that buys when the close drops below the "
         "lower Bollinger band and exits when price returns toward the mean. "

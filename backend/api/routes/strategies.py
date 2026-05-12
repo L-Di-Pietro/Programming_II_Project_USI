@@ -19,6 +19,7 @@ def list_strategies() -> list[StrategyOut]:
             slug=cls.slug,
             name=cls.name,
             description=cls.description,
+            category=cls.category,
             params_schema=cls.params_schema(),
         )
         for cls in STRATEGY_REGISTRY.values()
