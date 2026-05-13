@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from backend.agents.analytics_agent import AnalyticsAgent, AnalyticsAgentInput
 from backend.agents.backtest_agent import BacktestAgent, BacktestAgentInput
+from backend.agents.base import AgentError
 from backend.agents.explanation_agent import ExplanationAgent, ExplanationAgentInput
 from backend.api.schemas import (
     BacktestRequest,
@@ -199,6 +200,27 @@ def generate_report(run_id: int, db: Session = Depends(get_session)) -> ReportRe
         result = agent.run(ExplanationAgentInput(op="report_run", run_id=run_id))
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
+    except AgentError as e:
+        # Translate upstream LLM errors into the right HTTP status so the UI
+        # can show a friendlier message ("provider overloaded, try again")
+        # instead of a generic 500.
+        cause = e.cause
+        try:
+            from google.genai import errors as genai_errors
+        except ImportError:
+            genai_errors = None  # type: ignore[assignment]
+        if genai_errors is not None and isinstance(cause, genai_errors.APIError):
+            status = getattr(cause, "code", None) or getattr(cause, "status_code", None)
+            if status == 503:
+                raise HTTPException(
+                    503,
+                    "LLM provider is currently overloaded. Try again in a few seconds.",
+                ) from e
+            if status == 429:
+                raise HTTPException(429, "LLM provider rate-limited the request.") from e
+            if status in (400, 404):
+                raise HTTPException(int(status), str(cause)) from e
+        raise HTTPException(502, f"LLM provider error: {cause}") from e
 
     generated_at = agent.get_cached_report_timestamp(run_id)
     assert generated_at is not None  # the run we just persisted is the newest row

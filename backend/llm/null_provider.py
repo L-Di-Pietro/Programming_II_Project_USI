@@ -41,9 +41,12 @@ class NullProvider(LLMProvider):
             [DEMO MODE — LLM is disabled]
 
             This is a placeholder response from NullProvider. To get real
-            natural-language explanations of your backtest, set
-            LLM_ENABLED=true in .env, configure LLM_PROVIDER=gemini, populate
-            GEMINI_API_KEY, and implement GeminiProvider.generate().
+            natural-language explanations of your backtest, set the
+            following in .env (then restart the backend — env isn't
+            hot-reloaded):
+                LLM_ENABLED=true
+                LLM_PROVIDER=gemini
+                GEMINI_API_KEY=<your key>
 
             Echo of your prompt (first 200 chars): {last_user[:200]}
             Stable signature: {digest}

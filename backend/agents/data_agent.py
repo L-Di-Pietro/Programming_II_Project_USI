@@ -150,6 +150,10 @@ class DataAgent(BaseAgent[DataAgentInput, DataAgentOutput]):
         ).first()
         return row[0] if row else None
 
+    # SQLite caps parameters per statement at ~32k (SQLITE_MAX_VARIABLE_NUMBER).
+    # 9 columns per row, so stay safely below: 1000 rows × 9 = 9000 params.
+    _UPSERT_CHUNK_ROWS = 1000
+
     def _upsert_bars(
         self, asset_id: int, df: pd.DataFrame, timeframe: str, source: str
     ) -> int:
@@ -169,20 +173,24 @@ class DataAgent(BaseAgent[DataAgentInput, DataAgentOutput]):
             }
             for ts, row in df.iterrows()
         ]
-        # SQLite-flavoured upsert. The same statement works on Postgres if we
-        # swap to ``postgresql.insert`` in the future.
-        stmt = sqlite_insert(OHLCVBar).values(rows)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["asset_id", "ts", "timeframe"],
-            set_={
-                "open": stmt.excluded.open,
-                "high": stmt.excluded.high,
-                "low": stmt.excluded.low,
-                "close": stmt.excluded.close,
-                "volume": stmt.excluded.volume,
-                "source": stmt.excluded.source,
-            },
-        )
-        self.db.execute(stmt)
+        # Chunk the upsert — hourly fetches can produce 50k+ rows for a
+        # single asset, blowing SQLite's per-statement parameter cap. The
+        # statement is SQLite-flavoured; swap to ``postgresql.insert`` for
+        # Postgres (same on_conflict semantics).
+        for i in range(0, len(rows), self._UPSERT_CHUNK_ROWS):
+            chunk = rows[i : i + self._UPSERT_CHUNK_ROWS]
+            stmt = sqlite_insert(OHLCVBar).values(chunk)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["asset_id", "ts", "timeframe"],
+                set_={
+                    "open": stmt.excluded.open,
+                    "high": stmt.excluded.high,
+                    "low": stmt.excluded.low,
+                    "close": stmt.excluded.close,
+                    "volume": stmt.excluded.volume,
+                    "source": stmt.excluded.source,
+                },
+            )
+            self.db.execute(stmt)
         self.db.commit()
         return len(rows)

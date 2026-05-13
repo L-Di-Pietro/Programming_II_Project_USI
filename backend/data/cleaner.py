@@ -228,15 +228,24 @@ class OHLCVCleaner:
 
     @staticmethod
     def _crypto_daily_index(start: datetime, end: datetime) -> pd.DatetimeIndex:
-        return pd.date_range(start, end, freq="D", name="ts")
+        # Floor to midnight UTC so the grid aligns with source data
+        # (CoinGecko/Binance daily candles are at 00:00 UTC).
+        s = pd.Timestamp(start).normalize()
+        e = pd.Timestamp(end).normalize()
+        return pd.date_range(s, e, freq="D", name="ts")
 
     @staticmethod
     def _crypto_hourly_index(start: datetime, end: datetime) -> pd.DatetimeIndex:
-        return pd.date_range(start, end, freq="h", name="ts")
+        # Floor to whole UTC hours — Binance hourly candles open at HH:00.
+        s = pd.Timestamp(start).floor("h")
+        e = pd.Timestamp(end).floor("h")
+        return pd.date_range(s, e, freq="h", name="ts")
 
     @staticmethod
     def _fx_daily_index(start: datetime, end: datetime) -> pd.DatetimeIndex:
-        return pd.bdate_range(start, end, name="ts")
+        s = pd.Timestamp(start).normalize()
+        e = pd.Timestamp(end).normalize()
+        return pd.bdate_range(s, e, name="ts")
 
     @staticmethod
     def _fx_hourly_index(start: datetime, end: datetime) -> pd.DatetimeIndex:
@@ -246,7 +255,9 @@ class OHLCVCleaner:
         Friday 22:00 UTC (NY close). Closed window in UTC terms:
         ``Fri 22:00 ≤ ts < Sun 22:00``.
         """
-        idx = pd.date_range(start, end, freq="h", name="ts")
+        s = pd.Timestamp(start).floor("h")
+        e = pd.Timestamp(end).floor("h")
+        idx = pd.date_range(s, e, freq="h", name="ts")
         if len(idx) == 0:
             return idx
         dow = idx.dayofweek

@@ -9,7 +9,21 @@ Activation
 
 from __future__ import annotations
 
+import time
+
+import structlog
+
 from backend.llm.base import ChatMessage, ChatResponse, LLMProvider
+
+
+log = structlog.get_logger(__name__)
+
+
+# Transient overload codes worth retrying. 503 is Google's "model is
+# experiencing high demand"; 429 is rate-limit; 500/504 are server-side.
+_RETRYABLE_STATUS = {429, 500, 503, 504}
+_MAX_ATTEMPTS = 4
+_BASE_BACKOFF_S = 1.5  # 1.5, 3, 6 → up to ~10s total wait
 
 
 class GeminiProvider(LLMProvider):
@@ -47,6 +61,7 @@ class GeminiProvider(LLMProvider):
         max_tokens: int = 1024,
         temperature: float = 0.2,
     ) -> ChatResponse:
+        from google.genai import errors as genai_errors
         from google.genai import types
 
         client = self._ensure_client()
@@ -66,11 +81,35 @@ class GeminiProvider(LLMProvider):
             system_instruction=system,
         )
 
-        response = client.models.generate_content(
-            model=self._model_name,
-            contents=contents,
-            config=config,
-        )
+        # Retry transient overloads (503 high-demand, 429 rate-limit, 5xx).
+        # The SDK has internal retries but they don't cover model-overload
+        # 503s — and those are the common case for preview/flash models.
+        last_exc: Exception | None = None
+        for attempt in range(1, _MAX_ATTEMPTS + 1):
+            try:
+                response = client.models.generate_content(
+                    model=self._model_name,
+                    contents=contents,
+                    config=config,
+                )
+                break
+            except genai_errors.APIError as e:
+                status = getattr(e, "code", None) or getattr(e, "status_code", None)
+                if status not in _RETRYABLE_STATUS or attempt == _MAX_ATTEMPTS:
+                    raise
+                wait = _BASE_BACKOFF_S * (2 ** (attempt - 1))
+                log.warning(
+                    "gemini.transient_error_retrying",
+                    attempt=attempt,
+                    status=status,
+                    wait_s=wait,
+                    model=self._model_name,
+                )
+                time.sleep(wait)
+                last_exc = e
+        else:  # pragma: no cover — for-else only runs if no break
+            assert last_exc is not None
+            raise last_exc
 
         usage = getattr(response, "usage_metadata", None)
         prompt_tokens = int(getattr(usage, "prompt_token_count", 0) or 0)

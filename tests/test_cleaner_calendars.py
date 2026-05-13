@@ -90,6 +90,31 @@ def test_fx_hourly_closed_window():
     assert pd.Timestamp("2024-01-03 12:00") in idx
 
 
+def test_target_index_floors_messy_start_for_crypto_fx():
+    """Regression: when called with a start that has minute/second/microsecond
+    components (e.g. datetime.utcnow()), the crypto/FX hourly grid must still
+    align with whole-hour source stamps, and the crypto/FX daily grid must
+    still align with midnight-UTC source stamps. Otherwise reindex drops
+    every source row.
+    """
+    messy_start = datetime(2024, 1, 1, 10, 40, 31, 399854)
+    messy_end = datetime(2024, 1, 8, 10, 40, 31, 399854)
+
+    # Crypto hourly — must be at whole hours, not :40:31.4
+    idx = OHLCVCleaner(calendar="24x7", timeframe="1h")._target_index(messy_start, messy_end)
+    assert (idx.minute == 0).all() and (idx.second == 0).all()
+    assert pd.Timestamp("2024-01-02 12:00") in idx
+
+    # Crypto daily — must be at midnight, not :40:31.4
+    idx2 = OHLCVCleaner(calendar="24x7", timeframe="1d")._target_index(messy_start, messy_end)
+    assert (idx2.hour == 0).all() and (idx2.minute == 0).all()
+    assert pd.Timestamp("2024-01-06") in idx2
+
+    # FX hourly — must align with whole hours after dropping the closed window
+    idx3 = OHLCVCleaner(calendar="24x5", timeframe="1h")._target_index(messy_start, messy_end)
+    assert (idx3.minute == 0).all() and (idx3.second == 0).all()
+
+
 def test_unsupported_combination_raises():
     c = OHLCVCleaner(calendar="nyse", timeframe="1h")
     c.timeframe = "5m"  # type: ignore[assignment]
