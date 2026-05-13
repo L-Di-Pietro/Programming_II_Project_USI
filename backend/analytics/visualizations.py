@@ -12,6 +12,8 @@ reproduces correctly across UI rewrites, and keeps the frontend stateless.
 
 from __future__ import annotations
 
+import json
+import math
 from typing import Any
 
 import pandas as pd
@@ -24,28 +26,30 @@ from backend.analytics.metrics import monthly_returns
 # Equity curve
 # -----------------------------------------------------------------------------
 def build_equity_figure(equity: pd.Series) -> dict[str, Any]:
-    """A simple line chart of equity over time."""
+    """Cyan line + subtle fill of equity over time."""
     fig = go.Figure(
         data=[
             go.Scatter(
                 x=equity.index,
                 y=equity.values,
                 mode="lines",
-                name="Equity",
-                line=dict(width=2),
-                hovertemplate="%{x|%Y-%m-%d}<br>Equity: $%{y:,.2f}<extra></extra>",
+                name="Strategy",
+                line=dict(color="#22d3ee", width=2),
+                fill="tozeroy",
+                fillcolor="rgba(34, 211, 238, 0.08)",
+                hovertemplate="%{x|%Y-%m-%d}<br>$%{y:,.0f}<extra></extra>",
             )
         ]
     )
     fig.update_layout(
-        title="Equity Curve",
-        xaxis_title="Date",
-        yaxis_title="Equity ($)",
-        margin=dict(l=40, r=20, t=40, b=40),
-        showlegend=False,
-        template="plotly_white",
+        title="",
+        xaxis=dict(tickformat="%Y-%m"),
+        yaxis=dict(tickprefix="$", tickformat="~s"),
+        showlegend=True,
+        legend=dict(x=1, xanchor="right", y=1, yanchor="top", bgcolor="rgba(0,0,0,0)"),
+        margin=dict(l=60, r=16, t=16, b=40),
+        template=None,
     )
-    import json
     return json.loads(fig.to_json())
 
 
@@ -65,40 +69,35 @@ def build_drawdown_figure(equity: pd.Series) -> dict[str, Any]:
                 y=drawdown_pct.values,
                 mode="lines",
                 fill="tozeroy",
-                line=dict(color="#d62728", width=1),
-                fillcolor="rgba(214,39,40,0.3)",
-                hovertemplate="%{x|%Y-%m-%d}<br>Drawdown: %{y:.2f}%<extra></extra>",
+                line=dict(color="#f85149", width=1.5),
+                fillcolor="rgba(248, 81, 73, 0.12)",
+                hovertemplate="%{x|%Y-%m-%d}<br>%{y:.1f}%<extra></extra>",
             )
         ]
     )
     fig.update_layout(
-        title="Underwater (Drawdown) Curve",
-        xaxis_title="Date",
-        yaxis_title="Drawdown (%)",
-        yaxis=dict(rangemode="tozero"),
-        margin=dict(l=40, r=20, t=40, b=40),
-        template="plotly_white",
+        title="",
+        yaxis=dict(ticksuffix="%", rangemode="tozero"),
+        margin=dict(l=60, r=16, t=16, b=40),
+        template=None,
     )
-    import json
     return json.loads(fig.to_json())
 
 
 # -----------------------------------------------------------------------------
-# Monthly returns heatmap
+# Monthly returns heatmap (kept for API compatibility; frontend now renders
+# the HTML table from raw equity data instead of this figure)
 # -----------------------------------------------------------------------------
 _MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
 def build_monthly_heatmap(equity: pd.Series) -> dict[str, Any]:
-    """Year × Month grid of returns. Diverging colour scale around 0."""
+    """Year × Month grid of returns. Kept for API compatibility."""
     table = monthly_returns(equity)
     if table.empty:
         return go.Figure().to_dict()
-
-    # Reindex columns 1..12 so empty months show up as NaN cells.
     table = table.reindex(columns=range(1, 13))
-
     fig = go.Figure(
         data=go.Heatmap(
             z=table.values,
@@ -111,11 +110,96 @@ def build_monthly_heatmap(equity: pd.Series) -> dict[str, Any]:
         )
     )
     fig.update_layout(
-        title="Monthly Returns (%)",
-        xaxis_title="Month",
-        yaxis_title="Year",
-        margin=dict(l=40, r=20, t=40, b=40),
-        template="plotly_white",
+        title="",
+        margin=dict(l=40, r=20, t=16, b=40),
+        template=None,
     )
-    import json
+    return json.loads(fig.to_json())
+
+
+# -----------------------------------------------------------------------------
+# Trade P&L scatter
+# -----------------------------------------------------------------------------
+def build_trade_pnl_figure(net_pnl_values: list[float]) -> dict[str, Any]:
+    """Scatter of per-trade net P&L — green for wins, red for losses."""
+    if not net_pnl_values:
+        return go.Figure().to_dict()
+
+    wins_x   = [i for i, v in enumerate(net_pnl_values) if v > 0]
+    wins_y   = [v for v in net_pnl_values if v > 0]
+    losses_x = [i for i, v in enumerate(net_pnl_values) if v <= 0]
+    losses_y = [v for v in net_pnl_values if v <= 0]
+
+    fig = go.Figure(data=[
+        go.Scatter(
+            x=wins_x, y=wins_y,
+            mode="markers",
+            name="Win",
+            marker=dict(color="#3fb950", size=6),
+            hovertemplate="Trade #%{x}<br>P&L: $%{y:,.2f}<extra></extra>",
+        ),
+        go.Scatter(
+            x=losses_x, y=losses_y,
+            mode="markers",
+            name="Loss",
+            marker=dict(color="#f85149", size=6),
+            hovertemplate="Trade #%{x}<br>P&L: $%{y:,.2f}<extra></extra>",
+        ),
+    ])
+    fig.update_layout(
+        title="",
+        showlegend=False,
+        margin=dict(l=60, r=16, t=16, b=40),
+        template=None,
+        shapes=[dict(
+            type="line", xref="paper", yref="y",
+            x0=0, x1=1, y0=0, y1=0,
+            line=dict(color="#30363d", width=1, dash="dot"),
+        )],
+    )
+    return json.loads(fig.to_json())
+
+
+# -----------------------------------------------------------------------------
+# Rolling Sharpe
+# -----------------------------------------------------------------------------
+def build_rolling_sharpe_figure(equity: pd.Series, window: int = 42) -> dict[str, Any]:
+    """Rolling annualised Sharpe ratio over a trailing window of daily returns."""
+    if equity.empty or len(equity) < window + 1:
+        return go.Figure().to_dict()
+
+    daily_ret = equity.pct_change().dropna()
+    roll_mean = daily_ret.rolling(window).mean()
+    roll_std  = daily_ret.rolling(window).std()
+    sharpe    = (roll_mean / roll_std.replace(0, float("nan"))) * math.sqrt(252)
+    sharpe    = sharpe.dropna()
+
+    fig = go.Figure(data=[
+        go.Scatter(
+            x=sharpe.index,
+            y=sharpe.values,
+            mode="lines",
+            name="Rolling Sharpe",
+            line=dict(color="#22d3ee", width=1.5),
+            hovertemplate="%{x|%Y-%m-%d}<br>Sharpe: %{y:.2f}<extra></extra>",
+        )
+    ])
+    fig.update_layout(
+        title="",
+        showlegend=False,
+        margin=dict(l=60, r=16, t=16, b=40),
+        template=None,
+        shapes=[
+            dict(
+                type="line", xref="paper", yref="y",
+                x0=0, x1=1, y0=0, y1=0,
+                line=dict(color="#30363d", width=1, dash="dash"),
+            ),
+            dict(
+                type="line", xref="paper", yref="y",
+                x0=0, x1=1, y0=1, y1=1,
+                line=dict(color="#3fb950", width=1, dash="dash"),
+            ),
+        ],
+    )
     return json.loads(fig.to_json())

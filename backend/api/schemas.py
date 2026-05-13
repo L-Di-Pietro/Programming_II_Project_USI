@@ -66,6 +66,7 @@ class StrategyOut(BaseModel):
     slug: str
     name: str
     description: str
+    category: str
     params_schema: dict[str, Any]
 
 

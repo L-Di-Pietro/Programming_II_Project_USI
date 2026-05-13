@@ -54,6 +54,7 @@ class SMACrossoverStrategy(BaseStrategy):
 
     slug: ClassVar[str] = "sma-crossover"
     name: ClassVar[str] = "SMA Crossover"
+    category: ClassVar[str] = "Trend Following"
     description: ClassVar[str] = (
         "Classic trend-following strategy: go long when a fast moving average "
         "crosses above a slow one, exit (or short) when it crosses back below. "

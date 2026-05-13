@@ -54,6 +54,7 @@ class BaseStrategy(ABC):
     slug: ClassVar[str] = ""
     name: ClassVar[str] = ""
     description: ClassVar[str] = ""
+    category: ClassVar[str] = ""
     config_cls: ClassVar[type[StrategyConfig]]
 
     def __init__(self, config: StrategyConfig | None = None) -> None:

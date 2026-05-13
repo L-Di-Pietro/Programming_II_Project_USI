@@ -1,29 +1,117 @@
-import Plot from "react-plotly.js";
+import type { CSSProperties } from "react";
 
-import type { PlotlyFigure } from "@/api/client";
+import type { EquityPoint } from "@/api/client";
 
-const DARK_LAYOUT: Partial<Plotly.Layout> = {
-  paper_bgcolor: "#161b22",
-  plot_bgcolor:  "#0d1117",
-  font:          { color: "#7d8590", family: "JetBrains Mono, monospace", size: 11 },
-  margin: { t: 16, r: 16, b: 40, l: 60 },
+const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function cellBg(v: number | null): string {
+  if (v === null) return "transparent";
+  const alpha = (Math.min(Math.abs(v) / 10, 1) * 0.85 + 0.10).toFixed(2);
+  return v >= 0
+    ? `rgba(63, 185, 80, ${alpha})`
+    : `rgba(248, 81, 73, ${alpha})`;
+}
+
+function fmt(v: number | null): string {
+  if (v === null) return "—";
+  return (v >= 0 ? "+" : "") + v.toFixed(1);
+}
+
+function computeReturns(data: EquityPoint[]) {
+  const monthly: Record<number, Record<number, { first: number; last: number }>> = {};
+  for (const pt of data) {
+    const d = new Date(pt.ts);
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    if (!monthly[y]) monthly[y] = {};
+    if (!monthly[y][m]) {
+      monthly[y][m] = { first: pt.equity, last: pt.equity };
+    } else {
+      monthly[y][m].last = pt.equity;
+    }
+  }
+
+  const years = Object.keys(monthly).map(Number).sort();
+  const annual: Record<number, number | null> = {};
+  for (const y of years) {
+    const pts = data.filter((pt) => new Date(pt.ts).getFullYear() === y);
+    annual[y] = pts.length >= 2
+      ? (pts[pts.length - 1].equity / pts[0].equity - 1) * 100
+      : null;
+  }
+
+  const returns: Record<number, Record<number, number | null>> = {};
+  for (const y of years) {
+    returns[y] = {};
+    for (let m = 1; m <= 12; m++) {
+      const cell = monthly[y]?.[m];
+      returns[y][m] = cell ? (cell.last / cell.first - 1) * 100 : null;
+    }
+  }
+
+  return { years, returns, annual };
+}
+
+const thStyle: CSSProperties = {
+  padding: "4px 8px",
+  textAlign: "center",
+  color: "#7d8590",
+  fontWeight: 400,
+  borderBottom: "1px solid #21262d",
 };
 
-export function MonthlyHeatmap({ figure }: { figure: PlotlyFigure["figure"] | null }) {
-  if (!figure) {
+const tdStyle: CSSProperties = {
+  padding: "3px 6px",
+  textAlign: "center",
+  minWidth: 46,
+  borderRadius: 3,
+};
+
+export function MonthlyHeatmap({ equityData }: { equityData: EquityPoint[] | null }) {
+  if (!equityData || equityData.length === 0) {
     return (
       <div className="flex items-center justify-center h-[320px] text-ink-muted text-sm font-mono">
-        No monthly data yet.
+        No equity data yet.
       </div>
     );
   }
+
+  const { years, returns, annual } = computeReturns(equityData);
+
   return (
-    <Plot
-      data={figure.data as Plotly.Data[]}
-      layout={{ ...(figure.layout as Partial<Plotly.Layout>), ...DARK_LAYOUT }}
-      useResizeHandler
-      style={{ width: "100%", height: "320px" }}
-      config={{ displaylogo: false, responsive: true, displayModeBar: false }}
-    />
+    <div className="overflow-x-auto px-5 py-4" style={{ background: "#0d1117" }}>
+      <table style={{ borderCollapse: "collapse", fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "#c9d1d9", width: "100%" }}>
+        <thead>
+          <tr>
+            <th style={thStyle} />
+            {MONTH_LABELS.map((m) => (
+              <th key={m} style={thStyle}>{m}</th>
+            ))}
+            <th style={{ ...thStyle, color: "#7d8590" }}>Ann.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {years.map((y) => (
+            <tr key={y}>
+              <td style={{ ...tdStyle, color: "#7d8590", textAlign: "left", paddingLeft: 6 }}>{y}</td>
+              {[1,2,3,4,5,6,7,8,9,10,11,12].map((m) => {
+                const v = returns[y][m] ?? null;
+                return (
+                  <td
+                    key={m}
+                    style={{ ...tdStyle, background: cellBg(v), color: v === null ? "#30363d" : "#e6edf3" }}
+                  >
+                    {fmt(v)}
+                  </td>
+                );
+              })}
+              <td style={{ ...tdStyle, background: cellBg(annual[y] ?? null), color: "#e6edf3", fontWeight: 700 }}>
+                {fmt(annual[y] ?? null)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }

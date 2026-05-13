@@ -46,6 +46,7 @@ class RSIMeanReversionStrategy(BaseStrategy):
 
     slug: ClassVar[str] = "rsi-mean-reversion"
     name: ClassVar[str] = "RSI Mean Reversion"
+    category: ClassVar[str] = "Mean Reversion"
     description: ClassVar[str] = (
         "Counter-trend strategy that buys oversold conditions (RSI below a "
         "low threshold) and exits when RSI returns to overbought territory. "

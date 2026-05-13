@@ -6,7 +6,6 @@ import { Api, type Strategy } from "@/api/client";
 // ── Static metadata (mirrors data-engine.jsx + backend/strategies/) ───────────
 interface StrategyMeta {
   abbr: string;
-  category: string;
   complexity: 1 | 2 | 3;
   badge: string | null;
   assets: string[];
@@ -14,33 +13,29 @@ interface StrategyMeta {
 }
 
 const STRATEGY_META: Record<string, StrategyMeta> = {
-  sma_crossover: {
+  "sma-crossover": {
     abbr: "SMA-X",
-    category: "Trend Following",
     complexity: 1,
     badge: "Classic",
     assets: ["Equities", "FX", "Crypto"],
     profile: { cagr: 0.12, winRate: 0.42 },
   },
-  rsi_mean_reversion: {
+  "rsi-mean-reversion": {
     abbr: "RSI-MR",
-    category: "Mean Reversion",
     complexity: 1,
     badge: "Popular",
     assets: ["Equities", "Crypto"],
     profile: { cagr: 0.19, winRate: 0.62 },
   },
-  bollinger_bands: {
+  "bollinger-bands": {
     abbr: "BB",
-    category: "Mean Reversion",
     complexity: 2,
     badge: null,
     assets: ["Equities", "FX", "Crypto"],
     profile: { cagr: 0.11, winRate: 0.55 },
   },
-  donchian_breakout: {
+  "donchian-breakout": {
     abbr: "DON",
-    category: "Trend Following",
     complexity: 1,
     badge: "Turtle",
     assets: ["Equities", "FX", "Crypto"],
@@ -72,7 +67,7 @@ export function Strategies() {
   const filtered =
     filter === "All"
       ? strategies
-      : strategies.filter((s) => STRATEGY_META[s.slug]?.category === filter);
+      : strategies.filter((s) => s.category === filter);
 
   return (
     <div className="px-10 py-10 pb-16">
@@ -154,7 +149,7 @@ export function Strategies() {
                 <h3 className="text-ink-primary text-[15px] font-semibold mb-0.5">{s.name}</h3>
                 {meta && (
                   <span className={`font-mono text-[11px] ${COMPLEXITY_COLOR[meta.complexity]}`}>
-                    {meta.category}
+                    {s.category}
                   </span>
                 )}
               </div>

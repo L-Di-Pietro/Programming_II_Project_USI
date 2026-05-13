@@ -144,7 +144,7 @@ def get_metrics(run_id: int, db: Session = Depends(get_session)) -> MetricsOut:
     )
 
 
-_ChartKind = Literal["equity", "drawdown", "heatmap"]
+_ChartKind = Literal["equity", "drawdown", "heatmap", "trade_pnl", "rolling_sharpe"]
 
 
 @router.get("/{run_id}/charts/{kind}", response_model=ChartResponse)

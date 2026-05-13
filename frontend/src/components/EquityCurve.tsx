@@ -9,6 +9,8 @@ const DARK_LAYOUT: Partial<Plotly.Layout> = {
   xaxis: { gridcolor: "rgba(255,255,255,0.04)", linecolor: "#30363d", tickcolor: "#30363d", zerolinecolor: "#30363d" },
   yaxis: { gridcolor: "rgba(255,255,255,0.04)", linecolor: "#30363d", tickcolor: "#30363d", zerolinecolor: "#30363d" },
   margin: { t: 16, r: 16, b: 40, l: 60 },
+  showlegend: true,
+  legend: { x: 1, xanchor: "right" as const, y: 1, yanchor: "top" as const, bgcolor: "rgba(0,0,0,0)", font: { size: 11 } },
 };
 
 /** Pure Plotly wrapper — card chrome is handled by the parent tab panel. */

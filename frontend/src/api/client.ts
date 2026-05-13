@@ -28,6 +28,7 @@ export interface Strategy {
   slug: string;
   name: string;
   description: string;
+  category: string;
   params_schema: Record<string, unknown>;
 }
 
