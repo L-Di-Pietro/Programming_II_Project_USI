@@ -105,7 +105,12 @@ The test `tests/test_engine_no_lookahead.py` asserts this property by injecting 
 
 ### OHLCV DataFrame contract
 
-Every internal DataFrame of bars has these columns: `open`, `high`, `low`, `close`, `volume`. Indexed by **timezone-naive UTC `DatetimeIndex`**. Float64. No missing values inside the date range — `cleaner.py` is responsible for filling or rejecting gaps before storage.
+Every internal DataFrame of bars has these columns: `open`, `high`, `low`, `close`, `volume`. Indexed by **timezone-naive UTC `DatetimeIndex`**. Float64. Index frequency depends on the timeframe:
+
+- **Daily (`"1d"`)**: index at midnight UTC, one row per native-calendar session.
+- **Hourly (`"1h"`)**: NYSE bars at half-past hours inside the session (14:30, 15:30, …, 20:30 UTC in winter); crypto/FX at whole UTC hours.
+
+Each asset class uses its **native trading calendar** — NYSE for equities/ETF, 24×5 (Sun 22:00 UTC → Fri 22:00 UTC) for FX, 24×7 for crypto. See `docs/calendars.md`. The cleaner applies a **bounded forward-fill** (≤ 2-bar gaps) for rare single-bar outages; longer outages survive as NaN and surface in `CleaningReport.gaps_remaining`, then are dropped from the final frame.
 
 ### Strategy signal contract
 

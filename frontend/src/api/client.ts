@@ -12,6 +12,8 @@ export const api = axios.create({ baseURL, timeout: 60_000 });
 // Hand-rolled types — kept in sync with backend/api/schemas.py.
 // (Switch to generated openapi-types.ts once the backend is running.)
 // -----------------------------------------------------------------------------
+export type Timeframe = "1d" | "1h";
+
 export interface Asset {
   id: number;
   symbol: string;
@@ -56,6 +58,7 @@ export interface BacktestRequest {
   sizing_mode?: "fixed_fraction" | "vol_target";
   allow_fractional?: boolean;
   max_dd_pct?: number | null;
+  timeframe?: Timeframe;
 }
 
 export interface Trade {
@@ -135,8 +138,12 @@ export const Api = {
     const { data } = await api.get<Asset[]>("/assets");
     return data;
   },
-  async refreshAsset(symbol: string) {
-    const { data } = await api.post(`/assets/${encodeURIComponent(symbol)}/refresh`);
+  async refreshAsset(symbol: string, timeframe: Timeframe = "1d") {
+    const { data } = await api.post(
+      `/assets/${encodeURIComponent(symbol)}/refresh`,
+      null,
+      { params: { timeframe } },
+    );
     return data;
   },
 

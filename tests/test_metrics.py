@@ -50,7 +50,7 @@ def test_sortino_handles_no_downside():
 def test_annualized_vol_scales_correctly():
     # Daily std of 1% → annualized = 1% * sqrt(252).
     returns = pd.Series(np.random.default_rng(0).normal(0.0, 0.01, size=10_000))
-    annualized = _annualized_vol(returns)
+    annualized = _annualized_vol(returns, periods_per_year=TRADING_DAYS_PER_YEAR)
     expected = returns.std(ddof=1) * np.sqrt(TRADING_DAYS_PER_YEAR)
     assert abs(annualized - expected) < 1e-9
 

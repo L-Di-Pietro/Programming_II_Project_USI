@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, ClassVar
 
 import pandas as pd
 from sqlalchemy import select
@@ -17,7 +17,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 
 from backend.agents.base import BaseAgent
-from backend.data.cleaner import OHLCVCleaner
+from backend.data.cleaner import CalendarChoice, OHLCVCleaner
 from backend.data.fetchers import CryptoFetcher, EquityFetcher, FXFetcher
 from backend.data.fetchers.base import BaseFetcher
 from backend.database.models import Asset, AssetClass, OHLCVBar, Timeframe
@@ -52,17 +52,24 @@ class DataAgent(BaseAgent[DataAgentInput, DataAgentOutput]):
     name = "data"
 
     # asset_class → fetcher instance
-    _FETCHERS: dict[str, type[BaseFetcher]] = {
+    _FETCHERS: ClassVar[dict[str, type[BaseFetcher]]] = {
         AssetClass.EQUITY: EquityFetcher,
         AssetClass.ETF: EquityFetcher,
         AssetClass.CRYPTO: CryptoFetcher,
         AssetClass.FX: FXFetcher,
     }
 
+    # asset_class → native trading calendar
+    _CALENDAR_FOR: ClassVar[dict[str, CalendarChoice]] = {
+        AssetClass.EQUITY: "nyse",
+        AssetClass.ETF: "nyse",
+        AssetClass.FX: "24x5",
+        AssetClass.CRYPTO: "24x7",
+    }
+
     def __init__(self, db: Session) -> None:
         super().__init__()
         self.db = db
-        self.cleaner = OHLCVCleaner(calendar="nyse")
 
     # ------------------------------------------------------------------------
     # Dispatch
@@ -84,7 +91,9 @@ class DataAgent(BaseAgent[DataAgentInput, DataAgentOutput]):
             raise ValueError("refresh requires symbol")
 
         asset = self._asset_by_symbol(payload.symbol)
-        fetcher = self._FETCHERS[AssetClass(asset.asset_class)]()
+        asset_class = AssetClass(asset.asset_class)
+        fetcher = self._FETCHERS[asset_class]()
+        calendar = self._CALENDAR_FOR[asset_class]
 
         end = payload.end or datetime.utcnow()
         # If we already have data, only fetch the gap (incremental). Otherwise
@@ -93,13 +102,18 @@ class DataAgent(BaseAgent[DataAgentInput, DataAgentOutput]):
         if payload.start is not None:
             start = payload.start
         elif last_ts is not None:
-            # Re-fetch the last day too, in case it was incomplete.
+            # Re-fetch the last bar too, in case it was incomplete.
             start = last_ts - timedelta(days=1)
         else:
             start = end - timedelta(days=365 * 10)
 
-        raw = fetcher.fetch(payload.symbol, start, end)
-        clean, _report = self.cleaner.clean(raw, start=start, end=end)
+        # FetcherError (e.g., out-of-range hourly request) propagates as-is;
+        # the API surface inspects the cause on AgentError to translate to
+        # HTTP 400 (vs. 404 for an unknown-asset ValueError).
+        raw = fetcher.fetch(payload.symbol, start, end, timeframe=payload.timeframe)
+
+        cleaner = OHLCVCleaner(calendar=calendar, timeframe=payload.timeframe)
+        clean, _report = cleaner.clean(raw, start=start, end=end)
 
         rows_written = self._upsert_bars(asset.id, clean, payload.timeframe, fetcher.source_name)
         new_last = self._last_bar_ts(asset.id, payload.timeframe)
@@ -136,6 +150,10 @@ class DataAgent(BaseAgent[DataAgentInput, DataAgentOutput]):
         ).first()
         return row[0] if row else None
 
+    # SQLite caps parameters per statement at ~32k (SQLITE_MAX_VARIABLE_NUMBER).
+    # 9 columns per row, so stay safely below: 1000 rows × 9 = 9000 params.
+    _UPSERT_CHUNK_ROWS = 1000
+
     def _upsert_bars(
         self, asset_id: int, df: pd.DataFrame, timeframe: str, source: str
     ) -> int:
@@ -155,20 +173,24 @@ class DataAgent(BaseAgent[DataAgentInput, DataAgentOutput]):
             }
             for ts, row in df.iterrows()
         ]
-        # SQLite-flavoured upsert. The same statement works on Postgres if we
-        # swap to ``postgresql.insert`` in the future.
-        stmt = sqlite_insert(OHLCVBar).values(rows)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["asset_id", "ts", "timeframe"],
-            set_={
-                "open": stmt.excluded.open,
-                "high": stmt.excluded.high,
-                "low": stmt.excluded.low,
-                "close": stmt.excluded.close,
-                "volume": stmt.excluded.volume,
-                "source": stmt.excluded.source,
-            },
-        )
-        self.db.execute(stmt)
+        # Chunk the upsert — hourly fetches can produce 50k+ rows for a
+        # single asset, blowing SQLite's per-statement parameter cap. The
+        # statement is SQLite-flavoured; swap to ``postgresql.insert`` for
+        # Postgres (same on_conflict semantics).
+        for i in range(0, len(rows), self._UPSERT_CHUNK_ROWS):
+            chunk = rows[i : i + self._UPSERT_CHUNK_ROWS]
+            stmt = sqlite_insert(OHLCVBar).values(chunk)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["asset_id", "ts", "timeframe"],
+                set_={
+                    "open": stmt.excluded.open,
+                    "high": stmt.excluded.high,
+                    "low": stmt.excluded.low,
+                    "close": stmt.excluded.close,
+                    "volume": stmt.excluded.volume,
+                    "source": stmt.excluded.source,
+                },
+            )
+            self.db.execute(stmt)
         self.db.commit()
         return len(rows)

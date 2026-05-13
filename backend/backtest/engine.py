@@ -45,6 +45,9 @@ class BacktestConfig:
     vol_lookback: int = 20
     max_dd_pct: float | None = None
     allow_fractional: bool = False
+    # Bars per calendar year for vol annualization. 252 ≈ daily equity;
+    # see backend.analytics.periods.periods_per_year for the lookup table.
+    periods_per_year: float = 252.0
 
 
 @dataclass(slots=True)
@@ -95,6 +98,7 @@ class BacktestEngine:
             vol_lookback=config.vol_lookback,
             max_dd_pct=config.max_dd_pct,
             allow_fractional=config.allow_fractional,
+            periods_per_year=config.periods_per_year,
         )
 
     def run(self) -> BacktestResult:

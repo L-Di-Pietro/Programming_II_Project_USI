@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-import { Api, type Asset, type Strategy } from "@/api/client";
+import { Api, type Asset, type Strategy, type Timeframe } from "@/api/client";
 import { StrategyConfigForm } from "@/components/StrategyConfigForm";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -14,6 +14,25 @@ function groupByClass(assets: Asset[]): Record<string, Asset[]> {
 
 function yearsBetween(start: string, end: string): number {
   return Math.max(0, (new Date(end).getTime() - new Date(start).getTime()) / (365.25 * 24 * 3600 * 1000));
+}
+
+// Mirrors backend/analytics/periods.py.
+const BARS_PER_YEAR: Record<string, Record<Timeframe, number>> = {
+  equity: { "1d": 252,  "1h": 1638 },
+  etf:    { "1d": 252,  "1h": 1638 },
+  fx:     { "1d": 260,  "1h": 6240 },
+  crypto: { "1d": 365,  "1h": 8760 },
+};
+
+// yfinance hourly horizon — applies to equity/ETF/FX only. Crypto via
+// Binance has multi-year hourly so no cap.
+const HOURLY_HISTORY_DAYS = 730;
+const YFINANCE_HOURLY_CLASSES = new Set(["equity", "etf", "fx"]);
+
+function daysAgoISO(days: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -30,6 +49,7 @@ export function NewBacktest() {
   const [strategySlug, setStrategySlug] = useState<string | null>(null);
   const [assetClass, setAssetClass]     = useState<string>("equity");
   const [symbol, setSymbol]             = useState<string | null>(null);
+  const [timeframe, setTimeframe]       = useState<Timeframe>("1d");
   const [params, setParams]             = useState<Record<string, unknown>>({});
   const [start, setStart]               = useState("2018-01-01");
   const [end, setEnd]                   = useState(new Date().toISOString().slice(0, 10));
@@ -45,8 +65,21 @@ export function NewBacktest() {
 
   const selectedStrategy = strategies.find((s) => s.slug === strategySlug) ?? null;
 
-  const years    = yearsBetween(start, end);
-  const barCount = Math.round(years * 252);
+  const hourlyMinDate    = useMemo(() => daysAgoISO(HOURLY_HISTORY_DAYS), []);
+  const isHourlyCapped   = timeframe === "1h" && YFINANCE_HOURLY_CLASSES.has(assetClass);
+  const dateMin          = isHourlyCapped ? hourlyMinDate : undefined;
+
+  const years        = yearsBetween(start, end);
+  const barsPerYear  = BARS_PER_YEAR[assetClass]?.[timeframe] ?? 252;
+  const barCount     = Math.round(years * barsPerYear);
+
+  // When user switches into a capped (timeframe, asset_class), clamp start
+  // up so submitting doesn't trip the backend's pre-flight rejection.
+  useEffect(() => {
+    if (isHourlyCapped && start < hourlyMinDate) {
+      setStart(hourlyMinDate);
+    }
+  }, [isHourlyCapped, hourlyMinDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load assets + strategies on mount
   useEffect(() => {
@@ -92,6 +125,7 @@ export function NewBacktest() {
         commission_bps:  commissionBps,
         slippage_bps:    slippageBps,
         risk_fraction:   riskFraction,
+        timeframe,
       });
       navigate(`/backtests/${result.id}`);
     } catch (e: unknown) {
@@ -212,6 +246,35 @@ export function NewBacktest() {
             )}
           </Section>
 
+          {/* Timeframe */}
+          <Section title="Timeframe">
+            <div className="flex gap-2">
+              {(["1d", "1h"] as const).map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => setTimeframe(tf)}
+                  className={`px-4 py-1.5 rounded-md border text-[13px] transition-all ${
+                    timeframe === tf
+                      ? "bg-accent-cyan border-accent-cyan text-base font-semibold"
+                      : "border-border-subtle text-ink-muted hover:text-ink-primary hover:border-border"
+                  }`}
+                >
+                  {tf === "1d" ? "Daily" : "Hourly"}
+                </button>
+              ))}
+            </div>
+            {timeframe === "1h" && isHourlyCapped && (
+              <p className="text-[11px] text-ink-muted mt-2">
+                Hourly history limited to ~{HOURLY_HISTORY_DAYS} days for {assetClass.toUpperCase()} (yfinance constraint).
+              </p>
+            )}
+            {timeframe === "1h" && !isHourlyCapped && (
+              <p className="text-[11px] text-ink-muted mt-2">
+                Crypto hourly via Binance — multi-year history (back to ~2017 for BTC).
+              </p>
+            )}
+          </Section>
+
           {/* Backtest period */}
           <Section title="Backtest Period">
             <div className="flex items-end gap-4 flex-wrap">
@@ -221,6 +284,7 @@ export function NewBacktest() {
                   type="date"
                   className="input-base"
                   value={start}
+                  min={dateMin}
                   onChange={(e) => setStart(e.target.value)}
                 />
               </div>
@@ -230,6 +294,7 @@ export function NewBacktest() {
                   type="date"
                   className="input-base"
                   value={end}
+                  min={dateMin}
                   onChange={(e) => setEnd(e.target.value)}
                 />
               </div>
@@ -297,12 +362,13 @@ export function NewBacktest() {
             <div className="section-title">Summary</div>
             <div className="flex flex-col divide-y divide-border">
               {[
-                { label: "Strategy", val: selectedStrategy?.name ?? "—" },
-                { label: "Asset",    val: symbol ?? "—" },
-                { label: "Period",   val: years > 0 ? `${start.slice(0,4)} – ${end.slice(0,4)}` : "—" },
-                { label: "Comm.",    val: `${commissionBps} bps` },
-                { label: "Slippage", val: `${slippageBps} bps` },
-                { label: "Capital",  val: `$${initialCash.toLocaleString()}` },
+                { label: "Strategy",  val: selectedStrategy?.name ?? "—" },
+                { label: "Asset",     val: symbol ?? "—" },
+                { label: "Timeframe", val: timeframe === "1d" ? "Daily" : "Hourly" },
+                { label: "Period",    val: years > 0 ? `${start.slice(0,4)} – ${end.slice(0,4)}` : "—" },
+                { label: "Comm.",     val: `${commissionBps} bps` },
+                { label: "Slippage",  val: `${slippageBps} bps` },
+                { label: "Capital",   val: `$${initialCash.toLocaleString()}` },
               ].map((r) => (
                 <div key={r.label} className="flex justify-between items-center py-2">
                   <span className="text-ink-muted text-[12px]">{r.label}</span>

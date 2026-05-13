@@ -36,7 +36,12 @@ class SizingMode(StrEnum):
 
 
 class RiskManager:
-    """Computes order quantity from current state + target."""
+    """Computes order quantity from current state + target.
+
+    ``vol_lookback`` is measured in **bars**, not days. At 1d that's 20
+    trading days; at 1h it's 20 trading hours. The caller picks an
+    appropriate number for the timeframe.
+    """
 
     def __init__(
         self,
@@ -46,6 +51,7 @@ class RiskManager:
         vol_lookback: int = 20,
         max_dd_pct: float | None = None,
         allow_fractional: bool = False,
+        periods_per_year: float = 252.0,
     ) -> None:
         if not 0.0 < risk_fraction <= 1.0:
             raise ValueError("risk_fraction must be in (0, 1]")
@@ -55,6 +61,7 @@ class RiskManager:
         self.vol_lookback = vol_lookback
         self.max_dd_pct = max_dd_pct
         self.allow_fractional = allow_fractional
+        self.periods_per_year = periods_per_year
 
         self._peak_equity: float = 0.0
         self._halted: bool = False
@@ -122,12 +129,12 @@ class RiskManager:
         if self.sizing_mode == SizingMode.VOL_TARGET:
             log_returns = np.log(bars["close"].iloc[: bar_index + 1]).diff()
             recent = log_returns.iloc[-self.vol_lookback :]
-            realized_daily_vol = float(recent.std())
-            if realized_daily_vol <= 0 or math.isnan(realized_daily_vol):
+            realized_per_bar_vol = float(recent.std())
+            if realized_per_bar_vol <= 0 or math.isnan(realized_per_bar_vol):
                 return 0.0
-            # Annualize assuming 252 trading days; scale position so annualized
-            # vol of position = vol_target_annual.
-            realized_annual_vol = realized_daily_vol * math.sqrt(252)
+            # Annualize using the calendar-aware periods_per_year; scale
+            # position so annualized vol of position = vol_target_annual.
+            realized_annual_vol = realized_per_bar_vol * math.sqrt(self.periods_per_year)
             scale = self.vol_target_annual / realized_annual_vol
             cash_for_position = portfolio.equity * scale
             # Cap at full equity to prevent leverage > 1 in v1.
