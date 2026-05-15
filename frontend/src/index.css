@@ -27,8 +27,9 @@
   /* Primary button: cyan bg, very dark text */
   .btn-primary {
     @apply inline-flex items-center gap-1.5 px-5 py-2.5 rounded-md
-           bg-accent-cyan text-base text-sm font-semibold
+           bg-accent-cyan text-sm font-semibold
            hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition;
+    color: #0d1117;
   }
   /* Ghost button: transparent, muted text */
   .btn-ghost {

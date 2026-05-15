@@ -143,7 +143,7 @@ export function NewBacktest() {
         <div className="font-mono text-[11px] text-ink-muted tracking-[2px] uppercase">
           Running Backtest
         </div>
-        <div className="font-mono text-accent-cyan text-base">
+        <div className="font-mono text-accent-cyan text-sm">
           Simulating {selectedStrategy?.name} on {symbol}...
         </div>
         <div className="w-72 h-[3px] bg-border rounded-full overflow-hidden">
@@ -209,7 +209,7 @@ export function NewBacktest() {
                   onClick={() => setAssetClass(cls)}
                   className={`px-4 py-1.5 rounded-md border text-[13px] transition-all ${
                     assetClass === cls
-                      ? "bg-accent-cyan border-accent-cyan text-base font-semibold"
+                      ? "bg-accent-cyan border-accent-cyan text-[#0d1117] font-semibold"
                       : "border-border-subtle text-ink-muted hover:text-ink-primary hover:border-border"
                   }`}
                 >
@@ -255,7 +255,7 @@ export function NewBacktest() {
                   onClick={() => setTimeframe(tf)}
                   className={`px-4 py-1.5 rounded-md border text-[13px] transition-all ${
                     timeframe === tf
-                      ? "bg-accent-cyan border-accent-cyan text-base font-semibold"
+                      ? "bg-accent-cyan border-accent-cyan text-[#0d1117] font-semibold"
                       : "border-border-subtle text-ink-muted hover:text-ink-primary hover:border-border"
                   }`}
                 >
@@ -380,7 +380,7 @@ export function NewBacktest() {
 
           {/* Run button */}
           <button
-            className="w-full py-3.5 rounded-lg bg-accent-cyan text-base font-bold text-[15px]
+            className="w-full py-3.5 rounded-lg bg-accent-cyan text-[#0d1117] font-bold text-[15px]
                        hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
             onClick={submit}
             disabled={!symbol || !strategySlug}

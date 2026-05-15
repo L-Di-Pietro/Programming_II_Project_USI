@@ -53,7 +53,7 @@ def _start_for(asset_class: str, timeframe: str, end: datetime) -> datetime:
     730-day cliff. Everything else (including all daily) is 10 years.
     """
     if timeframe == "1h" and AssetClass(asset_class) in _YFINANCE_HOURLY_CLASSES:
-        return end - timedelta(days=_YFINANCE_HOURLY_MAX_DAYS)
+        return end - timedelta(days=_YFINANCE_HOURLY_MAX_DAYS - 5)
     return end - timedelta(days=_DAILY_HISTORY_DAYS)
 
 

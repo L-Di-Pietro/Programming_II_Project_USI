@@ -53,7 +53,7 @@ class EquityFetcher(BaseFetcher):
             )
         if timeframe == "1h":
             age_days = (datetime.utcnow() - start).days
-            if age_days > _YF_HOURLY_MAX_DAYS:
+            if age_days >= _YF_HOURLY_MAX_DAYS:
                 raise FetcherError(
                     f"yfinance hourly history is limited to {_YF_HOURLY_MAX_DAYS} days; "
                     f"requested start={start.date()} is {age_days} days old"
