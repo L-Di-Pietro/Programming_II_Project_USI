@@ -178,7 +178,10 @@ export const Api = {
     const { data } = await api.get<Trade[]>(`/backtests/${runId}/trades`);
     return data;
   },
-  async getChart(runId: number, kind: "equity" | "drawdown" | "heatmap") {
+  async getChart(
+    runId: number,
+    kind: "equity" | "drawdown" | "heatmap" | "trade_pnl" | "rolling_sharpe",
+  ) {
     const { data } = await api.get<PlotlyFigure>(`/backtests/${runId}/charts/${kind}`);
     return data;
   },

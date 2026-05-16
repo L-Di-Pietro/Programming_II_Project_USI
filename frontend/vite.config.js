@@ -22,6 +22,18 @@ export default defineConfig({
             },
         },
     },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    // Plotly is ~5 MB and is used both eagerly (chart components) and
+                    // lazily (PDF export util). Pin it to its own chunk so it's loaded
+                    // once and shared, not duplicated.
+                    plotly: ["plotly.js-dist-min"],
+                },
+            },
+        },
+    },
     test: {
         environment: "jsdom",
         globals: true,

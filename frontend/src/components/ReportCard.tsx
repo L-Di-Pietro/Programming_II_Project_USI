@@ -6,6 +6,7 @@ import { Api, type Report } from "@/api/client";
 export function ReportCard({ runId }: { runId: number }) {
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState<"initial" | "generating" | null>("initial");
+  const [downloading, setDownloading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,6 +30,20 @@ export function ReportCard({ runId }: { runId: number }) {
     }
   };
 
+  const download = async () => {
+    if (!report) return;
+    setError(null);
+    setDownloading(true);
+    try {
+      const { exportReportPdf } = await import("@/utils/exportReportPdf");
+      await exportReportPdf(runId, report);
+    } catch (e) {
+      setError(fmt(e));
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="border border-border rounded-lg overflow-hidden">
 
@@ -43,7 +58,13 @@ export function ReportCard({ runId }: { runId: number }) {
             Claude
           </span>
         </div>
-        <Actions report={report} loading={loading} onGenerate={generate} />
+        <Actions
+          report={report}
+          loading={loading}
+          downloading={downloading}
+          onGenerate={generate}
+          onDownload={download}
+        />
       </div>
 
       {/* Demo-mode banner */}
@@ -100,8 +121,14 @@ export function ReportCard({ runId }: { runId: number }) {
 }
 
 function Actions({
-  report, loading, onGenerate,
-}: { report: Report | null; loading: "initial" | "generating" | null; onGenerate: () => void }) {
+  report, loading, downloading, onGenerate, onDownload,
+}: {
+  report: Report | null;
+  loading: "initial" | "generating" | null;
+  downloading: boolean;
+  onGenerate: () => void;
+  onDownload: () => void;
+}) {
   if (loading === "generating") {
     return (
       <button className="btn-primary text-xs py-1.5 opacity-60" disabled>
@@ -121,12 +148,21 @@ function Actions({
     );
   }
   return (
-    <button
-      className="font-mono text-[11px] text-accent-cyan hover:opacity-80 underline underline-offset-2"
-      onClick={onGenerate}
-    >
-      Regenerate
-    </button>
+    <div className="flex items-center gap-4">
+      <button
+        className="font-mono text-[11px] text-accent-cyan hover:opacity-80 underline underline-offset-2 disabled:opacity-50 disabled:no-underline"
+        onClick={onDownload}
+        disabled={downloading}
+      >
+        {downloading ? "Downloading…" : "Download PDF"}
+      </button>
+      <button
+        className="font-mono text-[11px] text-accent-cyan hover:opacity-80 underline underline-offset-2"
+        onClick={onGenerate}
+      >
+        Regenerate
+      </button>
+    </div>
   );
 }
 
