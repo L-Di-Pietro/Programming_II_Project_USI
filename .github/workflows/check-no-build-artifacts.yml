@@ -1,0 +1,90 @@
+name: Check No Build Artifacts
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-no-build-artifacts:
+    name: Frontend src must be TypeScript-only
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Fail on tracked .js / .jsx / .js.map under frontend/src/
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t offenders < <(
+            git ls-files \
+              'frontend/src/**/*.js' \
+              'frontend/src/**/*.jsx' \
+              'frontend/src/**/*.js.map'
+          )
+          if [ ${#offenders[@]} -gt 0 ]; then
+            echo "::error::Found ${#offenders[@]} tracked .js/.jsx file(s) under frontend/src/."
+            echo ""
+            echo "These files must not be committed (they are TypeScript build emissions):"
+            for f in "${offenders[@]}"; do
+              echo "  - $f"
+            done
+            echo ""
+            echo "How to fix:"
+            echo "  1. Remove them:  git rm \$(git ls-files 'frontend/src/**/*.js' 'frontend/src/**/*.jsx' 'frontend/src/**/*.js.map')"
+            echo "  2. Confirm frontend/tsconfig.json has \"noEmit\": true in compilerOptions."
+            echo "  3. Re-run: cd frontend && npm run build  (no new files should appear in git status)"
+            echo "  4. Commit and push."
+            exit 1
+          fi
+
+      - name: Fail on stray .d.ts under frontend/src/ (except vite-env.d.ts)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t offenders < <(
+            git ls-files 'frontend/src/**/*.d.ts' \
+              | grep -v '^frontend/src/vite-env\.d\.ts$' \
+              || true
+          )
+          if [ ${#offenders[@]} -gt 0 ]; then
+            echo "::error::Found ${#offenders[@]} stray .d.ts file(s) under frontend/src/."
+            echo ""
+            echo "The only legitimate .d.ts in frontend/src/ is vite-env.d.ts."
+            echo "Offending files:"
+            for f in "${offenders[@]}"; do
+              echo "  - $f"
+            done
+            echo ""
+            echo "Remove them and confirm tsconfig.json has \"noEmit\": true in compilerOptions."
+            exit 1
+          fi
+
+      - name: Fail on tracked vite.config.js / vite.config.d.ts
+        shell: bash
+        run: |
+          set -euo pipefail
+          offenders=()
+          for f in frontend/vite.config.js frontend/vite.config.d.ts; do
+            if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+              offenders+=("$f")
+            fi
+          done
+          if [ ${#offenders[@]} -gt 0 ]; then
+            echo "::error::Tracked TypeScript emissions of vite.config.ts found."
+            echo ""
+            echo "These files are produced by 'tsc -b' from tsconfig.node.json and must not be tracked:"
+            for f in "${offenders[@]}"; do
+              echo "  - $f"
+            done
+            echo ""
+            echo "How to fix:"
+            echo "  1. git rm frontend/vite.config.js frontend/vite.config.d.ts"
+            echo "  2. Confirm frontend/tsconfig.node.json has \"noEmit\": true in compilerOptions."
+            echo "  3. Re-run: cd frontend && npm run build (no new files should appear)."
+            exit 1
+          fi
