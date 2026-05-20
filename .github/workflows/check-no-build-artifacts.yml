@@ -84,7 +84,33 @@ jobs:
             echo ""
             echo "How to fix:"
             echo "  1. git rm frontend/vite.config.js frontend/vite.config.d.ts"
-            echo "  2. Confirm frontend/tsconfig.node.json has \"noEmit\": true in compilerOptions."
+            echo "  2. Confirm frontend/tsconfig.node.json redirects emission via outDir to node_modules/.tmp/."
             echo "  3. Re-run: cd frontend && npm run build (no new files should appear)."
+            exit 1
+          fi
+
+      - name: Fail on tracked .tsbuildinfo files at frontend/ root
+        shell: bash
+        run: |
+          set -euo pipefail
+          offenders=()
+          for f in frontend/tsconfig.tsbuildinfo frontend/tsconfig.node.tsbuildinfo; do
+            if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
+              offenders+=("$f")
+            fi
+          done
+          if [ ${#offenders[@]} -gt 0 ]; then
+            echo "::error::Tracked TypeScript incremental-build metadata files found."
+            echo ""
+            echo "These are tsc -b's internal cache and must not be tracked:"
+            for f in "${offenders[@]}"; do
+              echo "  - $f"
+            done
+            echo ""
+            echo "How to fix:"
+            echo "  1. git rm --cached frontend/tsconfig.tsbuildinfo frontend/tsconfig.node.tsbuildinfo"
+            echo "  2. Confirm frontend/tsconfig.json has tsBuildInfoFile pointing under node_modules/.tmp/."
+            echo "  3. Confirm frontend/tsconfig.node.json has outDir under node_modules/.tmp/."
+            echo "  4. Re-run: cd frontend && npm run build (the .tsbuildinfo should land in node_modules/.tmp/)."
             exit 1
           fi

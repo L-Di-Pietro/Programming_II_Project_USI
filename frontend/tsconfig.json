@@ -17,6 +17,7 @@
     "skipLibCheck": true,
     "useDefineForClassFields": true,
     "allowSyntheticDefaultImports": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo",
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"]
