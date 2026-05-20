@@ -68,3 +68,18 @@ data_cache/
 # Logs
 logs/
 *.log
+
+# --- Frontend build artifacts that must never be committed ------------------
+# frontend/src is .ts/.tsx only; any .js/.jsx/.d.ts under src/ is a tsc
+# emission. vite-env.d.ts is the one legitimate .d.ts source file — keep it.
+frontend/src/**/*.js
+frontend/src/**/*.jsx
+frontend/src/**/*.js.map
+frontend/src/**/*.d.ts
+frontend/src/**/*.d.ts.map
+!frontend/src/vite-env.d.ts
+
+# Stray emissions from tsconfig.node.json. With noEmit:true these should
+# never appear again, but ignore them as belt-and-braces.
+frontend/vite.config.js
+frontend/vite.config.d.ts

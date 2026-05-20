@@ -149,6 +149,7 @@ In v1, `LLM_ENABLED=false` by default; the Explanation Agent uses `NullProvider`
 - **Don't use Postgres-only SQL.** Schema must run on SQLite.
 - **Don't `print()` in backend code** — use `structlog`.
 - **Don't write multi-paragraph docstrings.** One short sentence, then math/citations if needed.
+- **Don't commit frontend build artifacts.** `frontend/src/` is `.ts`/`.tsx` only — compiled `.js`/`.jsx`/`.d.ts` (other than `vite-env.d.ts`) must never be tracked. Same for `frontend/vite.config.{js,d.ts}` and `frontend/tsconfig*.tsbuildinfo` at the `frontend/` root. The tsconfig is set up so `tsc -b` writes nothing into the source tree; if anything appears there, something is misconfigured. CI workflow `check-no-build-artifacts.yml` enforces this on every PR.
 
 ---
 
