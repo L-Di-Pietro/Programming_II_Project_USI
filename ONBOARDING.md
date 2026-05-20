@@ -18,7 +18,7 @@ context, built to a production-leaning standard.
 | Database     | SQLite (dev) · Postgres-compatible schema (prod, via `DATABASE_URL`) |
 | Frontend     | React 18 · TypeScript · Vite · TailwindCSS · Plotly.js |
 | Tests        | pytest (backend) · Vitest (frontend) |
-| Data sources | yfinance · CoinGecko · ccxt/Binance · Stooq |
+| Data sources | yfinance (equity/ETF/FX/crypto) · ccxt/Binance (crypto fallback) · Stooq (FX fallback) |
 | Scheduler    | APScheduler (nightly data refresh) |
 | LLM          | Provider-agnostic; v1 ships `NullProvider`, Gemini adapter scaffolded |
 
@@ -30,8 +30,8 @@ context, built to a production-leaning standard.
 # Backend
 pip install -r requirements.txt
 python scripts/init_db.py                              # tables + seed assets
-python scripts/load_initial_data.py                    # daily, ~10y history
-python scripts/load_initial_data.py --timeframes 1d 1h # add hourly too
+python scripts/load_initial_data.py                    # daily, full listing-date history
+python scripts/load_initial_data.py --timeframes 1d 1h # add hourly (729-day cap) too
 uvicorn backend.main:app --reload                      # http://127.0.0.1:8000
 pytest                                                 # backend tests
 pytest tests/test_engine_no_lookahead.py               # the critical guard
@@ -148,16 +148,17 @@ Each asset can have bars at both resolutions in the DB simultaneously
 
 | Source          | Daily | Hourly                            |
 |-----------------|-------|-----------------------------------|
-| yfinance (eq/FX)| 10y   | **~730 days** (Yahoo cap)         |
-| Binance/ccxt (crypto) | full | **multi-year (BTC ~2017)**  |
-| CoinGecko       | full  | —                                 |
-| Stooq           | full  | —                                 |
+| yfinance (eq/ETF/FX/crypto)| full listing-date history | **~730 days** (Yahoo cap) |
+| Binance/ccxt (crypto fallback) | full | **multi-year (BTC ~2017)**  |
+| Stooq (FX fallback) | full  | —                                 |
 
-The frontend caps the date picker to today − 730d **only** when both
-Hourly and an equity/ETF/FX asset are selected. Crypto hourly is
-unconstrained. The backend `EquityFetcher` and `FXFetcher` raise
-`FetcherError` for out-of-range hourly requests, which the API
-translates to HTTP 400.
+The frontend caps the date picker to today − 730d whenever Hourly is
+selected — yfinance is the primary source across every asset class so
+the 730-day horizon applies universally. The Binance fallback inside
+`CryptoFetcher` can still serve older crypto hourly bars for ad-hoc
+requests outside the bulk loader. `EquityFetcher`, `FXFetcher`, and
+`CryptoFetcher` raise `FetcherError` for yfinance requests beyond the
+cap; the crypto path then attempts Binance before giving up.
 
 ### Annualization
 

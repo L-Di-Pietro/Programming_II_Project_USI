@@ -3,17 +3,20 @@ every seeded asset, at one or more timeframes.
 
 Run **after** ``init_db.py``::
 
-    python scripts/load_initial_data.py                   # daily, ~10y history
+    python scripts/load_initial_data.py                   # daily, full listing-date history
     python scripts/load_initial_data.py --timeframes 1d 1h  # both
 
 History windows
 ---------------
-* **Daily**: 10 years for everything.
-* **Hourly, equity/ETF/FX**: capped to ~730 days because that's Yahoo
-  Finance's hourly horizon. Older requests would return empty.
-* **Hourly, crypto**: full 10-year window — Binance via ccxt has hourly
-  candles back to ~2017 for the major pairs and silently returns no rows
-  before the listing date, so this is safe.
+* **Daily**: full listing-date history per ticker. We pass a 1970 epoch
+  ``start`` and let yfinance return whatever it has from each ticker's
+  actual inception (AAPL 1980, SPY 1993, BTC-USD 2014, …). The cleaner
+  drops the pre-listing NaNs.
+* **Hourly**: 729 days for every asset class — one day inside Yahoo
+  Finance's 730-day hourly cap, leaving a safety margin for the race
+  between computing ``end`` here and the fetcher actually calling
+  yfinance. The Binance fallback inside ``CryptoFetcher`` can still
+  serve older hourly bars for ad-hoc requests outside the bulk loader.
 
 Subsequent updates are handled by the nightly APScheduler job started inside
 ``backend.main``.
@@ -38,23 +41,33 @@ from backend.database.models import Asset, AssetClass
 log = structlog.get_logger(__name__)
 
 
-# yfinance hourly horizon — applies to equity/ETF/FX. Crypto via Binance
-# is multi-year, so we don't clamp it.
+# yfinance hourly horizon — applies to every asset class now that yfinance
+# is the primary source across equity/ETF/FX/crypto.
 _YFINANCE_HOURLY_MAX_DAYS = 730
-_YFINANCE_HOURLY_CLASSES = {AssetClass.EQUITY, AssetClass.ETF, AssetClass.FX}
-_DAILY_HISTORY_DAYS = 365 * 10
+_YFINANCE_HOURLY_CLASSES = {
+    AssetClass.EQUITY,
+    AssetClass.ETF,
+    AssetClass.FX,
+    AssetClass.CRYPTO,
+}
+# Daily floor — yfinance returns data from each ticker's listing date
+# onward, so any sufficiently old start works. We deliberately avoid
+# 1970-01-01 because yfinance treats the Unix epoch as a sentinel for
+# "no start" and falls back to a tiny window for crypto symbols. 1971
+# pre-dates every tradable security on yfinance.
+_DAILY_HISTORY_START = datetime(1971, 1, 1)
 
 
 def _start_for(asset_class: str, timeframe: str, end: datetime) -> datetime:
     """How far back to fetch for this (asset_class, timeframe).
 
-    Crypto hourly gets the full 10-year window because Binance keeps
-    multi-year hourly history. Equity/ETF/FX hourly is capped to Yahoo's
-    730-day cliff. Everything else (including all daily) is 10 years.
+    Hourly is pushed to one day inside yfinance's 730-day cap (1-day
+    safety margin for the request race). Daily uses a 1970 floor so
+    yfinance returns each ticker's full listing-date history.
     """
     if timeframe == "1h" and AssetClass(asset_class) in _YFINANCE_HOURLY_CLASSES:
-        return end - timedelta(days=_YFINANCE_HOURLY_MAX_DAYS - 5)
-    return end - timedelta(days=_DAILY_HISTORY_DAYS)
+        return end - timedelta(days=_YFINANCE_HOURLY_MAX_DAYS - 1)
+    return _DAILY_HISTORY_START
 
 
 def main() -> None:

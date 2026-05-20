@@ -2,37 +2,46 @@
 
 Two-source strategy
 -------------------
-1. **CoinGecko** — public API, no key required, generous rate limit for
-   daily data. Endpoint: ``/coins/{id}/market_chart`` returns price /
-   volume series. CoinGecko does NOT expose OHLC for free over arbitrary
-   ranges, so we resample their close-price series. **Daily only** — for
-   hourly requests we skip CoinGecko entirely.
-2. **ccxt → Binance** — true OHLCV candles, multi-year history at hourly
-   granularity. Primary source for hourly requests; daily fallback.
+1. **Primary: yfinance** — Yahoo carries crypto pairs as ``BTC-USD``,
+   ``ETH-USD``, ``SOL-USD``, etc. Free, real OHLC, deep daily history;
+   hourly limited to ~730 days back.
+2. **Fallback: ccxt → Binance** — true OHLCV candles, multi-year history
+   at hourly granularity. Used whenever yfinance fails (API hiccup, the
+   730-day hourly cap, regional issues, etc.).
+
+Timeframes
+----------
+* ``1d`` — yfinance primary, Binance fallback.
+* ``1h`` — yfinance primary (capped at ~730 days), Binance fallback for
+  older history.
 
 Symbol convention
 -----------------
-Use **CoinGecko IDs** as the canonical symbol (``bitcoin``, ``ethereum``,
-…). The Binance path maps these to Binance pairs (``BTC/USDT``, ``ETH/USDT``).
+We use the yfinance form (``BTC-USD``). The Binance fallback maps these
+to Binance trading pairs (``BTC/USDT``, ``ETH/USDT``, …).
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import ClassVar
 
 import ccxt
 import pandas as pd
-import requests
+import yfinance as yf
 
 from backend.data.fetchers.base import BaseFetcher, FetcherError
 
 
-# CoinGecko id  → Binance trading pair fallback.
-_COINGECKO_TO_BINANCE: dict[str, str] = {
-    "bitcoin": "BTC/USDT",
-    "ethereum": "ETH/USDT",
-    "solana": "SOL/USDT",
+_YF_INTERVAL: dict[str, str] = {"1d": "1d", "1h": "1h"}
+_YF_HOURLY_MAX_DAYS: int = 730
+
+
+# yfinance crypto symbol → Binance trading pair fallback.
+_YFINANCE_TO_BINANCE: dict[str, str] = {
+    "BTC-USD": "BTC/USDT",
+    "ETH-USD": "ETH/USDT",
+    "SOL-USD": "SOL/USDT",
 }
 
 # Milliseconds per bar — used to advance ccxt's paging cursor.
@@ -43,9 +52,7 @@ _STRIDE_MS: dict[str, int] = {
 
 
 class CryptoFetcher(BaseFetcher):
-    source_name: ClassVar[str] = "coingecko+ccxt"
-
-    _COINGECKO_BASE = "https://api.coingecko.com/api/v3"
+    source_name: ClassVar[str] = "yfinance+ccxt"
 
     # ------------------------------------------------------------------------
     # Public override
@@ -61,66 +68,46 @@ class CryptoFetcher(BaseFetcher):
             raise FetcherError(
                 f"CryptoFetcher does not support timeframe={timeframe!r}"
             )
-        # Hourly skips CoinGecko entirely — its free tier doesn't expose
-        # clean hourly OHLCV. Go straight to Binance.
-        if timeframe == "1h":
-            return self._fetch_binance(symbol, start, end, timeframe)
-
         try:
-            return self._fetch_coingecko(symbol, start, end)
+            return self._fetch_yfinance(symbol, start, end, timeframe)
         except Exception as primary_error:
             try:
                 return self._fetch_binance(symbol, start, end, timeframe)
             except Exception as fallback_error:
                 raise FetcherError(
-                    f"Both CoinGecko and Binance failed for {symbol}. "
+                    f"Both yfinance and Binance failed for {symbol}. "
                     f"primary={primary_error}; fallback={fallback_error}"
                 ) from fallback_error
 
     # ------------------------------------------------------------------------
-    # CoinGecko (daily only)
+    # yfinance (primary)
     # ------------------------------------------------------------------------
-    def _fetch_coingecko(self, symbol: str, start: datetime, end: datetime) -> pd.DataFrame:
-        """CoinGecko ``market_chart/range`` returns three series — prices,
-        market_caps, total_volumes — each as ``[ts_ms, value]`` pairs.
+    def _fetch_yfinance(
+        self, symbol: str, start: datetime, end: datetime, timeframe: str
+    ) -> pd.DataFrame:
+        interval = _YF_INTERVAL[timeframe]
+        if timeframe == "1h":
+            age_days = (datetime.utcnow() - start).days
+            if age_days > _YF_HOURLY_MAX_DAYS:
+                raise FetcherError(
+                    f"yfinance hourly history is limited to {_YF_HOURLY_MAX_DAYS} days; "
+                    f"requested start={start.date()} is {age_days} days old"
+                )
 
-        We get the *closing price* per day (CoinGecko's series at the daily
-        granularity is one snapshot per UTC day) and reconstruct OHLCV by
-        building open=high=low=close=that price. This is a compromise: real
-        intra-day OHLC is not exposed without a paid plan.
-        """
-        url = f"{self._COINGECKO_BASE}/coins/{symbol}/market_chart/range"
-        params = {
-            "vs_currency": "usd",
-            "from": int(start.replace(tzinfo=timezone.utc).timestamp()),
-            "to": int(end.replace(tzinfo=timezone.utc).timestamp()),
-        }
-        response = requests.get(url, params=params, timeout=20)
-        response.raise_for_status()
-        payload = response.json()
-
-        prices = payload.get("prices", [])
-        volumes = payload.get("total_volumes", [])
-        if not prices:
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(
+            start=start.strftime("%Y-%m-%d"),
+            end=(end + timedelta(days=1)).strftime("%Y-%m-%d"),
+            interval=interval,
+            auto_adjust=False,
+            actions=False,
+        )
+        if df is None or df.empty:
             return pd.DataFrame()
-
-        df_prices = pd.DataFrame(prices, columns=["ts_ms", "close"])
-        df_volumes = pd.DataFrame(volumes, columns=["ts_ms", "volume"])
-        df = df_prices.merge(df_volumes, on="ts_ms", how="left")
-        df["ts"] = pd.to_datetime(df["ts_ms"], unit="ms", utc=True).dt.tz_convert("UTC").dt.tz_localize(None)
-        df = df.set_index("ts").drop(columns=["ts_ms"])
-        # Resample to daily — CoinGecko already returns daily for >90d ranges,
-        # but we explicitly resample to be safe and deterministic.
-        df = df.resample("1D").agg({"close": "last", "volume": "sum"}).dropna(subset=["close"])
-        # Fabricate OHLC from the close. Honest: this is a known limitation.
-        df["open"] = df["close"]
-        df["high"] = df["close"]
-        df["low"] = df["close"]
-        df["volume"] = df["volume"].fillna(0.0)
-        return df[["open", "high", "low", "close", "volume"]]
+        return df
 
     # ------------------------------------------------------------------------
-    # Binance via ccxt — gives real OHLCV candles
+    # Binance via ccxt (fallback) — gives real OHLCV candles
     # ------------------------------------------------------------------------
     def _fetch_binance(
         self,
@@ -129,11 +116,11 @@ class CryptoFetcher(BaseFetcher):
         end: datetime,
         timeframe: str = "1d",
     ) -> pd.DataFrame:
-        pair = _COINGECKO_TO_BINANCE.get(symbol)
+        pair = _YFINANCE_TO_BINANCE.get(symbol)
         if pair is None:
             raise FetcherError(
                 f"No Binance pair mapping for symbol {symbol!r}. "
-                f"Add it to _COINGECKO_TO_BINANCE."
+                f"Add it to _YFINANCE_TO_BINANCE."
             )
 
         stride_ms = _STRIDE_MS[timeframe]

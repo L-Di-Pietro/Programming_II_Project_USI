@@ -20,10 +20,10 @@ numpy==2.1.2
 scipy==1.14.1                   # statistics for KPI calculations
 
 # --- Market data fetchers ----------------------------------------------------
-yfinance==0.2.46                # equities + FX
-pandas-datareader==0.10.0       # Stooq fallback
-ccxt==4.4.20                    # crypto exchange unified API
-requests==2.32.3                # CoinGecko & general HTTP
+yfinance==0.2.46                # equities, FX, crypto (primary across all classes)
+pandas-datareader==0.10.0       # Stooq FX fallback
+ccxt==4.4.20                    # Binance crypto fallback (real OHLCV, multi-year hourly)
+requests==2.32.3                # general HTTP (transitive dep of yfinance/pandas-datareader)
 
 # --- Plotting ----------------------------------------------------------------
 plotly==5.24.1                  # build figure JSON server-side; render client-side

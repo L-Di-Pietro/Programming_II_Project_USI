@@ -36,8 +36,8 @@ SEED_ASSETS: list[dict[str, str]] = [
     {"symbol": "TSLA", "asset_class": AssetClass.EQUITY, "name": "Tesla, Inc.", "exchange": "NASDAQ", "currency": "USD"},
     # ETF (S&P 500)
     {"symbol": "SPY", "asset_class": AssetClass.ETF, "name": "SPDR S&P 500 ETF", "exchange": "NYSE", "currency": "USD"},
-    # Crypto (CoinGecko id)
-    {"symbol": "bitcoin", "asset_class": AssetClass.CRYPTO, "name": "Bitcoin", "exchange": "coingecko", "currency": "USD"},
+    # Crypto (yfinance form)
+    {"symbol": "BTC-USD", "asset_class": AssetClass.CRYPTO, "name": "Bitcoin", "exchange": "yfinance", "currency": "USD"},
     # FX (yfinance form)
     {"symbol": "EURUSD=X", "asset_class": AssetClass.FX, "name": "EUR / USD", "exchange": "OTC", "currency": "USD"},
 ]

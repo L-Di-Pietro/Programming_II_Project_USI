@@ -1,6 +1,6 @@
 """BaseFetcher — abstract base class for all market-data fetchers.
 
-Every concrete fetcher (yfinance, CoinGecko, Stooq, …) returns a DataFrame
+Every concrete fetcher (yfinance, ccxt/Binance, Stooq, …) returns a DataFrame
 with the same shape and dtypes so downstream code (cleaner, DB layer) doesn't
 care where bars came from.
 """

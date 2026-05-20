@@ -7,19 +7,23 @@ quirks, and the fallback chain.
 
 | Source         | Daily        | Hourly                     | Notes                                              |
 |----------------|--------------|----------------------------|----------------------------------------------------|
-| yfinance       | full history | **~730-day cap**           | Yahoo limits intraday history; used for equity & FX |
-| Binance (ccxt) | full history | **multi-year (back to ~2017)** | Primary for crypto hourly; daily fallback        |
-| CoinGecko      | full history | —                          | Free tier exposes only daily granularity            |
+| yfinance       | full history | **~730-day cap**           | Yahoo limits intraday history; used for equity, FX, and crypto |
+| Binance (ccxt) | full history | **multi-year (back to ~2017)** | Crypto fallback (daily + hourly) when yfinance fails or hits the 730-day cap |
 | Stooq          | full history | —                          | EOD only                                            |
 
-The bulk loader (`scripts/load_initial_data.py`) takes this asymmetry
-into account: equity/ETF/FX hourly is requested for the last 730 days
-only, crypto hourly is requested for the full 10-year window (Binance
-returns whatever it has from the listing date onward).
+The bulk loader (`scripts/load_initial_data.py`) pulls **full
+listing-date history** for daily — it passes a 1970 epoch as `start` and
+yfinance returns whatever each ticker has from inception (AAPL since
+1980, SPY since 1993, BTC-USD since 2014, etc.); the cleaner drops the
+NaN pre-history. Hourly requests are pushed to **729 days** (one day
+inside Yahoo's 730-day cap, as a safety margin against the request
+race). The Binance fallback inside `CryptoFetcher` can still serve
+older crypto hourly data for ad-hoc requests outside the bulk loader.
 
 ## yfinance (Yahoo Finance)
 
-**Used for:** equities, ETFs, FX (`EURUSD=X` form). Daily and hourly.
+**Used for:** equities, ETFs, FX (`EURUSD=X` form), crypto (`BTC-USD`
+form). Daily and hourly.
 
 **Pros:** free, no API key, broad coverage, deep daily history (1970s+ for
 major US tickers), auto-adjusts for splits and dividends.
@@ -34,40 +38,23 @@ major US tickers), auto-adjusts for splits and dividends.
   maintainers patch yfinance fast but expect occasional release upgrades.
 
 **Settings used:** `auto_adjust=True` for equities (so `close` is split-
-and dividend-adjusted); `auto_adjust=False` for FX (no corporate actions
-to adjust for). `interval` is `"1d"` or `"1h"` based on request.
-
-## CoinGecko
-
-**Used for:** crypto, daily timeframe only.
-
-**Pros:** free public API, no key required, generous rate limits for daily
-data.
-
-**Cons:**
-- Free tier exposes only daily prices, not OHLC over arbitrary ranges —
-  we synthesise OHLC by setting open=high=low=close from the daily close.
-  This is a known limitation; the Pro tier exposes real OHLC.
-- For **hourly** crypto requests, this fetcher is skipped entirely — the
-  free CoinGecko API doesn't expose hourly cleanly. We route directly to
-  Binance.
-- Symbol convention is CoinGecko ids (`bitcoin`, `ethereum`, …), not
-  exchange tickers.
-
-**Endpoint:** `GET /coins/{id}/market_chart/range`.
+and dividend-adjusted); `auto_adjust=False` for FX and crypto (no
+corporate actions to adjust for). `interval` is `"1d"` or `"1h"` based
+on request.
 
 ## ccxt + Binance
 
-**Used for:** crypto hourly (primary), crypto daily (fallback after
-CoinGecko).
+**Used for:** crypto fallback (daily + hourly) when yfinance fails or
+the request is older than yfinance's 730-day hourly horizon.
 
 **Pros:** real OHLC candles, very high rate limits, **multi-year hourly
 history** for major pairs (BTC ~2017, ETH ~2018, SOL ~2020 — back to
 each pair's listing date).
 
 **Cons:**
-- Binance lists by trading pair (`BTC/USDT`), not coin id. We maintain a
-  mapping in `backend/data/fetchers/crypto_fetcher.py:_COINGECKO_TO_BINANCE`.
+- Binance lists by trading pair (`BTC/USDT`), not the yfinance form. We
+  maintain a mapping in
+  `backend/data/fetchers/crypto_fetcher.py:_YFINANCE_TO_BINANCE`.
 - `fetch_ohlcv` is paginated at 1000 candles per call; we loop until
   the requested range is covered. The stride between calls is the
   timeframe (86_400_000 ms for daily, 3_600_000 ms for hourly).
