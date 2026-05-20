@@ -56,7 +56,6 @@ export interface BacktestRequest {
   slippage_bps?: number;
   risk_fraction?: number;
   sizing_mode?: "fixed_fraction" | "vol_target";
-  allow_fractional?: boolean;
   max_dd_pct?: number | null;
   timeframe?: Timeframe;
 }
