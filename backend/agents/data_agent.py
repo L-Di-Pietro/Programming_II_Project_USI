@@ -97,7 +97,8 @@ class DataAgent(BaseAgent[DataAgentInput, DataAgentOutput]):
 
         end = payload.end or datetime.utcnow()
         # If we already have data, only fetch the gap (incremental). Otherwise
-        # default to 10 years.
+        # use a 1970 floor so yfinance returns the ticker's full listing-date
+        # history; the cleaner drops the NaN pre-history.
         last_ts = self._last_bar_ts(asset.id, payload.timeframe)
         if payload.start is not None:
             start = payload.start
@@ -105,7 +106,10 @@ class DataAgent(BaseAgent[DataAgentInput, DataAgentOutput]):
             # Re-fetch the last bar too, in case it was incomplete.
             start = last_ts - timedelta(days=1)
         else:
-            start = end - timedelta(days=365 * 10)
+            # 1971 (not 1970) — yfinance treats the Unix epoch as "no start"
+            # and returns a tiny window for crypto symbols. 1971 pre-dates
+            # every tradable security yfinance carries.
+            start = datetime(1971, 1, 1)
 
         # FetcherError (e.g., out-of-range hourly request) propagates as-is;
         # the API surface inspects the cause on AgentError to translate to

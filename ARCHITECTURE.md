@@ -55,8 +55,9 @@ A deep-dive into the design of QuantBacktest. Read [`README.md`](./README.md) fi
             ┌──────────────┴──────────────┐
             │                              │
        ┌────▼─────┐ ┌────────────┐ ┌──────▼──────┐
-       │ yfinance │ │ CoinGecko  │ │   Stooq     │
-       │  + Stooq │ │  + ccxt    │ │  (FX fb)    │
+       │ yfinance │ │   ccxt /   │ │   Stooq     │
+       │ eq/ETF/  │ │  Binance   │ │  (FX fb)    │
+       │ FX/crypto│ │ (crypto fb)│ │             │
        └──────────┘ └────────────┘ └─────────────┘
 ```
 
@@ -199,7 +200,7 @@ We do **not** hit external APIs during a backtest. Period. Backtests read from t
 ```
 BaseFetcher (ABC)
 ├── EquityFetcher    → yfinance Ticker.history()
-├── CryptoFetcher    → CoinGecko market_chart API, ccxt/Binance fallback
+├── CryptoFetcher    → yfinance Ticker.history(), ccxt/Binance fallback
 └── FXFetcher        → yfinance EURUSD=X, Stooq fallback via pandas-datareader
 ```
 

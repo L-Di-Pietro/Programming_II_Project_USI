@@ -71,7 +71,12 @@ class OHLCVCleaner:
         # Accepted as str for ergonomic call sites; _target_index raises on
         # unknown combinations. Allowed: "1d", "1h".
         self.timeframe: str = timeframe
-        self._nyse = ec.get_calendar("XNYS") if calendar == "nyse" else None
+        # Build the NYSE calendar with a deep start so we can reindex
+        # listing-date-deep equity history (AAPL 1980, KO 1962, …). Default
+        # XNYS only goes back to ~2006 which would crash on old daily fetches.
+        self._nyse = (
+            ec.get_calendar("XNYS", start="1900-01-01") if calendar == "nyse" else None
+        )
 
     # ------------------------------------------------------------------------
     # Public entrypoint
@@ -229,7 +234,7 @@ class OHLCVCleaner:
     @staticmethod
     def _crypto_daily_index(start: datetime, end: datetime) -> pd.DatetimeIndex:
         # Floor to midnight UTC so the grid aligns with source data
-        # (CoinGecko/Binance daily candles are at 00:00 UTC).
+        # (yfinance/Binance daily candles are at 00:00 UTC).
         s = pd.Timestamp(start).normalize()
         e = pd.Timestamp(end).normalize()
         return pd.date_range(s, e, freq="D", name="ts")

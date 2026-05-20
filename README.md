@@ -40,7 +40,7 @@ Retail quantitative traders lose money for two related reasons:
 | Backend | Python 3.11+ · FastAPI · SQLAlchemy 2.x · Pydantic v2 |
 | Database (dev) | SQLite |
 | Database (prod-ready) | PostgreSQL 15+ (drop-in replacement via `DATABASE_URL`) |
-| Data sources | yfinance, CoinGecko, ccxt/Binance, Stooq |
+| Data sources | yfinance (equity/ETF/FX/crypto), ccxt/Binance (crypto fallback), Stooq (FX fallback) |
 | Frontend | React 18 · TypeScript · Vite · TailwindCSS · Plotly.js |
 | Scheduler | APScheduler (nightly data refresh) |
 | Tests | pytest · pytest-asyncio · Vitest |
@@ -68,7 +68,7 @@ pip install -r requirements.txt
 
 cp .env.example .env                   # then edit values if you wish
 python scripts/init_db.py              # creates SQLite DB & seeds asset list
-python scripts/load_initial_data.py    # bulk-fetches ~10y of historical data
+python scripts/load_initial_data.py    # bulk-fetches each ticker's full listing-date history
 ```
 
 ### 2. Run the backend
@@ -120,7 +120,7 @@ Programming_II_Project_USI/
 │   ├── api/                           ← REST routes & Pydantic schemas
 │   ├── analytics/                     ← KPIs & chart payload builders
 │   ├── backtest/                      ← event loop, portfolio, execution, risk
-│   ├── data/                          ← fetchers (yfinance, CoinGecko, Stooq) + cleaner
+│   ├── data/                          ← fetchers (yfinance, ccxt/Binance, Stooq) + cleaner
 │   ├── database/                      ← SQLAlchemy models & connection
 │   ├── llm/                           ← LLMProvider abstraction (Null + Gemini)
 │   └── strategies/                    ← 4 trading strategies + base
@@ -155,7 +155,7 @@ For the deep-dive, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 ## Known limitations (v1)
 
 - **Survivorship bias**: yfinance only carries *currently-listed* tickers. Backtests on a fixed equity universe therefore over-state historical returns. We document this rather than hide it; serious users would need a paid delisted-aware data source.
-- **Hourly history horizon**: equity and FX hourly data is limited to ~730 days back by yfinance — the frontend caps the date picker accordingly. Crypto hourly via Binance is multi-year (BTC back to ~2017) and is **not** capped.
+- **Hourly history horizon**: all hourly data is limited to ~730 days back by yfinance (now the primary source across every asset class) — the frontend caps the date picker accordingly. The Binance fallback inside `CryptoFetcher` can still serve older crypto hourly bars for ad-hoc requests.
 - **Single-asset strategies**: each backtest run targets exactly one asset. Portfolio-level (multi-asset) strategies are out of scope for v1.
 - **No live trading / paper trading**: this tool is for research, not execution.
 - **LLM disabled in v1**: the Explanation Agent ships with a `NullProvider` that returns canned text. Activating Google Gemini is a follow-up task.
