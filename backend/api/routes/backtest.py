@@ -68,7 +68,6 @@ def submit_backtest(
                 slippage_bps=request.slippage_bps,
                 risk_fraction=request.risk_fraction,
                 sizing_mode=sizing,
-                allow_fractional=request.allow_fractional,
                 max_dd_pct=request.max_dd_pct,
                 timeframe=request.timeframe.value,
             )

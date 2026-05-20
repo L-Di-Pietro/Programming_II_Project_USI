@@ -85,7 +85,6 @@ class BacktestRequest(BaseModel):
     slippage_bps: float = Field(default=2.0, ge=0)
     risk_fraction: float = Field(default=1.0, gt=0, le=1.0)
     sizing_mode: str = Field(default="fixed_fraction")
-    allow_fractional: bool = False
     max_dd_pct: float | None = Field(default=None, ge=0, le=1.0)
     timeframe: Timeframe = Field(
         default=Timeframe.DAILY,

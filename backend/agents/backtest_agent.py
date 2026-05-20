@@ -26,6 +26,7 @@ from backend.backtest.engine import BacktestConfig, run_backtest
 from backend.backtest.risk import SizingMode
 from backend.database.models import (
     Asset,
+    AssetClass,
     BacktestRun,
     EquityPoint,
     Metric,
@@ -37,6 +38,11 @@ from backend.database.models import (
     TradeSide,
 )
 from backend.strategies import get_strategy
+
+
+def _allows_fractional(asset_class: str) -> bool:
+    """Crypto and FX trade in fractional units; equities/ETFs in whole shares."""
+    return asset_class in (AssetClass.CRYPTO, AssetClass.FX)
 
 
 @dataclass(slots=True)
@@ -52,7 +58,6 @@ class BacktestAgentInput:
     sizing_mode: SizingMode = SizingMode.FIXED_FRACTION
     risk_fraction: float = 1.0
     timeframe: str = Timeframe.DAILY
-    allow_fractional: bool = False
     max_dd_pct: float | None = None
 
 
@@ -103,7 +108,7 @@ class BacktestAgent(BaseAgent[BacktestAgentInput, BacktestAgentOutput]):
                 slippage_bps=payload.slippage_bps,
                 sizing_mode=payload.sizing_mode,
                 risk_fraction=payload.risk_fraction,
-                allow_fractional=payload.allow_fractional,
+                allow_fractional=_allows_fractional(asset.asset_class),
                 max_dd_pct=payload.max_dd_pct,
                 periods_per_year=ppy,
             )
