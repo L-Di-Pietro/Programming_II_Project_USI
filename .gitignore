@@ -27,8 +27,10 @@ dist/
 *.whl
 
 # --- Database ----------------------------------------------------------------
-quantbacktest.db
-quantbacktest.db-journal
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
 *.sqlite3
 
 # --- Local config ------------------------------------------------------------
