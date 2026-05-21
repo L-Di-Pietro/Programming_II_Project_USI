@@ -20,6 +20,41 @@ const STRATEGY_META: Record<string, StrategyMeta> = {
     assets: ["Equities", "FX", "Crypto"],
     profile: { cagr: 0.12, winRate: 0.42 },
   },
+  "macd-crossover": {
+    abbr: "MACD",
+    complexity: 2,
+    badge: "Popular",
+    assets: ["Equities", "FX", "Crypto"],
+    profile: { cagr: 0.14, winRate: 0.46 },
+  },
+  "ichimoku-cloud": {
+    abbr: "ICH",
+    complexity: 3,
+    badge: null,
+    assets: ["Equities", "FX", "Crypto"],
+    profile: { cagr: 0.15, winRate: 0.48 },
+  },
+  "donchian-breakout": {
+    abbr: "DON",
+    complexity: 1,
+    badge: "Turtle",
+    assets: ["Equities", "FX", "Crypto"],
+    profile: { cagr: 0.17, winRate: 0.35 },
+  },
+  "keltner-channels": {
+    abbr: "KC",
+    complexity: 2,
+    badge: null,
+    assets: ["Equities", "FX", "Crypto"],
+    profile: { cagr: 0.13, winRate: 0.40 },
+  },
+  "time-series-momentum": {
+    abbr: "TSM",
+    complexity: 1,
+    badge: "Academic",
+    assets: ["Equities", "FX", "Crypto"],
+    profile: { cagr: 0.16, winRate: 0.44 },
+  },
   "rsi-mean-reversion": {
     abbr: "RSI-MR",
     complexity: 1,
@@ -34,12 +69,19 @@ const STRATEGY_META: Record<string, StrategyMeta> = {
     assets: ["Equities", "FX", "Crypto"],
     profile: { cagr: 0.11, winRate: 0.55 },
   },
-  "donchian-breakout": {
-    abbr: "DON",
+  "stochastic-oscillator": {
+    abbr: "STO",
     complexity: 1,
-    badge: "Turtle",
+    badge: null,
+    assets: ["Equities", "FX"],
+    profile: { cagr: 0.10, winRate: 0.58 },
+  },
+  "cci": {
+    abbr: "CCI",
+    complexity: 2,
+    badge: null,
     assets: ["Equities", "FX", "Crypto"],
-    profile: { cagr: 0.17, winRate: 0.35 },
+    profile: { cagr: 0.12, winRate: 0.57 },
   },
 };
 
@@ -50,7 +92,7 @@ const COMPLEXITY_COLOR: Record<number, string> = {
   3: "text-accent-red",
 };
 
-const CATEGORIES = ["All", "Trend Following", "Mean Reversion"];
+const CATEGORIES = ["All", "Trend Following", "Momentum", "Breakout", "Mean Reversion"];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function Strategies() {

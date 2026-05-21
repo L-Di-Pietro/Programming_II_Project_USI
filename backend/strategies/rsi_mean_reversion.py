@@ -95,7 +95,9 @@ class RSIMeanReversionStrategy(BaseStrategy):
         avg_gain = gain.ewm(alpha=1.0 / window, adjust=False, min_periods=window).mean()
         avg_loss = loss.ewm(alpha=1.0 / window, adjust=False, min_periods=window).mean()
 
-        # Avoid division by zero — when avg_loss is 0, RSI is 100.
-        rs = avg_gain / avg_loss.replace(0.0, pd.NA)
+        # Avoid division by zero — when avg_loss is 0, RSI is 100. Using
+        # numpy.nan (rather than pandas.NA) keeps the result float-typed so
+        # downstream fillna does not trigger an object-dtype downcast warning.
+        rs = avg_gain / avg_loss.replace(0.0, float("nan"))
         rsi = 100.0 - 100.0 / (1.0 + rs)
         return rsi.fillna(100.0).clip(0.0, 100.0)
