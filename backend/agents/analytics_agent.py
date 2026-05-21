@@ -22,7 +22,15 @@ from backend.analytics.visualizations import (
     build_rolling_sharpe_figure,
     build_trade_pnl_figure,
 )
-from backend.database.models import EquityPoint, Metric, Trade
+from backend.database.models import (
+    Asset,
+    BacktestRun,
+    BenchmarkEquityPoint,
+    BenchmarkKind,
+    EquityPoint,
+    Metric,
+    Trade,
+)
 
 
 ChartKind = Literal["equity", "drawdown", "heatmap", "trade_pnl", "rolling_sharpe"]
@@ -87,7 +95,9 @@ class AnalyticsAgent(BaseAgent[AnalyticsAgentInput, AnalyticsAgentOutput]):
         if equity.empty:
             return {}
         if kind == "equity":
-            return build_equity_figure(equity)
+            benchmarks = self._load_benchmark_series(run_id)
+            labels = self._benchmark_labels(run_id)
+            return build_equity_figure(equity, benchmarks=benchmarks, benchmark_labels=labels)
         if kind == "drawdown":
             return build_drawdown_figure(equity)
         if kind == "heatmap":
@@ -118,3 +128,39 @@ class AnalyticsAgent(BaseAgent[AnalyticsAgentInput, AnalyticsAgentOutput]):
             index=pd.DatetimeIndex([r.ts for r in rows], name="ts"),
             name="equity",
         )
+
+    def _load_benchmark_series(self, run_id: int) -> dict[str, pd.Series]:
+        """Return ``{kind: equity_series}`` for every benchmark stored on this run."""
+        rows = self.db.execute(
+            select(BenchmarkEquityPoint)
+            .where(BenchmarkEquityPoint.run_id == run_id)
+            .order_by(BenchmarkEquityPoint.kind, BenchmarkEquityPoint.ts)
+        ).scalars().all()
+        if not rows:
+            return {}
+        by_kind: dict[str, list[BenchmarkEquityPoint]] = {}
+        for r in rows:
+            by_kind.setdefault(r.kind, []).append(r)
+        return {
+            kind: pd.Series(
+                [r.equity for r in points],
+                index=pd.DatetimeIndex([r.ts for r in points], name="ts"),
+                name=kind,
+            )
+            for kind, points in by_kind.items()
+        }
+
+    def _benchmark_labels(self, run_id: int) -> dict[str, str]:
+        """Legend labels keyed by benchmark kind, including the asset symbol."""
+        run = self.db.get(BacktestRun, run_id)
+        if run is None:
+            return {}
+        asset = self.db.get(Asset, run.asset_id)
+        symbol = asset.symbol if asset is not None else ""
+        labels: dict[str, str] = {
+            str(BenchmarkKind.SPY_BUYHOLD): "Buy & Hold SPY",
+        }
+        labels[str(BenchmarkKind.ASSET_BUYHOLD)] = (
+            f"Buy & Hold {symbol}" if symbol else "Buy & Hold"
+        )
+        return labels
