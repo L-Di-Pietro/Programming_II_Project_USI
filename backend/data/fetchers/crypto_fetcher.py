@@ -41,6 +41,8 @@ _YF_HOURLY_MAX_DAYS: int = 730
 _YFINANCE_TO_BINANCE: dict[str, str] = {
     "BTC-USD": "BTC/USDT",
     "ETH-USD": "ETH/USDT",
+    "BNB-USD": "BNB/USDT",
+    "XRP-USD": "XRP/USDT",
     "SOL-USD": "SOL/USDT",
 }
 
