@@ -35,6 +35,19 @@ function daysAgoISO(days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Cosmetic pipeline steps cycled through on the loading screen while the
+// backtest API call is in flight — purely UI, not tied to real progress.
+const PIPELINE_STEPS = [
+  "Ingesting historical data...",
+  "Cleaning & aligning price series...",
+  "Generating strategy signals...",
+  "Simulating order execution...",
+  "Applying commission & slippage...",
+  "Calculating portfolio equity...",
+  "Computing risk metrics...",
+  "Building performance report...",
+];
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export function NewBacktest() {
   const navigate       = useNavigate();
@@ -44,6 +57,10 @@ export function NewBacktest() {
   const [strategies, setStrategies] = useState<Strategy[]>([]);
   const [error, setError]           = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Loading-screen animation state.
+  const [stepIndex, setStepIndex]   = useState(0);
+  const [progress, setProgress]     = useState(0);
 
   // Form state
   const [strategySlug, setStrategySlug] = useState<string | null>(null);
@@ -109,9 +126,27 @@ export function NewBacktest() {
     setSymbol(classAssets[0]?.symbol ?? null);
   }, [assetClass]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // While submitting: cycle the status message and ease the progress bar
+  // toward ~80% (it jumps to 100% when the response lands, in submit()).
+  useEffect(() => {
+    if (!submitting) return;
+    const stepTimer = setInterval(() => {
+      setStepIndex((i) => (i + 1) % PIPELINE_STEPS.length);
+    }, 350);
+    const progressTimer = setInterval(() => {
+      setProgress((p) => (p >= 80 ? p : p + (80 - p) * 0.08));
+    }, 100);
+    return () => {
+      clearInterval(stepTimer);
+      clearInterval(progressTimer);
+    };
+  }, [submitting]);
+
   // Submit
   const submit = async () => {
     if (!symbol || !strategySlug) return;
+    setStepIndex(0);
+    setProgress(0);
     setSubmitting(true);
     setError(null);
     try {
@@ -127,11 +162,12 @@ export function NewBacktest() {
         risk_fraction:   riskFraction,
         timeframe,
       });
-      navigate(`/backtests/${result.id}`);
+      // Snap the bar to 100%, let it render briefly, then go to results.
+      setProgress(100);
+      setTimeout(() => navigate(`/backtests/${result.id}`), 250);
     } catch (e: unknown) {
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setError(detail ?? String(e));
-    } finally {
       setSubmitting(false);
     }
   };
@@ -139,18 +175,30 @@ export function NewBacktest() {
   // ── Loading screen while submitting ───────────────────────────────────────
   if (submitting) {
     return (
-      <div className="flex flex-col items-center justify-center h-[70vh] gap-6">
-        <div className="font-mono text-[11px] text-ink-muted tracking-[2px] uppercase">
+      <div className="flex flex-col items-center justify-center min-h-[78vh] bg-base px-6">
+        {/* 1. Header */}
+        <div className="font-mono text-[11px] uppercase tracking-[2px] text-ink-muted">
           Running Backtest
         </div>
-        <div className="font-mono text-accent-cyan text-sm">
-          Simulating {selectedStrategy?.name} on {symbol}...
+
+        {/* 2. Cycling status message with blinking cursor */}
+        <div className="font-mono text-accent-cyan text-base mt-4">
+          {PIPELINE_STEPS[stepIndex]}
+          <span className="animate-blink">_</span>
         </div>
-        <div className="w-72 h-[3px] bg-border rounded-full overflow-hidden">
-          <div className="h-full bg-accent-cyan rounded-full animate-pulse w-3/5" />
+
+        {/* 3. Progress bar — eases to ~80%, snaps to 100% on response */}
+        <div className="w-72 h-[3px] rounded-full overflow-hidden mt-5 bg-border">
+          <div
+            className="h-full bg-accent-cyan transition-[width] duration-200 ease-out"
+            style={{ width: `${progress}%` }}
+          />
         </div>
-        <div className="font-mono text-xs text-ink-muted">
-          {symbol} &middot; {start.slice(0, 4)}&ndash;{end.slice(0, 4)}
+
+        {/* 4. Context line */}
+        <div className="font-mono text-xs text-ink-muted mt-4">
+          {selectedStrategy?.name ?? "—"} &middot; {symbol} &middot;{" "}
+          {start.slice(0, 4)}&ndash;{end.slice(0, 4)}
         </div>
       </div>
     );

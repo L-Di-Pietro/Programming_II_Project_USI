@@ -11,24 +11,6 @@ const PLATFORM_STATS = [
   { val: "1D",  label: "Data Interval" },
 ];
 
-const FEATURE_CARDS = [
-  {
-    icon: "⚡",
-    title: "Event-Driven Engine",
-    desc: "Bar-by-bar simulation prevents look-ahead bias. Every signal fires on the close of the prior bar.",
-  },
-  {
-    icon: "🔬",
-    title: "Stress Testing",
-    desc: "Adjust commission (0–2%) and slippage (0–1%) to find the friction floor where your edge disappears.",
-  },
-  {
-    icon: "🤖",
-    title: "AI Explainer",
-    desc: "Get a plain-English breakdown of your results, regime analysis, and improvement suggestions.",
-  },
-];
-
 // ── Component ─────────────────────────────────────────────────────────────────
 export function Dashboard() {
   const [runs, setRuns] = useState<BacktestSummary[]>([]);
@@ -162,20 +144,6 @@ export function Dashboard() {
                 View
               </Link>
             </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Feature cards ─────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-0 mx-10 mt-10 border border-border rounded-lg overflow-hidden">
-        {FEATURE_CARDS.map((card, i) => (
-          <div
-            key={card.title}
-            className={`bg-surface p-6 ${i < 2 ? "border-r border-border" : ""}`}
-          >
-            <div className="text-2xl mb-3">{card.icon}</div>
-            <div className="text-ink-primary font-semibold text-sm mb-2">{card.title}</div>
-            <div className="text-ink-muted text-[13px] leading-relaxed">{card.desc}</div>
           </div>
         ))}
       </div>
