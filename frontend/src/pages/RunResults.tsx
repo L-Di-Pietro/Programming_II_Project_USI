@@ -32,7 +32,12 @@ export function RunResults() {
   const [drawdownFig, setDrawdownFig] = useState<PlotlyFigure["figure"] | null>(null);
   const [equityData,  setEquityData]  = useState<EquityPoint[] | null>(null);
   const [trades,      setTrades]      = useState<Trade[]>([]);
-  const [runDates,    setRunDates]    = useState<{ start: string; end: string; timeframe: string } | null>(null);
+  const [runInfo,     setRunInfo]     = useState<{
+    strategyName: string;
+    asset: string;
+    startYear: string;
+    endYear: string;
+  } | null>(null);
   const [error,       setError]       = useState<string | null>(null);
   const [activeChart, setActiveChart] = useState<ChartTab>("equity");
 
@@ -55,10 +60,11 @@ export function RunResults() {
         setDrawdownFig(dd.figure);
         setEquityData(ev);
         setTrades(ts);
-        setRunDates({
-          start: run.start_date.slice(0, 4),
-          end: run.end_date.slice(0, 4),
-          timeframe: run.timeframe,
+        setRunInfo({
+          strategyName: run.strategy_name,
+          asset: run.asset_symbol,
+          startYear: run.start_date.slice(0, 4),
+          endYear: run.end_date.slice(0, 4),
         });
       })
       .catch((e) => { if (active) setError(String(e)); });
@@ -81,16 +87,21 @@ export function RunResults() {
               Backtest
             </Link>
             <span className="text-border-subtle">/</span>
-            <span className="text-accent-cyan font-mono font-medium">Run #{id}</span>
-            {runDates && (
+            {runInfo && (
               <>
+                <Link
+                  to="/strategies"
+                  className="text-accent-cyan font-medium hover:underline underline-offset-2"
+                >
+                  {runInfo.strategyName}
+                </Link>
                 <span className="text-border-subtle">&middot;</span>
                 <span className="font-mono text-[12px] text-ink-muted">
-                  {runDates.start}&ndash;{runDates.end}
+                  {runInfo.asset}
                 </span>
                 <span className="text-border-subtle">&middot;</span>
                 <span className="font-mono text-[12px] text-ink-muted">
-                  {runDates.timeframe === "1h" ? "Hourly" : "Daily"}
+                  {runInfo.startYear}&ndash;{runInfo.endYear}
                 </span>
               </>
             )}

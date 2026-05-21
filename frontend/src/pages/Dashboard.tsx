@@ -124,10 +124,10 @@ export function Dashboard() {
             style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 1fr" }}
           >
             <div className="text-ink-primary text-sm font-medium flex items-center">
-              {r.strategy_id}
+              {r.strategy_name}
             </div>
             <div className="font-mono text-[12px] text-ink-muted flex items-center">
-              {r.asset_id}
+              {r.asset_symbol}
             </div>
             <div className="font-mono text-[11px] text-ink-muted flex items-center">
               {r.start_date.slice(0, 10)} &ndash; {r.end_date.slice(0, 10)}

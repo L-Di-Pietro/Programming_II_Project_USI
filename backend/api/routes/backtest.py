@@ -6,7 +6,7 @@ from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from backend.agents.analytics_agent import AnalyticsAgent, AnalyticsAgentInput
 from backend.agents.backtest_agent import BacktestAgent, BacktestAgentInput
@@ -26,6 +26,24 @@ from backend.database import get_session
 from backend.database.models import Asset, BacktestRun, EquityPoint, Trade
 
 router = APIRouter(prefix="/backtests", tags=["backtests"])
+
+
+def _to_summary(run: BacktestRun) -> BacktestSummary:
+    """Enrich a run with its strategy name + asset symbol for the API payload."""
+    return BacktestSummary(
+        id=run.id,
+        strategy_id=run.strategy_id,
+        strategy_name=run.strategy.name,
+        asset_id=run.asset_id,
+        asset_symbol=run.asset.symbol,
+        timeframe=run.timeframe,
+        start_date=run.start_date,
+        end_date=run.end_date,
+        status=run.status,
+        error_message=run.error_message,
+        created_at=run.created_at,
+        completed_at=run.completed_at,
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -77,9 +95,12 @@ def submit_backtest(
 
     # Return the latest run (just inserted by the agent) for this user/strategy combo.
     run = db.execute(
-        select(BacktestRun).order_by(BacktestRun.id.desc()).limit(1)
+        select(BacktestRun)
+        .options(joinedload(BacktestRun.strategy), joinedload(BacktestRun.asset))
+        .order_by(BacktestRun.id.desc())
+        .limit(1)
     ).scalar_one()
-    return run
+    return _to_summary(run)
 
 
 # -----------------------------------------------------------------------------
@@ -89,21 +110,27 @@ def submit_backtest(
 def list_backtests(
     limit: int = 50,
     db: Session = Depends(get_session),
-) -> list[BacktestRun]:
+) -> list[BacktestSummary]:
     """List runs newest-first."""
-    return (
-        db.execute(select(BacktestRun).order_by(BacktestRun.id.desc()).limit(limit))
+    runs = (
+        db.execute(
+            select(BacktestRun)
+            .options(joinedload(BacktestRun.strategy), joinedload(BacktestRun.asset))
+            .order_by(BacktestRun.id.desc())
+            .limit(limit)
+        )
         .scalars()
         .all()
     )
+    return [_to_summary(r) for r in runs]
 
 
 @router.get("/{run_id}", response_model=BacktestSummary)
-def get_backtest(run_id: int, db: Session = Depends(get_session)) -> BacktestRun:
+def get_backtest(run_id: int, db: Session = Depends(get_session)) -> BacktestSummary:
     run = db.get(BacktestRun, run_id)
     if run is None:
         raise HTTPException(404, f"Run {run_id} not found")
-    return run
+    return _to_summary(run)
 
 
 # -----------------------------------------------------------------------------

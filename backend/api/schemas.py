@@ -95,7 +95,9 @@ class BacktestRequest(BaseModel):
 class BacktestSummary(ORMBase):
     id: int
     strategy_id: int
+    strategy_name: str
     asset_id: int
+    asset_symbol: str
     timeframe: str
     start_date: datetime
     end_date: datetime

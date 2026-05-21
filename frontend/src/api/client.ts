@@ -35,7 +35,9 @@ export interface Strategy {
 export interface BacktestSummary {
   id: number;
   strategy_id: number;
+  strategy_name: string;
   asset_id: number;
+  asset_symbol: string;
   timeframe: string;
   start_date: string;
   end_date: string;
