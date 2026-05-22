@@ -68,6 +68,19 @@ const tdStyle: CSSProperties = {
   borderRadius: 3,
 };
 
+/** Empty spacer cell style — creates a visible void between Dec and Ann. */
+const spacerThStyle: CSSProperties = {
+  width: 12,
+  padding: 0,
+  background: "transparent",
+  borderBottom: "1px solid #21262d",
+};
+const spacerTdStyle: CSSProperties = {
+  width: 12,
+  padding: 0,
+  background: "transparent",
+};
+
 /** The year × 12-month returns grid for one equity series. */
 function HeatmapTable({ equity }: { equity: EquityPoint[] }) {
   const { years, returns, annual } = computeReturns(equity);
@@ -79,6 +92,7 @@ function HeatmapTable({ equity }: { equity: EquityPoint[] }) {
           {MONTH_LABELS.map((m) => (
             <th key={m} style={thStyle}>{m}</th>
           ))}
+          <th style={spacerThStyle} />
           <th style={{ ...thStyle, color: "#7d8590" }}>Ann.</th>
         </tr>
       </thead>
@@ -97,6 +111,7 @@ function HeatmapTable({ equity }: { equity: EquityPoint[] }) {
                 </td>
               );
             })}
+            <td style={spacerTdStyle} />
             <td style={{ ...tdStyle, background: cellBg(annual[y] ?? null), color: "#e6edf3", fontWeight: 700 }}>
               {fmt(annual[y] ?? null)}
             </td>
@@ -147,7 +162,7 @@ export function MonthlyHeatmap({
   return (
     <div className="px-5 py-4 space-y-3" style={{ background: "#0d1117" }}>
       {series.map((s) => (
-        <div key={s.id} className={`rounded-lg border p-3 ${BOX_CLASS[s.id] ?? ""}`}>
+        <div key={s.id} className={`rounded-lg border-2 p-3 ${BOX_CLASS[s.id] ?? ""}`}>
           <div className="flex items-center gap-2 mb-2">
             <span className={`font-mono text-[9px] tracking-wider px-1.5 py-[2px] rounded-sm border ${s.tagClass}`}>
               {s.tag}

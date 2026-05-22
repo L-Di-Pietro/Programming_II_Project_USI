@@ -1,9 +1,11 @@
+import { useCallback, useRef, useState } from "react";
 import Plot from "react-plotly.js";
 
 import type { EquityPoint } from "@/api/client";
 import { type BenchmarkSeries, STRATEGY } from "./benchmarks";
 import { ChartEmpty } from "@/components/EquityCurve";
 import { LegendChip, type ChartLegendItem } from "./ChartLegend";
+import { CrosshairTooltip, type HoverState } from "./CrosshairOverlay";
 
 // Industry-standard 1-year rolling window. Shorter windows (e.g. 42) produce
 // visually unreadable noise.
@@ -56,6 +58,14 @@ function rollingSharpe(equity: number[], dates: string[]): { xs: string[]; ys: n
   return { xs, ys };
 }
 
+/** Maps a Sharpe value to the matching threshold color for tooltip display. */
+function sharpeColor(v: number): string {
+  if (v < 0)  return "#f85149"; // red  — below Risk-Free Baseline
+  if (v < 1)  return "#f0a500"; // orange — below Acceptable
+  if (v < 2)  return "#f0a500"; // orange-yellow — between Acceptable and Excellent
+  return "#3fb950";             // green — Excellent
+}
+
 type SeriesInput = { label: string; hex: string; width: number; opacity: number; equity: EquityPoint[] };
 
 export function RollingSharpChart({
@@ -82,12 +92,10 @@ export function RollingSharpChart({
   const allY = computed.flatMap((s) => s.ys);
   const min = Math.min(...allY, 0);
   const max = Math.max(...allY, 0);
-  let yMin = Math.max(Math.floor(min) - 0.2, -2);
-  let yMax = Math.min(Math.ceil(max) + 0.2, 4);
-  if (yMax - yMin < 3) {
-    yMax = Math.min(yMin + 3, 4);
-    if (yMax - yMin < 3) yMin = yMax - 3;
-  }
+  const range = max - min || 1;
+  const padding = range * 0.1;
+  const yMin = Math.floor((min - padding) * 10) / 10;
+  const yMax = Math.ceil((max + padding) * 10) / 10;
 
   // Line traces: benchmarks first (behind), strategy last (on top).
   const lineTraces: Plotly.Data[] = computed
@@ -99,7 +107,7 @@ export function RollingSharpChart({
       name: s.label,
       line: { color: s.hex, width: s.width },
       opacity: s.opacity,
-      hovertemplate: "%{x|%Y-%m-%d}<br>Sharpe: %{y:.2f}<extra></extra>",
+      hoverinfo: "none" as const,
     }))
     .reverse(); // inputs has strategy first; reverse so strategy draws last
 
@@ -156,7 +164,13 @@ export function RollingSharpChart({
     });
   }
 
-  const layout: Partial<Plotly.Layout> = {
+  // Build series meta for crosshair (in the same order as lineTraces: reversed)
+  const seriesMeta = [...computed].reverse().map((s) => ({
+    label: s.label,
+    hex: s.hex,
+  }));
+
+  const baseLayout: Partial<Plotly.Layout> = {
     ...DARK_LAYOUT,
     yaxis: { ...DARK_LAYOUT.yaxis, range: [yMin, yMax] },
     shapes,
@@ -166,13 +180,97 @@ export function RollingSharpChart({
   return (
     <div>
       <RollingSharpeLegend benchmarks={benchmarks} />
+      <RollingSharpePlot
+        lineTraces={lineTraces}
+        dotTraces={dotTraces}
+        baseLayout={baseLayout}
+        seriesMeta={seriesMeta}
+      />
+    </div>
+  );
+}
+
+/** Inner component managing crosshair hover state. */
+function RollingSharpePlot({
+  lineTraces,
+  dotTraces,
+  baseLayout,
+  seriesMeta,
+}: {
+  lineTraces: Plotly.Data[];
+  dotTraces: Plotly.Data[];
+  baseLayout: Partial<Plotly.Layout>;
+  seriesMeta: { label: string; hex: string }[];
+}) {
+  const [hover, setHover] = useState<HoverState | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  const onHover = useCallback(
+    (event: Readonly<Plotly.PlotHoverEvent>) => {
+      if (!event.points || event.points.length === 0) return;
+
+      const points = event.points
+        .filter((pt) => pt.curveNumber < seriesMeta.length)
+        .map((pt) => {
+          const meta = seriesMeta[pt.curveNumber];
+          const v = pt.y as number;
+          return {
+            label: meta?.label ?? "",
+            hex: meta?.hex ?? "#7d8590",
+            x: String(pt.x),
+            y: v,
+            yFmt: v.toFixed(2),
+            yColor: sharpeColor(v),
+          };
+        });
+
+      if (points.length === 0) return;
+
+      const container = containerRef.current;
+      if (container && containerWidth === 0) {
+        setContainerWidth(container.getBoundingClientRect().width);
+      }
+
+      const mouseEvent = (event as unknown as { event: MouseEvent }).event;
+      const rect = containerRef.current?.getBoundingClientRect();
+      const pixelX = mouseEvent && rect ? mouseEvent.clientX - rect.left : 0;
+
+      setHover({ pixelX, points });
+    },
+    [seriesMeta, containerWidth],
+  );
+
+  const onUnhover = useCallback(() => {
+    setHover(null);
+  }, []);
+
+  const layout: Partial<Plotly.Layout> = {
+    ...baseLayout,
+    hovermode: "x" as const,
+    xaxis: {
+      ...(baseLayout.xaxis as object),
+      showspikes: true,
+      spikemode: "across" as const,
+      spikethickness: 1,
+      spikecolor: "rgba(255,255,255,0.08)",
+      spikedash: "solid" as const,
+      spikesnap: "cursor" as const,
+    },
+  };
+
+  return (
+    <div ref={containerRef}>
       <Plot
         data={[...lineTraces, ...dotTraces]}
         layout={layout}
         useResizeHandler
         style={{ width: "100%", height: `${PLOT_H}px` }}
         config={{ displaylogo: false, responsive: true, displayModeBar: false }}
+        onHover={onHover}
+        onUnhover={onUnhover}
       />
+      <CrosshairTooltip hover={hover} containerWidth={containerWidth} />
     </div>
   );
 }
