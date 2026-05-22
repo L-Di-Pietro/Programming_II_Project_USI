@@ -16,10 +16,12 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 import pandas as pd
+import structlog
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.agents.base import BaseAgent
+from backend.analytics.benchmarks import compute_same_asset_buyhold, compute_spy_buyhold
 from backend.analytics.metrics import compute_metrics
 from backend.analytics.periods import periods_per_year
 from backend.backtest.engine import BacktestConfig, run_backtest
@@ -28,6 +30,8 @@ from backend.database.models import (
     Asset,
     AssetClass,
     BacktestRun,
+    BenchmarkEquityPoint,
+    BenchmarkKind,
     EquityPoint,
     Metric,
     OHLCVBar,
@@ -38,6 +42,10 @@ from backend.database.models import (
     TradeSide,
 )
 from backend.strategies import get_strategy
+
+log = structlog.get_logger(__name__)
+
+SPY_SYMBOL = "SPY"
 
 
 def _allows_fractional(asset_class: str) -> bool:
@@ -114,7 +122,18 @@ class BacktestAgent(BaseAgent[BacktestAgentInput, BacktestAgentOutput]):
             )
             result = run_backtest(cfg)
 
-            # 5. Persist outputs.
+            # 5. Compute benchmark overlays (same-asset B&H, SPY B&H).
+            self._compute_and_persist_benchmarks(
+                run_id=run.id,
+                strategy_bars=bars,
+                strategy_asset=asset,
+                cfg_template=cfg,
+                timeframe=payload.timeframe,
+                start=payload.start_date,
+                end=payload.end_date,
+            )
+
+            # 6. Persist outputs.
             self._persist_trades(run.id, result.trades)
             self._persist_equity(run.id, result.equity_curve)
             self._persist_metrics(run.id, result, periods_per_year=ppy)
@@ -228,6 +247,94 @@ class BacktestAgent(BaseAgent[BacktestAgentInput, BacktestAgentOutput]):
                     drawdown_pct=e.drawdown_pct,
                 )
                 for e in equity
+            ]
+        )
+        self.db.commit()
+
+    # ------------------------------------------------------------------------
+    # Benchmarks
+    # ------------------------------------------------------------------------
+    def _compute_and_persist_benchmarks(
+        self,
+        *,
+        run_id: int,
+        strategy_bars: pd.DataFrame,
+        strategy_asset: Asset,
+        cfg_template: BacktestConfig,
+        timeframe: str,
+        start: datetime,
+        end: datetime,
+    ) -> None:
+        """Run B&H benchmarks and persist their equity curves.
+
+        Always computes the same-asset benchmark. Computes the SPY
+        benchmark when (a) the strategy isn't already trading SPY and
+        (b) SPY OHLCV exists in the DB for the run's date range. Failure
+        of either benchmark is logged and the run continues.
+        """
+        # --- same-asset buy-and-hold (always) ---------------------------
+        try:
+            asset_curve = compute_same_asset_buyhold(strategy_bars, cfg_template)
+            self._persist_benchmark(run_id, BenchmarkKind.ASSET_BUYHOLD, asset_curve)
+        except Exception as e:
+            log.warning(
+                "backtest.benchmarks.asset_buyhold_failed",
+                run_id=run_id,
+                error=str(e),
+            )
+
+        # --- SPY buy-and-hold (skip if strategy is on SPY itself) -------
+        if strategy_asset.symbol == SPY_SYMBOL:
+            log.info("backtest.benchmarks.spy_skipped_self", run_id=run_id)
+            return
+
+        spy_asset = self.db.execute(
+            select(Asset).where(Asset.symbol == SPY_SYMBOL)
+        ).scalar_one_or_none()
+        if spy_asset is None:
+            log.warning(
+                "backtest.benchmarks.spy_missing_asset",
+                run_id=run_id,
+                hint="Seed SPY via scripts/init_db.py",
+            )
+            return
+
+        spy_bars = self._load_bars(spy_asset.id, timeframe, start, end)
+        if spy_bars.empty:
+            log.warning(
+                "backtest.benchmarks.spy_missing_data",
+                run_id=run_id,
+                hint=(
+                    "Load SPY OHLCV via scripts/load_initial_data.py "
+                    "or POST /assets/SPY/refresh"
+                ),
+            )
+            return
+
+        try:
+            spy_curve = compute_spy_buyhold(strategy_bars, spy_bars, cfg_template)
+            self._persist_benchmark(run_id, BenchmarkKind.SPY_BUYHOLD, spy_curve)
+        except Exception as e:
+            log.warning(
+                "backtest.benchmarks.spy_buyhold_failed",
+                run_id=run_id,
+                error=str(e),
+            )
+
+    def _persist_benchmark(
+        self, run_id: int, kind: str, series: pd.Series
+    ) -> None:
+        if series.empty:
+            return
+        self.db.bulk_save_objects(
+            [
+                BenchmarkEquityPoint(
+                    run_id=run_id,
+                    kind=str(kind),
+                    ts=ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts,
+                    equity=float(value),
+                )
+                for ts, value in series.items()
             ]
         )
         self.db.commit()

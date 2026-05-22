@@ -1,10 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { Api, type EquityPoint, type Metrics, type PlotlyFigure, type Trade } from "@/api/client";
+import {
+  Api,
+  type BenchmarkKind,
+  type EquityPoint,
+  type Metrics,
+  type PlotlyFigure,
+  type Trade,
+} from "@/api/client";
+import { BENCHMARKS, STRATEGY, type BenchmarkSeries } from "@/components/benchmarks";
+import { BenchmarkToggleBar, type BenchmarkState } from "@/components/BenchmarkToggleBar";
 import { DrawdownChart } from "@/components/DrawdownChart";
-import { EquityCurve } from "@/components/EquityCurve";
-import { MetricsPanel } from "@/components/MetricsPanel";
+import { EquityCurve, type ChartLegendItem } from "@/components/EquityCurve";
+import { MetricsPanel, type BenchmarkMetricSeries } from "@/components/MetricsPanel";
 import { MonthlyHeatmap } from "@/components/MonthlyHeatmap";
 import { ReportCard } from "@/components/ReportCard";
 import { RollingSharpChart } from "@/components/RollingSharpChart";
@@ -20,6 +29,19 @@ const CHART_TABS: { id: ChartTab; label: string }[] = [
   { id: "trade_pnl",      label: "Trade P&L"        },
   { id: "rolling_sharpe", label: "Rolling Sharpe"   },
 ];
+
+// Per-benchmark fetch state. Loaded entries carry the data and are cached for
+// the lifetime of the page — toggling off keeps the cache (no refetch).
+type BenchEntry =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "loaded"; metrics: Metrics; equity: EquityPoint[] };
+
+function pillState(entry?: BenchEntry): BenchmarkState {
+  if (entry?.status === "loading") return "loading";
+  if (entry?.status === "error") return "error";
+  return "idle";
+}
 
 export function RunResults() {
   const { runId } = useParams();
@@ -40,6 +62,10 @@ export function RunResults() {
   } | null>(null);
   const [error,       setError]       = useState<string | null>(null);
   const [activeChart, setActiveChart] = useState<ChartTab>("equity");
+
+  // Benchmark overlays: which pills are on + a per-kind data cache.
+  const [activeBenchmarks, setActiveBenchmarks] = useState<Set<BenchmarkKind>>(new Set());
+  const [benchData, setBenchData] = useState<Partial<Record<BenchmarkKind, BenchEntry>>>({});
 
   useEffect(() => {
     if (!Number.isFinite(id)) return;
@@ -71,6 +97,88 @@ export function RunResults() {
 
     return () => { active = false; };
   }, [id]);
+
+  function toggleBenchmark(kind: BenchmarkKind) {
+    // Turning OFF — keep the cache so re-enabling doesn't refetch.
+    if (activeBenchmarks.has(kind)) {
+      setActiveBenchmarks((prev) => {
+        const next = new Set(prev);
+        next.delete(kind);
+        return next;
+      });
+      return;
+    }
+    // Turning ON — use the cache if present, else lazily fetch once.
+    if (benchData[kind]?.status === "loaded") {
+      setActiveBenchmarks((prev) => new Set(prev).add(kind));
+      return;
+    }
+    setBenchData((prev) => ({ ...prev, [kind]: { status: "loading" } }));
+    Promise.all([Api.getBenchmarkMetrics(id, kind), Api.getBenchmarkEquity(id, kind)])
+      .then(([m, eq]) => {
+        setBenchData((prev) => ({ ...prev, [kind]: { status: "loaded", metrics: m, equity: eq } }));
+        setActiveBenchmarks((prev) => new Set(prev).add(kind));
+      })
+      .catch(() => {
+        // Leave the pill inactive; it surfaces an "unavailable" tooltip.
+        setBenchData((prev) => ({ ...prev, [kind]: { status: "error" } }));
+      });
+  }
+
+  // Active + successfully-loaded benchmarks, in stable config order.
+  const loadedActive = BENCHMARKS.filter(
+    (b) => activeBenchmarks.has(b.kind) && benchData[b.kind]?.status === "loaded",
+  );
+
+  const metricsBenchmarks: BenchmarkMetricSeries[] = loadedActive.map((b) => ({
+    kind: b.kind,
+    tag: b.tag,
+    tagClass: b.tagClass,
+    metrics: (benchData[b.kind] as Extract<BenchEntry, { status: "loaded" }>).metrics,
+  }));
+
+  // Active + loaded benchmarks paired with their cached equity — for the
+  // Drawdown / Monthly / Rolling-Sharpe overlays (no refetch).
+  const benchmarkSeries: BenchmarkSeries[] = loadedActive.map((b) => ({
+    kind: b.kind,
+    tag: b.tag,
+    label: b.label,
+    hex: b.hex,
+    tagClass: b.tagClass,
+    equity: (benchData[b.kind] as Extract<BenchEntry, { status: "loaded" }>).equity,
+  }));
+
+  // Strategy-only figure from the backend, with active benchmark lines injected
+  // client-side. Memoised on the inputs that actually move the chart.
+  const equityFigWithOverlays = useMemo(() => {
+    if (!equityFig) return equityFig;
+    const overlays = BENCHMARKS.filter(
+      (b) => activeBenchmarks.has(b.kind) && benchData[b.kind]?.status === "loaded",
+    ).map((b) => {
+      const eq = (benchData[b.kind] as Extract<BenchEntry, { status: "loaded" }>).equity;
+      return {
+        x: eq.map((p) => p.ts),
+        y: eq.map((p) => p.equity),
+        mode: "lines",
+        name: b.label,
+        line: { color: b.hex, width: 1.8 },
+        hovertemplate: "%{x|%Y-%m-%d}<br>$%{y:,.0f}<extra></extra>",
+      };
+    });
+    if (overlays.length === 0) return equityFig;
+    return { ...equityFig, data: [...equityFig.data, ...overlays] };
+  }, [equityFig, activeBenchmarks, benchData]);
+
+  // Always show the inline legend over the chart — even strategy-only.
+  const chartLegend: ChartLegendItem[] = [
+    { label: STRATEGY.label, hex: STRATEGY.hex },
+    ...loadedActive.map((b) => ({ label: b.label, hex: b.hex })),
+  ];
+
+  const benchState: Record<BenchmarkKind, BenchmarkState> = {
+    buy_and_hold: pillState(benchData.buy_and_hold),
+    sp500: pillState(benchData.sp500),
+  };
 
   if (!Number.isFinite(id)) {
     return <div className="m-10 card border-accent-red text-accent-red">Invalid run ID.</div>;
@@ -122,12 +230,19 @@ export function RunResults() {
         </div>
       </div>
 
+      {/* ── Benchmark comparison toggle ─────────────────────────── */}
+      <BenchmarkToggleBar
+        active={activeBenchmarks}
+        state={benchState}
+        onToggle={toggleBenchmark}
+      />
+
       {error && (
         <div className="card border-accent-red text-accent-red text-sm">{error}</div>
       )}
 
       {/* ── 10-metric grid (2 rows × 5 cols) ────────────────────── */}
-      <MetricsPanel metrics={metrics} />
+      <MetricsPanel metrics={metrics} benchmarks={metricsBenchmarks} />
 
       {/* ── Tabbed chart panel ──────────────────────────────────── */}
       <div className="border border-border rounded-lg overflow-hidden">
@@ -149,13 +264,13 @@ export function RunResults() {
           ))}
         </div>
 
-        {/* Chart body */}
+        {/* Chart body — every tab responds to the active benchmarks. */}
         <div className="bg-surface">
-          {activeChart === "equity"         && <EquityCurve      figure={equityFig}         />}
-          {activeChart === "drawdown"       && <DrawdownChart    figure={drawdownFig}       />}
-          {activeChart === "heatmap"        && <MonthlyHeatmap   equityData={equityData}    />}
-          {activeChart === "trade_pnl"      && <TradePnlChart    trades={trades}            />}
-          {activeChart === "rolling_sharpe" && <RollingSharpChart equityData={equityData}   />}
+          {activeChart === "equity"         && <EquityCurve      figure={equityFigWithOverlays} legend={chartLegend} />}
+          {activeChart === "drawdown"       && <DrawdownChart    figure={drawdownFig}    benchmarks={benchmarkSeries} />}
+          {activeChart === "heatmap"        && <MonthlyHeatmap   equityData={equityData} benchmarks={benchmarkSeries} />}
+          {activeChart === "trade_pnl"      && <TradePnlChart    trades={trades} showBenchmarkNote={activeBenchmarks.size > 0} />}
+          {activeChart === "rolling_sharpe" && <RollingSharpChart equityData={equityData} benchmarks={benchmarkSeries} />}
         </div>
       </div>
 

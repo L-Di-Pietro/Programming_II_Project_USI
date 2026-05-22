@@ -23,7 +23,14 @@ from backend.api.schemas import (
 )
 from backend.backtest.risk import SizingMode
 from backend.database import get_session
-from backend.database.models import Asset, BacktestRun, EquityPoint, Trade
+from backend.database.models import (
+    Asset,
+    BacktestRun,
+    BenchmarkEquityPoint,
+    BenchmarkKind,
+    EquityPoint,
+    Trade,
+)
 
 router = APIRouter(prefix="/backtests", tags=["backtests"])
 
@@ -182,6 +189,96 @@ def get_chart(
     agent = AnalyticsAgent(db)
     figure = agent.run(AnalyticsAgentInput(op="chart", run_id=run_id, chart=kind)).payload
     return ChartResponse(figure=figure)
+
+
+# -----------------------------------------------------------------------------
+# Benchmark overlays — same shapes as /equity and /metrics, scoped to a run.
+#
+# The curves are computed + persisted at run-time (BenchmarkEquityPoint), so
+# these endpoints just serve them; metrics are derived from the stored equity
+# via the same compute_metrics path the strategy uses.
+# -----------------------------------------------------------------------------
+_BenchmarkKindParam = Literal["buy_and_hold", "sp500"]
+
+_BENCHMARK_KIND_MAP: dict[str, BenchmarkKind] = {
+    "buy_and_hold": BenchmarkKind.ASSET_BUYHOLD,
+    "sp500": BenchmarkKind.SPY_BUYHOLD,
+}
+
+
+@router.get("/{run_id}/benchmark/{kind}/equity", response_model=list[EquityPointOut])
+def get_benchmark_equity(
+    run_id: int,
+    kind: _BenchmarkKindParam,
+    db: Session = Depends(get_session),
+) -> list[EquityPointOut]:
+    """Benchmark equity curve, in the same shape as ``/equity``.
+
+    Serves the curve persisted at run-time. ``cash`` / ``position_value`` aren't
+    stored (the overlay only consumes ts + equity), so they're synthesized: a
+    buy-and-hold is fully invested, hence ``position_value == equity`` and
+    ``cash == 0``. ``drawdown_pct`` is derived from the equity series.
+    """
+    if db.get(BacktestRun, run_id) is None:
+        raise HTTPException(404, f"Run {run_id} not found")
+    mapped = _BENCHMARK_KIND_MAP[kind]
+    rows = (
+        db.execute(
+            select(BenchmarkEquityPoint)
+            .where(
+                BenchmarkEquityPoint.run_id == run_id,
+                BenchmarkEquityPoint.kind == str(mapped),
+            )
+            .order_by(BenchmarkEquityPoint.ts)
+        )
+        .scalars()
+        .all()
+    )
+    if not rows:
+        raise HTTPException(404, f"Benchmark {kind!r} not available for run {run_id}")
+
+    out: list[EquityPointOut] = []
+    peak = float("-inf")
+    for r in rows:
+        peak = max(peak, r.equity)
+        drawdown = (r.equity / peak - 1.0) if peak > 0 else 0.0
+        out.append(
+            EquityPointOut(
+                ts=r.ts,
+                equity=r.equity,
+                cash=0.0,
+                position_value=r.equity,
+                drawdown_pct=drawdown,
+            )
+        )
+    return out
+
+
+@router.get("/{run_id}/benchmark/{kind}/metrics", response_model=MetricsOut)
+def get_benchmark_metrics(
+    run_id: int,
+    kind: _BenchmarkKindParam,
+    db: Session = Depends(get_session),
+) -> MetricsOut:
+    """Benchmark KPIs, in the same shape as ``/metrics`` (trade block zeroed)."""
+    if db.get(BacktestRun, run_id) is None:
+        raise HTTPException(404, f"Run {run_id} not found")
+    mapped = _BENCHMARK_KIND_MAP[kind]
+    agent = AnalyticsAgent(db)
+    payload = agent.run(
+        AnalyticsAgentInput(
+            op="benchmark_metrics", run_id=run_id, benchmark_kind=str(mapped)
+        )
+    ).payload
+    if payload is None:
+        raise HTTPException(404, f"Benchmark {kind!r} not available for run {run_id}")
+    return MetricsOut.model_validate(
+        {
+            "return": payload.get("return", {}),
+            "risk": payload.get("risk", {}),
+            "trade": payload.get("trade", {}),
+        }
+    )
 
 
 # -----------------------------------------------------------------------------

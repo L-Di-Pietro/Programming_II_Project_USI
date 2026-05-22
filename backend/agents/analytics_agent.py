@@ -15,6 +15,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.agents.base import BaseAgent
+from backend.analytics.metrics import compute_metrics
+from backend.analytics.periods import periods_per_year
 from backend.analytics.visualizations import (
     build_drawdown_figure,
     build_equity_figure,
@@ -22,17 +24,24 @@ from backend.analytics.visualizations import (
     build_rolling_sharpe_figure,
     build_trade_pnl_figure,
 )
-from backend.database.models import EquityPoint, Metric, Trade
-
+from backend.database.models import (
+    Asset,
+    BacktestRun,
+    BenchmarkEquityPoint,
+    EquityPoint,
+    Metric,
+    Trade,
+)
 
 ChartKind = Literal["equity", "drawdown", "heatmap", "trade_pnl", "rolling_sharpe"]
 
 
 @dataclass(slots=True)
 class AnalyticsAgentInput:
-    op: str  # "metrics" | "chart"
+    op: str  # "metrics" | "chart" | "benchmark_metrics"
     run_id: int
     chart: ChartKind | None = None
+    benchmark_kind: str | None = None  # BenchmarkKind value, for benchmark_metrics
 
 
 @dataclass(slots=True)
@@ -64,6 +73,14 @@ class AnalyticsAgent(BaseAgent[AnalyticsAgentInput, AnalyticsAgentOutput]):
                 run_id=payload.run_id,
                 payload=self._chart(payload.run_id, payload.chart),
             )
+        if payload.op == "benchmark_metrics":
+            if payload.benchmark_kind is None:
+                raise ValueError("benchmark_metrics op requires a benchmark_kind")
+            return AnalyticsAgentOutput(
+                op="benchmark_metrics",
+                run_id=payload.run_id,
+                payload=self._benchmark_metrics(payload.run_id, payload.benchmark_kind),
+            )
         raise ValueError(f"Unknown AnalyticsAgent op: {payload.op!r}")
 
     # ------------------------------------------------------------------------
@@ -87,6 +104,9 @@ class AnalyticsAgent(BaseAgent[AnalyticsAgentInput, AnalyticsAgentOutput]):
         if equity.empty:
             return {}
         if kind == "equity":
+            # Strategy-only by default. Benchmark overlays are fetched lazily
+            # by the frontend via the /benchmark/{kind}/equity endpoints and
+            # drawn client-side, so the user opts into them per the toggle bar.
             return build_equity_figure(equity)
         if kind == "drawdown":
             return build_drawdown_figure(equity)
@@ -118,3 +138,50 @@ class AnalyticsAgent(BaseAgent[AnalyticsAgentInput, AnalyticsAgentOutput]):
             index=pd.DatetimeIndex([r.ts for r in rows], name="ts"),
             name="equity",
         )
+
+    def _load_benchmark_series(self, run_id: int) -> dict[str, pd.Series]:
+        """Return ``{kind: equity_series}`` for every benchmark stored on this run."""
+        rows = self.db.execute(
+            select(BenchmarkEquityPoint)
+            .where(BenchmarkEquityPoint.run_id == run_id)
+            .order_by(BenchmarkEquityPoint.kind, BenchmarkEquityPoint.ts)
+        ).scalars().all()
+        if not rows:
+            return {}
+        by_kind: dict[str, list[BenchmarkEquityPoint]] = {}
+        for r in rows:
+            by_kind.setdefault(r.kind, []).append(r)
+        return {
+            kind: pd.Series(
+                [r.equity for r in points],
+                index=pd.DatetimeIndex([r.ts for r in points], name="ts"),
+                name=kind,
+            )
+            for kind, points in by_kind.items()
+        }
+
+    def _benchmark_metrics(
+        self, run_id: int, kind: str
+    ) -> dict[str, dict[str, float]] | None:
+        """Metrics for one persisted benchmark curve, grouped by category.
+
+        Reuses the strategy's metrics computer on the stored benchmark equity
+        series so the shape matches ``_metrics``. ``trade_pnls=None`` zeroes the
+        trade block — a buy-and-hold benchmark doesn't actively trade. Returns
+        ``None`` when the benchmark wasn't persisted for this run (the route
+        turns that into a 404).
+        """
+        series = self._load_benchmark_series(run_id).get(kind)
+        if series is None or series.empty:
+            return None
+        run = self.db.get(BacktestRun, run_id)
+        if run is None:
+            return None
+        asset = self.db.get(Asset, run.asset_id)
+        # Same annualisation factor as the strategy so the numbers line up.
+        ppy = periods_per_year(run.timeframe, asset.asset_class) if asset else 252.0
+        result = compute_metrics(equity=series, trade_pnls=None, periods_per_year=ppy)
+        grouped: dict[str, dict[str, float]] = {}
+        for name, value, category in result.as_long_rows():
+            grouped.setdefault(category, {})[name] = float(value)
+        return grouped

@@ -9,6 +9,8 @@ from backend.database.connection import Base, engine, get_session, init_db
 from backend.database.models import (
     Asset,
     BacktestRun,
+    BenchmarkEquityPoint,
+    BenchmarkKind,
     EquityPoint,
     LLMConversation,
     Metric,
@@ -24,6 +26,8 @@ __all__ = [
     "init_db",
     "Asset",
     "BacktestRun",
+    "BenchmarkEquityPoint",
+    "BenchmarkKind",
     "EquityPoint",
     "LLMConversation",
     "Metric",

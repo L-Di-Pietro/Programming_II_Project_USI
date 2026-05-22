@@ -88,6 +88,9 @@ export interface Metrics {
   trade: Record<string, number>;
 }
 
+/** Benchmark overlays available on a run. Mirrors the backend's kind param. */
+export type BenchmarkKind = "buy_and_hold" | "sp500";
+
 export interface PlotlyFigure {
   figure: { data: unknown[]; layout: Record<string, unknown> };
 }
@@ -184,6 +187,16 @@ export const Api = {
     kind: "equity" | "drawdown" | "heatmap" | "trade_pnl" | "rolling_sharpe",
   ) {
     const { data } = await api.get<PlotlyFigure>(`/backtests/${runId}/charts/${kind}`);
+    return data;
+  },
+
+  // Benchmark overlays (same shapes as getMetrics / getEquity, scoped to a run).
+  async getBenchmarkMetrics(runId: number, kind: BenchmarkKind) {
+    const { data } = await api.get<Metrics>(`/backtests/${runId}/benchmark/${kind}/metrics`);
+    return data;
+  },
+  async getBenchmarkEquity(runId: number, kind: BenchmarkKind) {
+    const { data } = await api.get<EquityPoint[]>(`/backtests/${runId}/benchmark/${kind}/equity`);
     return data;
   },
 

@@ -25,22 +25,77 @@ from backend.analytics.metrics import monthly_returns
 # -----------------------------------------------------------------------------
 # Equity curve
 # -----------------------------------------------------------------------------
-def build_equity_figure(equity: pd.Series) -> dict[str, Any]:
-    """Cyan line + subtle fill of equity over time."""
-    fig = go.Figure(
-        data=[
-            go.Scatter(
-                x=equity.index,
-                y=equity.values,
-                mode="lines",
-                name="Strategy",
-                line=dict(color="#22d3ee", width=2),
-                fill="tozeroy",
-                fillcolor="rgba(34, 211, 238, 0.08)",
-                hovertemplate="%{x|%Y-%m-%d}<br>$%{y:,.0f}<extra></extra>",
+# Palette for benchmark traces. Keys must match BenchmarkKind values so the
+# analytics layer can look them up without a translation table.
+_BENCHMARK_STYLE: dict[str, dict[str, str]] = {
+    "asset_buyhold": {"color": "#f0c674"},  # amber/yellow
+    "spy_buyhold":   {"color": "#9ca3af"},  # muted gray
+}
+
+
+def build_equity_figure(
+    equity: pd.Series,
+    benchmarks: dict[str, pd.Series] | None = None,
+    benchmark_labels: dict[str, str] | None = None,
+) -> dict[str, Any]:
+    """Cyan line + subtle fill of equity, with optional benchmark overlays.
+
+    Parameters
+    ----------
+    equity
+        Strategy equity series — drawn as the cyan headline trace.
+    benchmarks
+        Optional ``{kind: series}`` map. ``kind`` matches the
+        ``BenchmarkKind`` enum (``"asset_buyhold"`` / ``"spy_buyhold"``).
+        Empty / ``None`` series are silently skipped.
+    benchmark_labels
+        Optional ``{kind: legend label}`` map. Falls back to a sensible
+        default if not provided.
+    """
+    traces: list[Any] = [
+        go.Scatter(
+            x=equity.index,
+            y=equity.values,
+            mode="lines",
+            name="Strategy",
+            line=dict(color="#22d3ee", width=2),
+            fill="tozeroy",
+            # Gradient area fill under the strategy line: cyan near the top
+            # fading to transparent at the zero baseline. ``fillcolor`` is kept
+            # as a fallback for renderers without fillgradient support (<2.27).
+            fillcolor="rgba(34, 211, 238, 0.08)",
+            fillgradient=dict(
+                type="vertical",
+                start=0,
+                colorscale=[
+                    [0.0, "rgba(34, 211, 238, 0.0)"],
+                    [1.0, "rgba(34, 211, 238, 0.35)"],
+                ],
+            ),
+            hovertemplate="%{x|%Y-%m-%d}<br>$%{y:,.0f}<extra></extra>",
+        )
+    ]
+
+    if benchmarks:
+        labels = benchmark_labels or {}
+        for kind, series in benchmarks.items():
+            if series is None or series.empty:
+                continue
+            style = _BENCHMARK_STYLE.get(kind, {"color": "#9ca3af"})
+            label = labels.get(kind, _default_benchmark_label(kind))
+            traces.append(
+                go.Scatter(
+                    x=series.index,
+                    y=series.values,
+                    mode="lines",
+                    name=label,
+                    line=dict(color=style["color"], width=1.5),
+                    opacity=0.85,
+                    hovertemplate="%{x|%Y-%m-%d}<br>$%{y:,.0f}<extra></extra>",
+                )
             )
-        ]
-    )
+
+    fig = go.Figure(data=traces)
     fig.update_layout(
         title="",
         xaxis=dict(tickformat="%Y-%m"),
@@ -51,6 +106,14 @@ def build_equity_figure(equity: pd.Series) -> dict[str, Any]:
         template=None,
     )
     return json.loads(fig.to_json())
+
+
+def _default_benchmark_label(kind: str) -> str:
+    if kind == "asset_buyhold":
+        return "Buy & Hold"
+    if kind == "spy_buyhold":
+        return "Buy & Hold SPY"
+    return kind
 
 
 # -----------------------------------------------------------------------------

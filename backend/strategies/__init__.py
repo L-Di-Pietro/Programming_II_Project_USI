@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from backend.strategies.base import BaseStrategy, StrategyConfig
 from backend.strategies.bollinger_bands import BollingerBandsStrategy
+from backend.strategies.buy_and_hold import BuyAndHoldStrategy
 from backend.strategies.cci import CCIStrategy
 from backend.strategies.donchian_breakout import DonchianBreakoutStrategy
 from backend.strategies.ichimoku_cloud import IchimokuCloudStrategy
@@ -36,6 +37,7 @@ STRATEGY_REGISTRY: dict[str, type[BaseStrategy]] = {
     BollingerBandsStrategy.slug: BollingerBandsStrategy,
     StochasticOscillatorStrategy.slug: StochasticOscillatorStrategy,
     CCIStrategy.slug: CCIStrategy,
+    BuyAndHoldStrategy.slug: BuyAndHoldStrategy,
 }
 
 
@@ -52,6 +54,7 @@ def get_strategy(slug: str) -> type[BaseStrategy]:
 __all__ = [
     "BaseStrategy",
     "BollingerBandsStrategy",
+    "BuyAndHoldStrategy",
     "CCIStrategy",
     "DonchianBreakoutStrategy",
     "IchimokuCloudStrategy",

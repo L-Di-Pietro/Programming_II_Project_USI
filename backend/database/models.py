@@ -12,14 +12,15 @@ Design constraints
 
 Tables
 ------
-* ``assets``            — securities universe
-* ``ohlcv_bars``        — historical bars (per asset, per timeframe)
-* ``strategies``        — registered strategies and their JSON-Schema params
-* ``backtest_runs``     — one row per backtest invocation
-* ``trades``            — trade-level ledger
-* ``equity_curve``      — equity series per run
-* ``metrics``           — long-format KPIs per run
-* ``llm_conversations`` — Explanation Agent chat history (empty until LLM is on)
+* ``assets``                   — securities universe
+* ``ohlcv_bars``               — historical bars (per asset, per timeframe)
+* ``strategies``               — registered strategies and their JSON-Schema params
+* ``backtest_runs``            — one row per backtest invocation
+* ``trades``                   — trade-level ledger
+* ``equity_curve``             — equity series per run
+* ``benchmark_equity_curve``   — per-run benchmark equity series (asset B&H, SPY B&H)
+* ``metrics``                  — long-format KPIs per run
+* ``llm_conversations``        — Explanation Agent chat history (empty until LLM is on)
 """
 
 from __future__ import annotations
@@ -215,6 +216,9 @@ class BacktestRun(Base):
     equity_points: Mapped[list[EquityPoint]] = relationship(
         back_populates="run", cascade="all, delete-orphan"
     )
+    benchmark_equity: Mapped[list[BenchmarkEquityPoint]] = relationship(
+        back_populates="run", cascade="all, delete-orphan"
+    )
     metrics: Mapped[list[Metric]] = relationship(
         back_populates="run", cascade="all, delete-orphan"
     )
@@ -267,6 +271,46 @@ class EquityPoint(Base):
     run: Mapped[BacktestRun] = relationship(back_populates="equity_points")
 
     __table_args__ = (PrimaryKeyConstraint("run_id", "ts", name="pk_equity_curve"),)
+
+
+# -----------------------------------------------------------------------------
+# Benchmark equity curve point
+# -----------------------------------------------------------------------------
+class BenchmarkKind(StrEnum):
+    """Which benchmark a row of ``benchmark_equity_curve`` belongs to.
+
+    ``ASSET_BUYHOLD``  — buy-and-hold of the same asset the strategy traded.
+    ``SPY_BUYHOLD``    — buy-and-hold of SPY, reindexed onto the asset's
+                          trading calendar with forward-fill on closed sessions.
+    """
+
+    ASSET_BUYHOLD = "asset_buyhold"
+    SPY_BUYHOLD = "spy_buyhold"
+
+
+class BenchmarkEquityPoint(Base):
+    """One row per (run, benchmark kind, bar) — overlays for the equity chart.
+
+    Shape mirrors ``EquityPoint`` so the chart layer can drop these into the
+    same Plotly figure with no transformation. ``cash`` / ``position_value``
+    are deliberately omitted: only the equity series is needed for the
+    overlay.
+    """
+
+    __tablename__ = "benchmark_equity_curve"
+
+    run_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("backtest_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    ts: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    equity: Mapped[float] = mapped_column(Float, nullable=False)
+
+    run: Mapped[BacktestRun] = relationship(back_populates="benchmark_equity")
+
+    __table_args__ = (
+        PrimaryKeyConstraint("run_id", "kind", "ts", name="pk_benchmark_equity_curve"),
+    )
 
 
 # -----------------------------------------------------------------------------
