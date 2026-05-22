@@ -7,7 +7,7 @@
 // accent.blue / accent.pink). The raw hex is duplicated here ONLY where a
 // className can't reach: Plotly trace `line.color` and the legend SVG strokes.
 
-import type { BenchmarkKind } from "@/api/client";
+import type { BenchmarkKind, EquityPoint } from "@/api/client";
 
 export interface SeriesStyle {
   /** Full display name (chart legend, pill title). */
@@ -51,3 +51,13 @@ export const BENCHMARKS: BenchmarkStyle[] = [
     tagClass: "text-accent-pink border-accent-pink/40 bg-accent-pink/[0.08]",
   },
 ];
+
+/** A benchmark series paired with its cached equity curve — for chart overlays. */
+export interface BenchmarkSeries {
+  kind: BenchmarkKind;
+  tag: string;
+  label: string;
+  hex: string;
+  tagClass: string;
+  equity: EquityPoint[];
+}

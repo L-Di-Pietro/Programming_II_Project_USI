@@ -1,6 +1,9 @@
 import Plot from "react-plotly.js";
 
 import type { PlotlyFigure } from "@/api/client";
+import { ChartLegend, type ChartLegendItem } from "./ChartLegend";
+
+export type { ChartLegendItem };
 
 const DARK_LAYOUT: Partial<Plotly.Layout> = {
   paper_bgcolor: "#161b22",
@@ -11,20 +14,13 @@ const DARK_LAYOUT: Partial<Plotly.Layout> = {
   margin: { t: 16, r: 16, b: 40, l: 60 },
 };
 
-/** One series in the inline legend drawn above the chart. */
-export interface ChartLegendItem {
-  label: string;
-  /** Line colour. */
-  hex: string;
-}
-
 /**
  * Pure Plotly wrapper — card chrome is handled by the parent tab panel.
  *
  * Benchmark overlays are injected into `figure.data` by the page (the
  * page-level toggle bar owns benchmark visibility). The page always passes
  * `legend` (the strategy plus any active benchmarks), which we draw as the
- * inline line-sample legend above the chart in place of Plotly's own.
+ * shared inline legend above the chart in place of Plotly's own.
  */
 export function EquityCurve({
   figure,
@@ -58,21 +54,6 @@ export function EquityCurve({
         style={{ width: "100%", height: "320px" }}
         config={{ displaylogo: false, responsive: true, displayModeBar: false }}
       />
-    </div>
-  );
-}
-
-function ChartLegend({ items }: { items: ChartLegendItem[] }) {
-  return (
-    <div className="flex items-center gap-6 px-5 pt-4 pb-1 flex-wrap">
-      {items.map((it) => (
-        <div key={it.label} className="flex items-center gap-2">
-          <svg width="32" height="2" viewBox="0 0 32 2" className="overflow-visible">
-            <line x1="0" y1="1" x2="32" y2="1" stroke={it.hex} strokeWidth="2" />
-          </svg>
-          <span className="font-mono text-[11px] text-ink-muted">{it.label}</span>
-        </div>
-      ))}
     </div>
   );
 }

@@ -13,9 +13,34 @@ const DARK_LAYOUT: Partial<Plotly.Layout> = {
   showlegend: false,
 };
 
-export function TradePnlChart({ trades }: { trades: Trade[] | null }) {
+/** Explains why benchmarks have no per-trade P&L. Shown when a benchmark is on. */
+function BenchmarkNote() {
+  return (
+    <div className="mx-5 mb-4 rounded-lg border border-dashed border-accent-pink/[0.35] bg-accent-pink/[0.05] px-3.5 py-3 text-[12px] text-ink-muted leading-relaxed">
+      Per-trade view. Benchmarks (Buy &amp; Hold, S&amp;P 500) are passive holdings,
+      not trading strategies — they don&rsquo;t generate per-trade P&amp;L to compare
+      against. See the <span className="text-accent-cyan">Equity Curve</span>,{" "}
+      <span className="text-accent-cyan">Drawdown</span>, or{" "}
+      <span className="text-accent-cyan">Rolling Sharpe</span> tabs for
+      benchmark-aware comparisons.
+    </div>
+  );
+}
+
+export function TradePnlChart({
+  trades,
+  showBenchmarkNote = false,
+}: {
+  trades: Trade[] | null;
+  showBenchmarkNote?: boolean;
+}) {
   if (!trades || trades.length === 0) {
-    return <ChartEmpty label="No trades yet." />;
+    return (
+      <div>
+        <ChartEmpty label="No trades yet." />
+        {showBenchmarkNote && <BenchmarkNote />}
+      </div>
+    );
   }
 
   const wins   = trades.map((t, i) => ({ i, v: t.net_pnl })).filter((x) => x.v > 0);
@@ -56,12 +81,15 @@ export function TradePnlChart({ trades }: { trades: Trade[] | null }) {
   };
 
   return (
-    <Plot
-      data={data}
-      layout={layout}
-      useResizeHandler
-      style={{ width: "100%", height: "320px" }}
-      config={{ displaylogo: false, responsive: true, displayModeBar: false }}
-    />
+    <div>
+      <Plot
+        data={data}
+        layout={layout}
+        useResizeHandler
+        style={{ width: "100%", height: "320px" }}
+        config={{ displaylogo: false, responsive: true, displayModeBar: false }}
+      />
+      {showBenchmarkNote && <BenchmarkNote />}
+    </div>
   );
 }

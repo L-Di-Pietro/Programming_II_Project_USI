@@ -9,7 +9,7 @@ import {
   type PlotlyFigure,
   type Trade,
 } from "@/api/client";
-import { BENCHMARKS, STRATEGY } from "@/components/benchmarks";
+import { BENCHMARKS, STRATEGY, type BenchmarkSeries } from "@/components/benchmarks";
 import { BenchmarkToggleBar, type BenchmarkState } from "@/components/BenchmarkToggleBar";
 import { DrawdownChart } from "@/components/DrawdownChart";
 import { EquityCurve, type ChartLegendItem } from "@/components/EquityCurve";
@@ -137,6 +137,17 @@ export function RunResults() {
     metrics: (benchData[b.kind] as Extract<BenchEntry, { status: "loaded" }>).metrics,
   }));
 
+  // Active + loaded benchmarks paired with their cached equity — for the
+  // Drawdown / Monthly / Rolling-Sharpe overlays (no refetch).
+  const benchmarkSeries: BenchmarkSeries[] = loadedActive.map((b) => ({
+    kind: b.kind,
+    tag: b.tag,
+    label: b.label,
+    hex: b.hex,
+    tagClass: b.tagClass,
+    equity: (benchData[b.kind] as Extract<BenchEntry, { status: "loaded" }>).equity,
+  }));
+
   // Strategy-only figure from the backend, with active benchmark lines injected
   // client-side. Memoised on the inputs that actually move the chart.
   const equityFigWithOverlays = useMemo(() => {
@@ -253,20 +264,13 @@ export function RunResults() {
           ))}
         </div>
 
-        {/* Benchmarks only overlay on the equity curve for this iteration. */}
-        {activeBenchmarks.size > 0 && activeChart !== "equity" && (
-          <div className="px-5 pt-3 text-[11px] text-ink-muted bg-surface">
-            Benchmarks are shown on the Equity Curve only.
-          </div>
-        )}
-
-        {/* Chart body */}
+        {/* Chart body — every tab responds to the active benchmarks. */}
         <div className="bg-surface">
           {activeChart === "equity"         && <EquityCurve      figure={equityFigWithOverlays} legend={chartLegend} />}
-          {activeChart === "drawdown"       && <DrawdownChart    figure={drawdownFig}       />}
-          {activeChart === "heatmap"        && <MonthlyHeatmap   equityData={equityData}    />}
-          {activeChart === "trade_pnl"      && <TradePnlChart    trades={trades}            />}
-          {activeChart === "rolling_sharpe" && <RollingSharpChart equityData={equityData}   />}
+          {activeChart === "drawdown"       && <DrawdownChart    figure={drawdownFig}    benchmarks={benchmarkSeries} />}
+          {activeChart === "heatmap"        && <MonthlyHeatmap   equityData={equityData} benchmarks={benchmarkSeries} />}
+          {activeChart === "trade_pnl"      && <TradePnlChart    trades={trades} showBenchmarkNote={activeBenchmarks.size > 0} />}
+          {activeChart === "rolling_sharpe" && <RollingSharpChart equityData={equityData} benchmarks={benchmarkSeries} />}
         </div>
       </div>
 
