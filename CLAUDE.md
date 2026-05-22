@@ -26,14 +26,17 @@ This is **Project 2.8** of the USI *Programming II* course — academic context,
 
 ```bash
 # Backend
+python -m venv .venv && source .venv/bin/activate   # Win: py -m venv .venv; .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+cp .env.example .env                       # Win: Copy-Item .env.example .env
 python scripts/init_db.py                  # create tables + seed assets
-python scripts/load_initial_data.py        # bulk-fetch historical data
+python scripts/load_initial_data.py --timeframes 1d 1h  # daily + hourly (bare command = daily only)
 uvicorn backend.main:app --reload          # dev server on :8000
 pytest                                     # run all backend tests
 pytest tests/test_engine_no_lookahead.py   # critical look-ahead-bias guard
 ruff check backend/                        # lint
 mypy backend/                              # type-check
+# Reset: delete quantbacktest.db* then re-run init_db + load_initial_data for a clean DB.
 
 # Frontend
 cd frontend && npm install

@@ -28,7 +28,9 @@ context, built to a production-leaning standard.
 
 ```bash
 # Backend
+python -m venv .venv && source .venv/bin/activate      # Win: py -m venv .venv; .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+cp .env.example .env                                   # Win: Copy-Item .env.example .env
 python scripts/init_db.py                              # tables + seed assets
 python scripts/load_initial_data.py                    # daily, full listing-date history
 python scripts/load_initial_data.py --timeframes 1d 1h # add hourly (729-day cap) too
@@ -43,6 +45,10 @@ cd frontend && npm install
 npm run dev                                            # http://127.0.0.1:5173
 npm test
 npm run build
+
+# Reset (optional): stop servers with Ctrl+C; free a stuck port with
+#   lsof -ti:8000 | xargs kill -9   (Win: netstat -ano | findstr :8000  then  taskkill /PID <pid> /F)
+# Fresh DB: rm -f quantbacktest.db*  (Win: Remove-Item quantbacktest.db* -Force), then re-run init + load.
 ```
 
 OpenAPI docs at `http://127.0.0.1:8000/docs` once the backend is running.

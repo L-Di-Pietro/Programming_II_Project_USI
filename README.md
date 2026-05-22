@@ -50,53 +50,104 @@ Retail quantitative traders lose money for two related reasons:
 
 ## Quick start
 
+This is the canonical way to run QuantBacktest locally. It works the same on
+**macOS / Linux** and **Windows** — where a command differs, both are shown.
+Lines beginning with `#` are notes or optional steps you can skip.
+
 ### Prerequisites
 
 - Python 3.11 or newer
 - Node.js 20 or newer
-- (Optional) Docker, if you want to test against Postgres
+- (Optional) Docker — only if you want to run against Postgres instead of SQLite
 
-### 1. Clone & install backend
+### 1. Get the code & set up the Python environment
 
 ```bash
 git clone <this repo>
 cd Programming_II_Project_USI
 
-python3 -m venv .venv
-source .venv/bin/activate              # Windows: .venv\Scripts\activate
+# Create a virtual environment...
+python3 -m venv .venv            # Windows: py -m venv .venv   (or: python -m venv .venv)
+
+# ...and activate it:
+source .venv/bin/activate        # macOS / Linux
+# .venv\Scripts\Activate.ps1     # Windows (PowerShell)
+# .venv\Scripts\activate.bat     # Windows (cmd)
+
 pip install -r requirements.txt
 
-cp .env.example .env                   # then edit values if you wish
-python scripts/init_db.py              # creates SQLite DB & seeds asset list
-python scripts/load_initial_data.py    # bulk-fetches each ticker's full listing-date history
+# Create your local .env from the template:
+cp .env.example .env             # Windows (PowerShell): Copy-Item .env.example .env
+                                 # Windows (cmd):        copy .env.example .env
+# Defaults work as-is — backtests and charts need no API keys. The optional
+# "Explain" (LLM) feature needs a GEMINI_API_KEY in .env; without one it errors
+# when used, but everything else works.
 ```
 
-### 2. Run the backend
+### 2. Initialize & load the database
+
+```bash
+python scripts/init_db.py                               # create tables + seed assets/strategies
+# ^ Idempotent. Skip if you already have a populated quantbacktest.db.
+
+python scripts/load_initial_data.py --timeframes 1d 1h  # fetch DAILY + HOURLY history for every asset
+# ^ Downloads from the network (a few minutes). Skip if your DB is already loaded.
+#   Daily only? Drop the "1h":  python scripts/load_initial_data.py
+```
+
+> On Windows, use `python` (or `py`) wherever these commands say `python3`.
+
+### 3. Run the backend (terminal 1)
 
 ```bash
 uvicorn backend.main:app --reload
-# Server is now running at http://127.0.0.1:8000
-# OpenAPI docs are at http://127.0.0.1:8000/docs
+# Backend at http://localhost:8000  ·  OpenAPI docs at http://localhost:8000/docs
 ```
 
-### 3. Run the frontend
-
-In a second terminal:
+### 4. Run the frontend (terminal 2)
 
 ```bash
 cd frontend
-npm install
+npm install        # first run only — skip on later starts
 npm run dev
-# UI is now running at http://127.0.0.1:5173
+# UI at http://localhost:5173
 ```
 
-Open the UI in a browser and run your first backtest.
+### 5. Open the app
+
+Browse to **http://localhost:5173** and run your first backtest.
+(Shortcut: `open http://localhost:5173` on macOS, `start http://localhost:5173` on Windows.)
 
 ### Run the tests
 
 ```bash
 pytest                                  # backend tests
 cd frontend && npm test                 # frontend tests
+```
+
+### Re-running from scratch (optional)
+
+Only needed if you ran it before and want a clean slate.
+
+```bash
+# 1) Stop the servers — press Ctrl+C in each terminal. If a port is still busy:
+lsof -ti:8000 | xargs kill -9        # macOS / Linux (repeat for :5173)
+# Windows: netstat -ano | findstr "8000 5173"   then   taskkill /PID <pid> /F
+
+# 2) Wipe the database — ONLY if you want fresh data (then re-run step 2):
+rm -f quantbacktest.db*              # macOS / Linux
+# Windows (PowerShell): Remove-Item quantbacktest.db* -Force
+# Windows (cmd):        del quantbacktest.db*
+```
+
+### Alternative: one-command Docker stack (Postgres)
+
+Prefer Docker? `docker-compose.yml` brings up the whole app on Postgres — no
+local Python/Node install needed:
+
+```bash
+docker compose up --build            # start everything (UI on :5173, API on :8000)
+docker compose down -v               # stop and wipe the DB volume
 ```
 
 ---
