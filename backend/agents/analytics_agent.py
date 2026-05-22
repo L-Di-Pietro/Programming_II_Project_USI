@@ -15,6 +15,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.agents.base import BaseAgent
+from backend.analytics.metrics import compute_metrics
+from backend.analytics.periods import periods_per_year
 from backend.analytics.visualizations import (
     build_drawdown_figure,
     build_equity_figure,
@@ -26,21 +28,20 @@ from backend.database.models import (
     Asset,
     BacktestRun,
     BenchmarkEquityPoint,
-    BenchmarkKind,
     EquityPoint,
     Metric,
     Trade,
 )
-
 
 ChartKind = Literal["equity", "drawdown", "heatmap", "trade_pnl", "rolling_sharpe"]
 
 
 @dataclass(slots=True)
 class AnalyticsAgentInput:
-    op: str  # "metrics" | "chart"
+    op: str  # "metrics" | "chart" | "benchmark_metrics"
     run_id: int
     chart: ChartKind | None = None
+    benchmark_kind: str | None = None  # BenchmarkKind value, for benchmark_metrics
 
 
 @dataclass(slots=True)
@@ -72,6 +73,14 @@ class AnalyticsAgent(BaseAgent[AnalyticsAgentInput, AnalyticsAgentOutput]):
                 run_id=payload.run_id,
                 payload=self._chart(payload.run_id, payload.chart),
             )
+        if payload.op == "benchmark_metrics":
+            if payload.benchmark_kind is None:
+                raise ValueError("benchmark_metrics op requires a benchmark_kind")
+            return AnalyticsAgentOutput(
+                op="benchmark_metrics",
+                run_id=payload.run_id,
+                payload=self._benchmark_metrics(payload.run_id, payload.benchmark_kind),
+            )
         raise ValueError(f"Unknown AnalyticsAgent op: {payload.op!r}")
 
     # ------------------------------------------------------------------------
@@ -95,9 +104,10 @@ class AnalyticsAgent(BaseAgent[AnalyticsAgentInput, AnalyticsAgentOutput]):
         if equity.empty:
             return {}
         if kind == "equity":
-            benchmarks = self._load_benchmark_series(run_id)
-            labels = self._benchmark_labels(run_id)
-            return build_equity_figure(equity, benchmarks=benchmarks, benchmark_labels=labels)
+            # Strategy-only by default. Benchmark overlays are fetched lazily
+            # by the frontend via the /benchmark/{kind}/equity endpoints and
+            # drawn client-side, so the user opts into them per the toggle bar.
+            return build_equity_figure(equity)
         if kind == "drawdown":
             return build_drawdown_figure(equity)
         if kind == "heatmap":
@@ -150,17 +160,28 @@ class AnalyticsAgent(BaseAgent[AnalyticsAgentInput, AnalyticsAgentOutput]):
             for kind, points in by_kind.items()
         }
 
-    def _benchmark_labels(self, run_id: int) -> dict[str, str]:
-        """Legend labels keyed by benchmark kind, including the asset symbol."""
+    def _benchmark_metrics(
+        self, run_id: int, kind: str
+    ) -> dict[str, dict[str, float]] | None:
+        """Metrics for one persisted benchmark curve, grouped by category.
+
+        Reuses the strategy's metrics computer on the stored benchmark equity
+        series so the shape matches ``_metrics``. ``trade_pnls=None`` zeroes the
+        trade block — a buy-and-hold benchmark doesn't actively trade. Returns
+        ``None`` when the benchmark wasn't persisted for this run (the route
+        turns that into a 404).
+        """
+        series = self._load_benchmark_series(run_id).get(kind)
+        if series is None or series.empty:
+            return None
         run = self.db.get(BacktestRun, run_id)
         if run is None:
-            return {}
+            return None
         asset = self.db.get(Asset, run.asset_id)
-        symbol = asset.symbol if asset is not None else ""
-        labels: dict[str, str] = {
-            str(BenchmarkKind.SPY_BUYHOLD): "Buy & Hold SPY",
-        }
-        labels[str(BenchmarkKind.ASSET_BUYHOLD)] = (
-            f"Buy & Hold {symbol}" if symbol else "Buy & Hold"
-        )
-        return labels
+        # Same annualisation factor as the strategy so the numbers line up.
+        ppy = periods_per_year(run.timeframe, asset.asset_class) if asset else 252.0
+        result = compute_metrics(equity=series, trade_pnls=None, periods_per_year=ppy)
+        grouped: dict[str, dict[str, float]] = {}
+        for name, value, category in result.as_long_rows():
+            grouped.setdefault(category, {})[name] = float(value)
+        return grouped

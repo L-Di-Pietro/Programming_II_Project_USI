@@ -60,7 +60,18 @@ def build_equity_figure(
             name="Strategy",
             line=dict(color="#22d3ee", width=2),
             fill="tozeroy",
+            # Gradient area fill under the strategy line: cyan near the top
+            # fading to transparent at the zero baseline. ``fillcolor`` is kept
+            # as a fallback for renderers without fillgradient support (<2.27).
             fillcolor="rgba(34, 211, 238, 0.08)",
+            fillgradient=dict(
+                type="vertical",
+                start=0,
+                colorscale=[
+                    [0.0, "rgba(34, 211, 238, 0.0)"],
+                    [1.0, "rgba(34, 211, 238, 0.35)"],
+                ],
+            ),
             hovertemplate="%{x|%Y-%m-%d}<br>$%{y:,.0f}<extra></extra>",
         )
     ]
