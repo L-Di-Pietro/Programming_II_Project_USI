@@ -24,12 +24,13 @@ concurrency:
   group: nightly-docs
   cancel-in-progress: false
 
-# Least privilege: push the PR branch + open the PR. Nothing more.
-# (Direct Anthropic auth via the OAuth token needs no id-token; that's only
-# for Bedrock/Vertex OIDC.)
+# Least privilege. claude-code-action mints a GitHub OIDC token on startup and
+# fails without id-token:write — regardless of model auth — which is why
+# claude.yml / claude-code-review.yml also grant it.
 permissions:
   contents: write
   pull-requests: write
+  id-token: write
 
 jobs:
   refresh-docs:
