@@ -110,6 +110,21 @@ rubric requires (this PDF among them): \texttt{AGENTS.md}, \texttt{CHANGELOG.md}
 \texttt{docs/user-guide.md}, \texttt{docs/api.md},
 \texttt{docs/architecture-diagrams/}, and this \texttt{docs/academic/} bundle.
 
+\subsection*{Post-submission CI automation (2026-05-24)}
+
+On the same evening as the submission, PR~\#9 (\texttt{612e39e}, ``chore(ci): add
+nightly headless docs-refresh workflow'') introduced \texttt{nightly-docs.yml}: a
+GitHub Actions job that wakes at 02:00~UTC each night, runs Claude Code in headless
+mode with a read-only Bash allowlist, and opens a pull request whenever it finds
+documentation drift against the last 24~hours of commits. The workflow never touches
+\texttt{main} directly.
+
+Two small fixes followed immediately. \texttt{4dfc948} switched the authentication
+method to \texttt{CLAUDE\_CODE\_OAUTH\_TOKEN} (the token type the
+\texttt{claude-code-action} expects), and PR~\#10 (\texttt{58a4811}) granted the
+\texttt{id-token: write} permission that the action requires to mint a GitHub OIDC
+token at startup.
+
 \subsection*{Things we tried and abandoned}
 
 A few decisions did not survive the four weeks:

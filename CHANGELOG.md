@@ -10,7 +10,13 @@ Hash references use the short SHA (e.g. `abcdef1`); resolve them with `git show 
 
 ## [Unreleased]
 
-Nothing yet — the next changes will land here.
+### CI
+
+- **Nightly documentation-refresh workflow** (`nightly-docs.yml`) — Claude Code runs
+  headless at 02:00 UTC each night, reads the last 24 h of commits, and opens a pull
+  request with any stale doc updates. Auth via `CLAUDE_CODE_OAUTH_TOKEN` (PR \#9,
+  `612e39e`, `4dfc948`). `id-token: write` permission added after initial OIDC failure
+  (PR \#10, `58a4811`).
 
 ---
 
@@ -134,6 +140,9 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 - `2026-05-24 399f763` Update `.gitignore` (Stefano Angelo Galdini).
 - `2026-05-24 79e200a` Updated all the current documentation files (Stefano Angelo Galdini). Existing docs (`README`, `ARCHITECTURE`, `CLAUDE`, `ONBOARDING`, `docs/{agents,calendars,data-sources,strategies}.md`) brought in line with the current code.
 - `2026-05-24` — new documentation artefacts created for the iCorsi submission (this commit batch): `AGENTS.md`, `CHANGELOG.md`, `CONTRIBUTING.md`, `CITATIONS.md`, `AI_USAGE.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `docs/user-guide.md`, `docs/api.md`, `docs/architecture-diagrams/`, `docs/academic/*` (LaTeX bundle).
+- `2026-05-24 612e39e` Nightly headless docs-refresh workflow (`nightly-docs.yml`) added; merged as PR \#9 (Luca Di Pietro).
+- `2026-05-24 4dfc948` CI: authenticate nightly docs via `CLAUDE_CODE_OAUTH_TOKEN` (Luca Di Pietro).
+- `2026-05-24 58a4811` CI: grant `id-token: write` so `claude-code-action` can run; merged as PR \#10 (Luca Di Pietro).
 
 ---
 
