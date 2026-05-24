@@ -1,0 +1,142 @@
+# .github/workflows/nightly-docs.yml
+#
+# Nightly documentation auto-refresh, powered by Claude Code headless.
+#
+# Schedule: 02:00 UTC every day. GitHub Actions cron is UTC year-round and does
+# NOT observe daylight saving, so this lands at:
+#   * 04:00 CEST in summer (DST active, ~late Mar - late Oct)
+#   * 03:00 CET  in winter (~late Oct - late Mar)
+# We accept this 1-hour seasonal drift instead of maintaining two crons.
+#
+# Claude reads the last 24h of commits and edits ONLY the docs that drifted,
+# then the workflow opens a pull request. It never pushes to main.
+# Manual run:  gh workflow run nightly-docs.yml
+
+name: Nightly Docs Refresh
+
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 02:00 UTC - see header for CEST/CET drift
+  workflow_dispatch: {}   # let a human trigger it on demand
+
+# Don't cancel an in-flight refresh if a new one is queued.
+concurrency:
+  group: nightly-docs
+  cancel-in-progress: false
+
+# Least privilege: push the PR branch + open the PR. Nothing more.
+# (API-key auth needs no id-token; that's only for Bedrock/Vertex OIDC.)
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh-docs:
+    runs-on: ubuntu-latest
+    env:
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+    steps:
+      - name: Checkout (full history, so Claude can read git log)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # pytest --collect-only (in Claude's allowlist) imports the backend, so
+      # backend deps must be present. npm ci is intentionally NOT run: the agent
+      # only calls `npm --version`, which needs no install.
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+
+      - name: Compute PR window (date, stamp, commit range)
+        id: window
+        run: |
+          set -euo pipefail
+          echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          echo "stamp=$(date -u +%Y-%m-%d-%H%M%S)" >> "$GITHUB_OUTPUT"
+          since="$(git rev-list -1 --before='24 hours ago' HEAD || true)"
+          if [ -z "$since" ]; then
+            since="$(git rev-list --max-parents=0 HEAD | tail -1)"
+          fi
+          echo "since_sha=$since" >> "$GITHUB_OUTPUT"
+
+      - name: Run Claude Code (headless doc refresh)
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Read .github/prompts/nightly-doc-update.md and follow it exactly.
+          # Read/edit docs + a tightly scoped, read-only Bash allowlist.
+          # Claude has NO git commit/push tool - the workflow opens the PR.
+          claude_args: |
+            --allowedTools "Read,Grep,Edit,Write,Bash(git log *),Bash(git diff *),Bash(git status *),Bash(pytest --collect-only *),Bash(npm --version)"
+            --max-turns 30
+
+      - name: Detect documentation drift
+        id: drift
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            {
+              echo 'diffstat<<DIFF_EOF'
+              git diff --stat
+              echo 'DIFF_EOF'
+              echo 'files<<FILES_EOF'
+              git status --porcelain
+              echo 'FILES_EOF'
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo '::notice::No documentation drift today - skipping PR.'
+          fi
+
+      - name: Open pull request
+        if: steps.drift.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: main
+          branch: docs/nightly-${{ steps.window.outputs.stamp }}
+          delete-branch: true
+          commit-message: 'chore(docs): nightly auto-refresh ${{ steps.window.outputs.date }}'
+          title: 'chore(docs): nightly auto-refresh ${{ steps.window.outputs.date }}'
+          labels: |
+            documentation
+            automated
+          body: |
+            Automated nightly documentation refresh.
+
+            - **Trigger:** `${{ github.event_name }}` (cron `0 2 * * *`, 02:00 UTC)
+            - **Project commits covered:** `${{ steps.window.outputs.since_sha }}..HEAD`
+
+            ### Changes (`git diff --stat`)
+            ```
+            ${{ steps.drift.outputs.diffstat }}
+            ```
+
+            ### Verification
+            Claude Code ran headless with read + doc-edit tools and a read-only Bash
+            allowlist (`git log/diff/status`, `pytest --collect-only`, `npm --version`).
+            It cannot commit, push, or modify code. Files it updated:
+            ```
+            ${{ steps.drift.outputs.files }}
+            ```
+
+            🤖 Generated by `nightly-docs.yml` using Claude Code headless
+
+      - name: Notify Slack on failure (only if SLACK_WEBHOOK is set)
+        if: failure() && env.SLACK_WEBHOOK != ''
+        run: |
+          curl -sf -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"nightly-docs.yml failed: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" \
+            "$SLACK_WEBHOOK" || true
