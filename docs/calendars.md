@@ -96,3 +96,24 @@ This policy distinguishes two situations:
 
 Set the threshold in `OHLCVCleaner._bounded_ffill(..., max_gap=N)` if
 you want a different policy.
+
+## Annualization lookup
+
+Vol, Sharpe, Sortino, and the `VOL_TARGET` sizing mode all need a
+"periods per year" factor that depends on **both** the bar timeframe and
+the asset class's native calendar. The canonical lookup is
+`backend/analytics/periods.py:periods_per_year(timeframe, asset_class)`:
+
+| timeframe / asset_class | equity / etf | fx   | crypto |
+|-------------------------|--------------|------|--------|
+| `1d`                    | 252          | 260  | 365    |
+| `1h`                    | 1638         | 6240 | 8760   |
+
+`1638 = 252 × 6.5` is the industry-standard equity-vol convention
+(elapsed market hours per session). A literal bar count
+`252 × 7 = 1764` differs because the first NYSE hourly bar only covers
+the 30-minute open auction.
+
+---
+
+_Last verified against code: 2026-05-24._

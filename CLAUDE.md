@@ -18,7 +18,7 @@ This is **Project 2.8** of the USI *Programming II* course — academic context,
 - **Database:** SQLite for local dev, Postgres-compatible schema for prod (`DATABASE_URL` switch)
 - **Frontend:** React 18 + TypeScript + Vite + TailwindCSS, Plotly.js for charts
 - **Tests:** pytest (backend), Vitest (frontend)
-- **LLM:** Provider-agnostic abstraction; v1 ships `NullProvider`, future iteration plugs in Google Gemini
+- **LLM:** Provider-agnostic abstraction with two implementations: `NullProvider` (default, deterministic, used by tests) and `GeminiProvider` (Google Gemini, fully wired — opt-in via `LLM_ENABLED=true` + `LLM_PROVIDER=gemini` + `GEMINI_API_KEY`). `.env.example` ships with Gemini already selected.
 
 ---
 
@@ -137,9 +137,9 @@ The signal at index `t` is what the strategy *wants* its position to be after pr
 
 ### LLM
 
-LLM calls go through `backend/llm/base.LLMProvider`. Never `import openai` / `import anthropic` / `import google.generativeai` directly anywhere outside `backend/llm/*_provider.py`. To switch providers, change `LLM_PROVIDER` in `.env`.
+LLM calls go through `backend/llm/base.LLMProvider`. Never `import openai` / `import anthropic` / `import google.generativeai` (or `google.genai`) directly anywhere outside `backend/llm/*_provider.py`. To switch providers, change `LLM_PROVIDER` in `.env` — `LLMFactory.from_settings()` is the single dispatch point.
 
-In v1, `LLM_ENABLED=false` by default; the Explanation Agent uses `NullProvider` which returns deterministic canned strings. Tests rely on this.
+`backend/config.py` defaults to `LLM_ENABLED=false`, but `.env.example` ships with `LLM_ENABLED=true` and `LLM_PROVIDER=gemini`. So in a fresh checkout the answer to "is LLM on?" depends on whether the developer has copied `.env.example`. With a `GEMINI_API_KEY` set, the live Gemini path is active; without one, LLM endpoints fail loudly rather than fall back silently. Tests construct `NullProvider` directly so they're insensitive to env state.
 
 ---
 
@@ -167,9 +167,25 @@ In v1, `LLM_ENABLED=false` by default; the Explanation Agent uses `NullProvider`
 | API returns 500 | check the relevant router in `backend/api/routes/` and the schema in `backend/api/schemas.py` |
 | Frontend can't reach backend | `frontend/vite.config.ts` (dev proxy) |
 | Charts look empty | `backend/analytics/visualizations.py` (chart payload builders) |
+| Benchmark overlay missing or wrong | `backend/analytics/benchmarks.py` + `backend/agents/backtest_agent.py` (benchmark curves are computed and persisted at run time) |
+| LLM endpoint returns demo text in production | `LLM_ENABLED`, `LLM_PROVIDER`, and `GEMINI_API_KEY` in `.env` — see [LLM](#llm) above |
 
 ---
 
 ## Open issues / TODOs visible in code
 
-Search for `# TODO:` markers — most are tied to v1.1+ features (LLM activation, walk-forward UI, multi-asset portfolios).
+Search for `# TODO:` markers — most are tied to v1.1+ features (walk-forward UI, multi-run comparison, multi-asset portfolios).
+
+## Sibling docs
+
+- [`README.md`](README.md) — features, quick start, project layout
+- [`ARCHITECTURE.md`](ARCHITECTURE.md) — deep design rationale
+- [`ONBOARDING.md`](ONBOARDING.md) — first-week orientation
+- [`docs/strategies.md`](docs/strategies.md) — every shipped strategy with math and citations
+- [`docs/agents.md`](docs/agents.md) — agent contracts and operations
+- [`docs/calendars.md`](docs/calendars.md) — native calendars per asset class
+- [`docs/data-sources.md`](docs/data-sources.md) — fetcher chains and quirks
+
+---
+
+_Last verified against code: 2026-05-24._

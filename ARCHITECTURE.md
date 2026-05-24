@@ -23,21 +23,20 @@ A deep-dive into the design of QuantBacktest. Read [`README.md`](./README.md) fi
 │   Dashboard       NewBacktest      RunResults      Strategies     │
 │   (run history)   (config wizard)  (charts/KPIs)   (library)      │
 └──────────────────────────┬─────────────────────────────────────────┘
-                           │   REST (JSON)
-                           │   WebSocket (run progress)
+                           │   REST (JSON) — UI polls /backtests for status
 ┌──────────────────────────▼─────────────────────────────────────────┐
 │                       FastAPI Backend                               │
 │                                                                     │
 │   ┌──────────────────────────────────────────────────────────────┐ │
-│   │   Orchestrator Agent (LLM-backed, disabled in v1)              │ │
+│   │   Orchestrator Agent (LLM; demo mode unless Gemini env set)    │ │
 │   │   ── routes structured / NL requests to deterministic agents   │ │
 │   └──────────────────────────────────────────────────────────────┘ │
 │   ┌──────────────────────────────────────────────────────────────┐ │
 │   │  Data Agent  │  Strategy Agent  │  Backtest Agent  │           │ │
-│   │  Analytics Agent  │  Explanation Agent (LLM, disabled v1)      │ │
+│   │  Analytics Agent  │  Explanation Agent (LLM; demo by default)  │ │
 │   └──────────────────────────────────────────────────────────────┘ │
 │   ┌──────────────────────────────────────────────────────────────┐ │
-│   │  LLMProvider abstraction  → NullProvider (v1) / Gemini (v1.1) │ │
+│   │  LLMProvider abstraction  → NullProvider / GeminiProvider      │ │
 │   └──────────────────────────────────────────────────────────────┘ │
 │   ┌──────────────────────────────────────────────────────────────┐ │
 │   │  Event-Driven Backtest Engine                                  │ │
@@ -65,72 +64,76 @@ A deep-dive into the design of QuantBacktest. Read [`README.md`](./README.md) fi
 
 ## The agents
 
-### 1. Orchestrator Agent — LLM-backed (disabled in v1)
+Every agent inherits `BaseAgent[TIn, TOut]`. The public `run(payload)` wraps `_run(payload)` with timing logs and uniform error wrapping (`AgentError`), so the API layer can map any agent failure to a clean HTTP response.
 
-**Role.** Receives a request — either structured (from the Wizard UI) or natural language ("run an SMA crossover on AAPL for the last 5 years with 0.05% commission") — plans the workflow, dispatches sub-agents, returns a unified response.
+### 1. Orchestrator Agent — LLM-backed (demo mode by default)
 
-**Tools (when enabled):**
-- `route_request(request) -> AgentPlan`
-- `plan_workflow(plan) -> list[AgentCall]`
-- `aggregate_results(results) -> Response`
+**Role.** Receives a natural-language request ("run an SMA crossover on AAPL for the last 5 years with 0.05% commission"), dispatches the other five agents as tools in a Python tool-use loop, and returns a single natural-language answer.
 
-**v1 behaviour.** In v1 the API exposes structured endpoints directly and the Orchestrator's class is bypassed. The class is fully written so that flipping `LLM_ENABLED=true` and providing a `GeminiProvider` activates it without touching other code.
+**Surface:** one op — `OrchestratorInput(user_message, history, max_steps=8) → OrchestratorOutput(final_answer, steps)`.
+
+**Implementation.** The loop parses tool calls from the LLM's output via simple JSON extraction (so it works with any provider, not just providers with native function-calling). Each tool maps to one of the five other agents below.
+
+**Default behaviour.** Because `backend/config.py` defaults to `LLM_ENABLED=false`, the orchestrator short-circuits in a fresh checkout — the API exposes structured endpoints directly and the orchestrator is bypassed. Flipping `LLM_ENABLED=true` + `LLM_PROVIDER=gemini` + `GEMINI_API_KEY=…` (or copying `.env.example`, which already sets the first two) activates it.
 
 ### 2. Data Agent — deterministic
 
-**Role.** Fetches, validates, cleans, and stores OHLCV bars. Tracks data freshness. Triggers nightly incremental refreshes.
+**Role.** Fetches, cleans, and stores OHLCV bars; reports freshness; lists assets. Triggers nightly incremental refreshes via APScheduler.
 
-**Tools:**
-- `fetch_equity(symbol, start, end)` → `EquityFetcher`
-- `fetch_crypto(symbol, start, end)` → `CryptoFetcher`
-- `fetch_fx(symbol, start, end)` → `FXFetcher`
-- `validate_ohlcv(df)` → bool + report
-- `store_bars(asset_id, df)`
-- `check_data_freshness(asset_id)` → datetime of last bar
+**Operations** (dispatched by the `op` field on `DataAgentInput`):
+- `"refresh"` — fetch latest bars for `(asset_id|symbol, timeframe)`, run them through `OHLCVCleaner`, upsert into `ohlcv_bars`. Incremental: starts at the most recently stored bar.
+- `"freshness"` — return the timestamp of the most recent stored bar.
+- `"list_assets"` — return all active rows from `assets`.
+
+**Dispatch tables** (class-level):
+- `_FETCHERS` — `equity`/`etf` → `EquityFetcher`, `crypto` → `CryptoFetcher`, `fx` → `FXFetcher`.
+- `_CALENDAR_FOR` — `equity`/`etf` → `"nyse"`, `fx` → `"24x5"`, `crypto` → `"24x7"`.
 
 ### 3. Strategy Agent — deterministic
 
-**Role.** Lists available strategies, configures them with user parameters, and runs signal generation. Owns the walk-forward / IS-OOS split logic.
+**Role.** Stateless utility over `backend.strategies` registry. No DB access.
 
-**Tools:**
-- `list_strategies()`
-- `configure_params(strategy_slug, params)` → validated `StrategyConfig`
-- `generate_signals(strategy, bars)` → signal `Series`
-- `walk_forward_split(bars, train_pct)` → `(train_bars, test_bars)`
+**Operations:**
+- `"list"` — return metadata (slug, name, description, category, JSON-Schema for params) for all 11 registered strategies.
+- `"build"` — instantiate a strategy from `(slug, params)`; validates `params` against the strategy's Pydantic `config_cls`.
+- `"walk_forward_split"` — chronological train/test split of a bars DataFrame; validates `0.1 < train_pct < 0.9`.
 
 ### 4. Backtest Agent — deterministic
 
-**Role.** Drives the event-driven engine. Combines strategy signals with the portfolio, risk, and execution components to produce a trade ledger and equity curve.
+**Role.** Drives an end-to-end backtest run.
 
-**Tools:**
-- `run_backtest(config)` → `BacktestResult`
-- `apply_slippage(price, side, slippage_bps)`
-- `apply_commissions(qty, price, commission_bps)`
-- `size_position(equity, price, risk_params)`
-- `track_pnl(trades)`
+**Single operation:**
+1. Persist a `running` row in `backtest_runs` so the API can poll status.
+2. Load bars from the local DB for the requested asset/timeframe.
+3. Build the strategy via `StrategyAgent`.
+4. Drive the event loop in `backend/backtest/engine.py` (portfolio + risk + execution).
+5. Persist `trades`, `equity_curve`, and `metrics`.
+6. Compute the **buy-and-hold** and **SPY buy-and-hold** benchmark equity curves and persist them to `benchmark_equity_curve` so the UI can overlay them on the chart without recomputation.
+7. Mark the run `completed` (or `failed` with an error message).
 
 ### 5. Analytics Agent — deterministic
 
-**Role.** Computes KPIs and chart payloads from the trade ledger and equity curve.
+**Role.** Presentation layer over persisted run data.
 
-**Tools:**
-- `compute_metrics(equity_curve, trades)` → `MetricsResult`
-- `build_equity_curve(equity_curve)` → Plotly JSON
-- `build_drawdown(equity_curve)` → Plotly JSON
-- `build_heatmap(equity_curve)` → Plotly JSON
-- `compute_trade_stats(trades)` → trade-level KPIs
+**Operations:**
+- `"metrics"` — load `metrics` rows for a run, group by category (`return`, `risk`, `trade`).
+- `"chart"` — build a Plotly figure (JSON) for one of five chart kinds: `equity`, `drawdown`, `heatmap`, `trade_pnl`, `rolling_sharpe`.
+- `"benchmark_metrics"` — derive metrics from a stored benchmark equity curve using the same metric functions as the strategy (with `trade_pnls=None` for buy-and-hold, so the trade-block KPIs are zeroed).
 
-### 6. Explanation Agent — LLM-backed (disabled in v1)
+### 6. Explanation Agent — LLM-backed (demo mode by default)
 
-**Role.** Translates KPIs into plain language, answers user follow-up questions about a run, compares two runs side by side.
+**Role.** Translates run data into plain language. Caches generated reports.
 
-**Tools (when enabled):**
-- `explain_metric(metric_name, value, context)`
-- `explain_strategy(strategy_slug)`
-- `compare_runs(run_a, run_b)`
-- `answer_question(run_id, user_question)`
+**Operations:**
+- `"explain_metric"` — interpret a single KPI in the context of its run.
+- `"explain_strategy"` — what a strategy does and when it works or fails.
+- `"compare_runs"` — side-by-side commentary on two runs.
+- `"answer_question"` — open-ended Q&A grounded on a run's metrics.
+- `"report_run"` — full markdown report with "Key findings" and "Limitations".
 
-**v1 behaviour.** Uses `NullProvider` which returns deterministic canned text. The `/explain` route is live and the UI panel is rendered (with a "demo mode" badge); flipping `LLM_ENABLED=true` and implementing `GeminiProvider.generate()` activates real responses.
+The agent also exposes `get_cached_report(run_id)` / `get_cached_report_timestamp(run_id)` so the `/report` GET endpoint can return cached text without hitting the LLM. `is_demo_mode` is `True` iff the underlying provider is `NullProvider` (the UI surfaces a "demo mode" badge in that case).
+
+**Default behaviour.** With `LLM_ENABLED=false` (the `config.py` default), the provider is `NullProvider`, which returns deterministic canned text. With `LLM_ENABLED=true` + `LLM_PROVIDER=gemini` + a `GEMINI_API_KEY`, the agent talks to Google Gemini via `GeminiProvider`.
 
 ---
 
@@ -208,21 +211,26 @@ Each fetcher has retry/backoff logic and returns a uniform `DataFrame[open, high
 
 ### Cleaner
 
-`backend/data/cleaner.py` runs three passes on every fetched DataFrame:
+`backend/data/cleaner.py` (`OHLCVCleaner`) runs four passes on every fetched DataFrame:
 
-1. **Sanity** — drop rows with negative or zero prices, NaN OHLC, `high < low`, etc.
-2. **Dedup** — collapse duplicate timestamps (keeping the last).
-3. **Calendar reindex** — for cross-asset comparability, reindex to the NYSE business-day calendar. BTC weekend bars are forward-filled or aligned to the daily close; FX weekend gaps are forward-filled.
+1. **Sort & dedup** — sort by index ascending, drop duplicate timestamps (keep last).
+2. **Sanity** — drop rows with NaN OHLC, non-positive prices, or `high < max(open, low, close)` / `low > min(open, high, close)` (with a 0.01% tolerance).
+3. **Calendar reindex** — reindex onto the **native** trading calendar for the asset class (see below). Both daily and hourly grids are supported.
+4. **Bounded forward-fill** — only NaN runs of length ≤ 2 are filled, with `volume = 0` on the carried rows. Longer outages survive as NaN, surface in `CleaningReport.gaps_remaining`, and are dropped from the final frame.
+
+The diagnostics returned via `CleaningReport(rows_in, rows_out, duplicates_dropped, bad_rows_dropped, forward_filled, gaps_remaining)` are logged on every fetch so a missing-data investigation has a paper trail.
 
 ### Calendar choice
 
-Three asset classes, three native calendars:
+Each asset class uses its **native** trading calendar — there is no cross-asset reindex onto a single common calendar:
 
-- Equities → NYSE trading days
-- Crypto → 24/7
-- FX → 24/5 with weekend gaps
+| Asset class    | Calendar           | Daily bars/year | Hourly bars/year |
+|----------------|--------------------|------------------|--------------------|
+| Equity / ETF   | NYSE (XNYS)        | 252              | 1638 (252 × 6.5)   |
+| FX             | 24×5 (Sun 22:00 UTC → Fri 22:00 UTC) | 260 | 6240          |
+| Crypto         | 24×7               | 365              | 8760               |
 
-We standardize on **NYSE business days** (the most restrictive). Cross-asset backtests are aligned. This is a deliberate simplification documented as a known limitation.
+The dispatch lives in `DataAgent._CALENDAR_FOR`. The annualization factors that power vol/Sharpe/Sortino are looked up in `backend/analytics/periods.py:periods_per_year(timeframe, asset_class)`. See [`docs/calendars.md`](docs/calendars.md) for the algorithms that build each (calendar, timeframe) index.
 
 ---
 
@@ -267,6 +275,13 @@ run_id FK, ts   (composite PK)
 equity, cash, position_value, drawdown_pct
 ```
 
+### `benchmark_equity_curve`
+```
+run_id FK, kind, ts   (composite PK; kind ∈ {asset_buyhold, spy_buyhold})
+equity
+```
+One row per (run, benchmark kind, bar). Populated by `BacktestAgent` at run time; powers the buy-and-hold and SPY overlays on the equity chart. Deliberately omits `cash` / `position_value` (overlay-only).
+
 ### `metrics`
 ```
 run_id FK, metric_name, value, category   (PK on (run_id, metric_name))
@@ -286,21 +301,24 @@ Empty in v1; populated when LLM is enabled.
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/healthz` | Liveness probe |
-| GET | `/strategies` | List available strategies + their `params_schema` |
-| GET | `/assets` | List assets in the universe |
-| POST | `/assets/{symbol}/refresh` | Trigger a manual data refresh |
-| POST | `/backtests` | Submit a new backtest run (returns `run_id`) |
-| GET | `/backtests` | List runs (paginated) |
-| GET | `/backtests/{run_id}` | Get run status + summary |
-| GET | `/backtests/{run_id}/metrics` | Full metrics block |
-| GET | `/backtests/{run_id}/equity` | Equity curve series |
-| GET | `/backtests/{run_id}/trades` | Trade ledger |
-| GET | `/backtests/{run_id}/charts/{kind}` | Plotly figure JSON: `equity`, `drawdown`, `heatmap` |
-| POST | `/explain` | LLM Q&A over a run (NullProvider in v1) |
-| WS | `/ws/runs/{run_id}` | Stream run progress events |
+| GET  | `/healthz` | Liveness probe; returns `{status, llm_enabled, llm_provider}` |
+| GET  | `/strategies` | List all 11 registered strategies + their `params_schema` |
+| GET  | `/assets` | List active assets in the universe |
+| POST | `/assets/{symbol}/refresh?timeframe=…` | Trigger a manual data refresh for one timeframe |
+| POST | `/backtests` | Submit a backtest run — **synchronous**: blocks until `BacktestAgent.run()` returns, then responds with the persisted summary |
+| GET  | `/backtests?limit=…` | List runs newest-first |
+| GET  | `/backtests/{run_id}` | Run status + summary |
+| GET  | `/backtests/{run_id}/metrics` | Metrics grouped by `return` / `risk` / `trade` |
+| GET  | `/backtests/{run_id}/equity` | Equity curve series |
+| GET  | `/backtests/{run_id}/trades` | Trade ledger |
+| GET  | `/backtests/{run_id}/charts/{kind}` | Plotly figure JSON; `kind ∈ {equity, drawdown, heatmap, trade_pnl, rolling_sharpe}` |
+| GET  | `/backtests/{run_id}/benchmark/{kind}/equity` | Benchmark equity curve; `kind ∈ {buy_and_hold, sp500}` |
+| GET  | `/backtests/{run_id}/benchmark/{kind}/metrics` | Benchmark KPIs (trade block zeroed) |
+| GET  | `/backtests/{run_id}/report` | Cached LLM report (404 if not yet generated) |
+| POST | `/backtests/{run_id}/report` | Generate a fresh LLM report (overwrites cache) |
+| POST | `/explain` | LLM Q&A over a run (demo mode unless Gemini is configured) |
 
-Pydantic schemas in `backend/api/schemas.py` define every payload.
+There is **no WebSocket endpoint**; the Dashboard polls `GET /backtests` every 5 s to track in-flight or recently-completed runs. Pydantic schemas in `backend/api/schemas.py` define every payload.
 
 ---
 
@@ -321,20 +339,27 @@ class LLMProvider(ABC):
 
 Implementations:
 
-- `NullProvider` — returns deterministic canned text. Used in v1 and in tests. Always available.
-- `GeminiProvider` — Google Gemini API skeleton. Raises `NotImplementedError` until completed in v1.1.
+- `NullProvider` — deterministic offline stand-in. Extracts the last user message, computes a stable SHA-256 digest, and returns demo-mode text. Always available; used in tests; the safe default when `LLM_ENABLED=false`.
+- `GeminiProvider` — Google Gemini integration using the `google-genai` SDK. Maps `assistant` → `model` for the Gemini role convention; passes the system prompt via `system_instruction`; wraps each call in an exponential-backoff retry (up to 4 attempts, base 1.5 s) for transient errors (429/500/503/504). Reports `prompt_tokens` and `completion_tokens` from the response metadata.
 
-The Explanation Agent depends on the abstract `LLMProvider`, not on a concrete implementation. Switching providers is a one-line config change.
+`LLMFactory.from_settings()` is the single dispatch point: it returns `NullProvider` whenever `LLM_ENABLED=false`, regardless of `LLM_PROVIDER`. To activate Gemini, set `LLM_ENABLED=true`, `LLM_PROVIDER=gemini`, and `GEMINI_API_KEY=…` in `.env`. The committed `.env.example` ships with the first two already set, so a fresh `cp .env.example .env` activates Gemini as soon as an API key is supplied; without a key, LLM endpoints fail loudly rather than silently fall back.
+
+The Explanation Agent and Orchestrator both depend only on the abstract `LLMProvider`, so adding a new provider is a single file in `backend/llm/` plus a branch in `LLMFactory`.
 
 ---
 
 ## Frontend architecture
 
-- **React Router** — `/`, `/strategies`, `/backtests/new`, `/backtests/:id`
+- **React Router** — `/`, `/strategies`, `/backtests/new`, `/backtests/:id`.
 - **Pages** orchestrate **components** which are pure (props in, JSX out).
-- **API client** in `src/api/client.ts` — typed via codegen from the FastAPI OpenAPI schema.
-- **State** — local `useState` + URL params for now. No Redux. If global state grows, add Zustand (lightweight).
+- **API client** in `src/api/client.ts` — typed; `openapi-typescript` is wired (`npm run gen:types`) so the client types can be regenerated from the live FastAPI OpenAPI schema.
+- **State** — local `useState` + URL params. No Redux. If global state grows, add Zustand (lightweight).
 - **Charts** — Plotly.js consumed via `react-plotly.js`. Backend builds the figure JSON; frontend just renders it. This means chart logic is testable in Python.
+- **Shared UI primitives** (shipped recently and load-bearing for the results experience):
+  - `CrosshairOverlay` — a single crosshair tooltip synced across the equity, drawdown, trade-P&L, and rolling-Sharpe charts on hover.
+  - `ChartLegend` — one legend rendered above the chart panel, showing the strategy plus any active benchmark overlays.
+  - `BenchmarkToggleBar` — pill controls that toggle buy-and-hold and SPY overlays on every chart that supports them (data is fetched lazily and cached client-side).
+  - `ReportCard` — renders the LLM report with a "regenerate" action and a one-click PDF export powered by `jsPDF`.
 
 ---
 
@@ -366,3 +391,7 @@ The schema already has a `timeframe` column. Intraday is a matter of new fetcher
 
 ### Vector store for strategy similarity search
 Mentioned in the spec as an optional non-trivial DB feature. A `pgvector` column on `strategies.description_embedding` would let the Explanation Agent recommend similar strategies. Out of scope for v1.
+
+---
+
+_Last verified against code: 2026-05-24._

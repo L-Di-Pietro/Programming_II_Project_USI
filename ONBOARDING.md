@@ -20,7 +20,7 @@ context, built to a production-leaning standard.
 | Tests        | pytest (backend) · Vitest (frontend) |
 | Data sources | yfinance (equity/ETF/FX/crypto) · ccxt/Binance (crypto fallback) · Stooq (FX fallback) |
 | Scheduler    | APScheduler (nightly data refresh) |
-| LLM          | Provider-agnostic; v1 ships `NullProvider`, Gemini adapter scaffolded |
+| LLM          | Provider-agnostic (`LLMProvider`); `NullProvider` (default, deterministic) and `GeminiProvider` (Google Gemini, opt-in via `LLM_ENABLED=true` + `GEMINI_API_KEY`) |
 
 ---
 
@@ -242,7 +242,10 @@ tests/
 ├── test_metrics_annualization.py          √N scaling across timeframes
 ├── test_periods_per_year.py               The lookup table
 ├── test_strategies.py                     Strategy signals on a fixture
-├── test_llm.py | test_report_route.py     LLM & report endpoint
+├── test_fractional_sizing.py              Fractional shares for crypto / FX
+├── test_benchmarks.py                     BacktestAgent benchmark computation + persistence
+├── test_benchmark_routes.py               GET /backtests/{id}/benchmark/* routes
+├── test_llm.py | test_report_route.py     LLM provider + /report endpoint (cached + regenerate)
 └── conftest.py                            Shared fixtures (db, trending_bars, …)
 ```
 
@@ -306,6 +309,10 @@ the cleaner.
 - [`CLAUDE.md`](CLAUDE.md) — guide for Claude Code (and humans) in this repo
 - [`docs/calendars.md`](docs/calendars.md) — formal calendar definitions, algorithms
 - [`docs/data-sources.md`](docs/data-sources.md) — every fetcher, intraday matrix
-- [`docs/strategies.md`](docs/strategies.md) — what each strategy does
+- [`docs/strategies.md`](docs/strategies.md) — all 11 strategies with math and citations
 - [`docs/agents.md`](docs/agents.md) — agent responsibilities
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — deep architecture & design rationale
+
+---
+
+_Last verified against code: 2026-05-24._

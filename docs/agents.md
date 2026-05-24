@@ -1,17 +1,18 @@
 # Agents
 
-Six specialized agents wire the deterministic services and (future) LLM
-services into a coherent system. Four agents are deterministic and run in
-v1; two are LLM-backed and gated behind `LLM_ENABLED=false` in v1.
+Six specialized agents wire the deterministic services and the LLM
+services into a coherent system. Four agents are deterministic and
+always run; two are LLM-backed and operate in demo mode (`NullProvider`)
+unless Gemini is configured via env.
 
-| # | Agent | Mode | Tools (skills) |
+| # | Agent | Mode | Real operations (dispatch by `op`) |
 |---|---|---|---|
-| 1 | Orchestrator | LLM (disabled v1) | `route_request`, `plan_workflow`, `aggregate_results` |
-| 2 | Data | deterministic | `fetch_equity`, `fetch_crypto`, `fetch_fx`, `validate_ohlcv`, `store_bars`, `check_data_freshness` |
-| 3 | Strategy | deterministic | `list_strategies`, `configure_params`, `generate_signals`, `walk_forward_split` |
-| 4 | Backtest | deterministic | `run_backtest`, `apply_slippage`, `apply_commissions`, `size_position`, `track_pnl` |
-| 5 | Analytics | deterministic | `compute_metrics`, `build_equity_curve`, `build_drawdown`, `build_heatmap`, `compute_trade_stats` |
-| 6 | Explanation | LLM (disabled v1) | `explain_metric`, `explain_strategy`, `compare_runs`, `answer_question` |
+| 1 | Orchestrator | LLM (demo by default) | one op — `user_message → final_answer` via a Python tool-use loop calling the five agents below |
+| 2 | Data | deterministic | `refresh`, `freshness`, `list_assets` |
+| 3 | Strategy | deterministic | `list`, `build`, `walk_forward_split` |
+| 4 | Backtest | deterministic | one op — run a single backtest end-to-end and persist trades / equity / metrics / benchmark curves |
+| 5 | Analytics | deterministic | `metrics`, `chart` (5 kinds: `equity, drawdown, heatmap, trade_pnl, rolling_sharpe`), `benchmark_metrics` |
+| 6 | Explanation | LLM (demo by default) | `explain_metric`, `explain_strategy`, `compare_runs`, `answer_question`, `report_run` (+ persisted report cache) |
 
 ## Common contract
 
@@ -42,53 +43,65 @@ operation needs:
 
 ### Orchestrator
 
-In v1 it short-circuits because `settings.llm_enabled is False`. When the
-Gemini provider is implemented, flipping `LLM_ENABLED=true` activates a
-tool-use loop that calls the other five agents as tools. The tool input
-types are taken from each agent's `*Input` dataclass.
+Receives a natural-language request as `OrchestratorInput(user_message, history, max_steps=8)` and returns `OrchestratorOutput(final_answer, steps)`. The tool-use loop is real Python: it parses tool calls from the LLM response via JSON extraction (provider-agnostic; not the SDK's native function-calling), dispatches them to the other five agents, feeds the result back, and continues until the LLM emits a final answer or `max_steps` is exhausted.
+
+By default the orchestrator short-circuits because `backend/config.py` defaults to `LLM_ENABLED=false`, so the API exposes the structured endpoints directly. Flipping `LLM_ENABLED=true` (which `.env.example` already does) plus supplying `LLM_PROVIDER=gemini` + `GEMINI_API_KEY` activates it without touching application code.
 
 ### Data Agent
 
-- Looks up the asset row and dispatches to the right fetcher by asset class.
+- Three `op`s: `refresh` (fetch + clean + upsert), `freshness` (timestamp of last stored bar), `list_assets` (all active rows).
+- Looks up the asset row and dispatches to the right fetcher class via `_FETCHERS` (`equity`/`etf` → `EquityFetcher`, `crypto` → `CryptoFetcher`, `fx` → `FXFetcher`) and to the right cleaner calendar via `_CALENDAR_FOR` (`equity`/`etf` → `"nyse"`, `fx` → `"24x5"`, `crypto` → `"24x7"`).
 - Determines start of fetch from the most recent stored bar (incremental).
 - Runs `OHLCVCleaner` on the raw frame.
-- Upserts via SQLite `INSERT ... ON CONFLICT DO UPDATE`. (Postgres prod
-  would use `postgresql.insert` instead — same shape, different import.)
+- Upserts via SQLite `INSERT ... ON CONFLICT DO UPDATE`. Postgres prod would use `postgresql.insert` — same shape, different import.
 
 ### Strategy Agent
 
-Stateless utility wrapping `backend.strategies`. Useful operations:
+Stateless utility wrapping `backend.strategies`. No DB access. Three ops:
 
-- `list` — return all registered strategies + their JSON Schema.
-- `build` — instantiate a strategy from a slug + params dict, validating
-  via the strategy's `config_cls`.
-- `walk_forward_split` — chronological train/test split.
+- `list` — return metadata for all 11 registered strategies (slug, name, description, category, JSON Schema for params).
+- `build` — instantiate a strategy from `(slug, params)`, validating `params` against the strategy's Pydantic `config_cls`.
+- `walk_forward_split` — chronological train/test split of a bars DataFrame; validates `0.1 < train_pct < 0.9`.
 
 ### Backtest Agent
 
-The agent does the heavy lifting of running a single backtest:
+A single-op agent. Each invocation runs an end-to-end backtest:
 
-1. Persists a "running" row so the API can poll status.
-2. Loads bars from DB (never live API).
-3. Builds the strategy.
-4. Calls `run_backtest`.
-5. Persists trades, equity curve, metrics.
+1. Persists a `running` row so the API can poll status.
+2. Loads bars from the local DB (never a live API).
+3. Builds the strategy via `StrategyAgent`.
+4. Drives the engine loop in `backend/backtest/engine.py`.
+5. Persists `trades`, `equity_curve`, and `metrics`.
+6. Computes and persists the **same-asset buy-and-hold** and **SPY buy-and-hold** benchmark equity curves to `benchmark_equity_curve`, so the UI can draw overlays without recomputation.
+7. Marks the run `completed` (or `failed` with the error message).
 
 ### Analytics Agent
 
-- `metrics` — returns metrics grouped by category (return / risk / trade).
-- `chart` — returns Plotly figure JSON for one of the standard charts.
+Presentation layer over persisted run data. Three ops:
+
+- `metrics` — load `metrics` rows for a run, group by category (`return`, `risk`, `trade`).
+- `chart` — build a Plotly figure (JSON) for one of five chart kinds: `equity`, `drawdown`, `heatmap`, `trade_pnl`, `rolling_sharpe`.
+- `benchmark_metrics` — derive KPIs from a stored benchmark equity curve using the same metric functions as the strategy (with `trade_pnls=None`, so the trade block is zeroed for buy-and-hold).
 
 ### Explanation Agent
 
-Wraps the `LLMProvider` with prompt builders for the four supported ops.
-In v1 the provider is `NullProvider`, so the prompts are still constructed
-(and persisted) but the response is canned demo text. When Gemini lands,
-no code in this agent has to change.
+Wraps the `LLMProvider` with prompt builders for five ops:
+
+- `explain_metric` — interpret a single KPI in context.
+- `explain_strategy` — what a strategy does and when it works or fails.
+- `compare_runs` — side-by-side commentary on two runs.
+- `answer_question` — open-ended Q&A grounded on a run's metrics.
+- `report_run` — full markdown report with "Key findings" and "Limitations".
+
+The agent persists conversation turns to `llm_conversations` and exposes `get_cached_report(run_id)` + `get_cached_report_timestamp(run_id)` so the `GET /backtests/{run_id}/report` endpoint can return a cached report without hitting the LLM (regenerate via `POST` to the same path). The `is_demo_mode` property is `True` iff the underlying provider is `NullProvider` — the UI surfaces a "demo mode" badge in that case.
+
+With `LLM_ENABLED=false` (the `config.py` default) the provider is `NullProvider`; switching to Gemini requires `LLM_ENABLED=true` + `LLM_PROVIDER=gemini` + `GEMINI_API_KEY=…`.
 
 ## Future agent additions
 
-- **Walk-forward Agent** — build train/test pairs, run backtests in batch,
-  aggregate parameter robustness reports. (v1.2)
-- **Comparison Agent** — diff two runs, build dual-equity charts. Could
-  also be a method on Analytics. (v1.2)
+- **Walk-forward Agent** — build train/test pairs, run backtests in batch, aggregate parameter robustness reports. (v1.1)
+- **Comparison Agent** — diff two runs, build dual-equity charts. Could also be a method on Analytics. (v1.2)
+
+---
+
+_Last verified against code: 2026-05-24._

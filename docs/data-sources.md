@@ -98,5 +98,10 @@ Forward-fill is **bounded**: only NaN runs of length ≤ 2 are filled
 3. Register the fetcher in `DataAgent._FETCHERS`.
 4. If the asset class is new, add its calendar mapping to
    `DataAgent._CALENDAR_FOR` and an entry to
-   `backend/analytics/periods._TABLE`.
+   `backend/analytics/periods._TABLE` (see [`calendars.md`](./calendars.md)
+   for the canonical annualization table).
 5. Document its quirks in this file.
+
+---
+
+_Last verified against code: 2026-05-24._

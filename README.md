@@ -20,16 +20,19 @@ Retail quantitative traders lose money for two related reasons:
 
 ## Features (v1)
 
-- **Multi–asset-class** backtesting: equities (AAPL, NVDA, MSFT, SPY), crypto (BTC), FX (EUR/USD)
-- **Daily and hourly bar resolution** with per-asset-class trading calendars (NYSE for equities/ETF, 24/5 for FX, 24/7 for crypto)
-- **Four built-in strategies**: SMA Crossover, RSI Mean Reversion, Bollinger Bands, Donchian Breakout
-- **Event-driven backtest engine** with strict bar-`t` → bar-`t+1` fill semantics (no look-ahead) at any timeframe
-- **Configurable execution model**: commission (bps), slippage (bps or ATR-scaled), variable position sizing
-- **Standard performance dashboard**: Equity curve, Underwater (drawdown) curve, Monthly returns heatmap, full KPI grid
-- **Six-agent architecture** (4 deterministic, 2 LLM-backed and disabled in v1)
-- **SQL persistence** — every run is reproducible, every trade is logged
-- **React + TypeScript web frontend** with interactive Plotly charts
-- **LLM-ready** — Explanation Agent is fully scaffolded behind an `LLMProvider` abstraction; flip a flag to enable Google Gemini in a future iteration
+- **Multi–asset-class** backtesting across the seeded universe: 20 US mega-caps (AAPL, NVDA, MSFT, TSLA, JPM, …), 5 ETFs (SPY, QQQ, IWM, TLT, GLD), 5 crypto pairs (BTC-USD, ETH-USD, BNB-USD, XRP-USD, SOL-USD), and 6 FX pairs (EURUSD, GBPUSD, USDCHF, EURCHF, EURGBP, GBPCHF). Full list in [`docs/data-sources.md`](docs/data-sources.md).
+- **Daily and hourly bar resolution** with per-asset-class native trading calendars (NYSE for equities/ETF, 24/5 for FX, 24/7 for crypto) — see [`docs/calendars.md`](docs/calendars.md).
+- **11 strategies** across five families (trend, momentum, breakout, mean reversion, benchmark) — see [`docs/strategies.md`](docs/strategies.md) for the full catalogue.
+- **Event-driven backtest engine** with strict bar-`t` → bar-`t+1` fill semantics (no look-ahead) at any timeframe.
+- **Configurable execution model**: commission (bps), slippage (bps or ATR-scaled), fixed-fraction or volatility-targeted position sizing.
+- **Standard performance dashboard**: equity curve, drawdown curve, monthly returns heatmap, trade-P&L scatter, rolling Sharpe, full KPI grid.
+- **Benchmark overlays** — same-asset buy-and-hold and SPY buy-and-hold curves are computed at run time and toggled into every chart via a shared legend.
+- **Shared crosshair tooltip** across all charts so values stay aligned when you hover anywhere on the timeline.
+- **One-click PDF export** of the AI-generated report from the results page.
+- **Six-agent architecture** (4 deterministic; 2 LLM-backed — run in demo mode with `NullProvider` unless Gemini is configured via env).
+- **SQL persistence** — every run is reproducible, every trade is logged.
+- **React + TypeScript web frontend** with interactive Plotly charts.
+- **LLM-ready** — `LLMProvider` abstraction with two implementations: `NullProvider` (default, deterministic) and `GeminiProvider` (Google Gemini, opt-in via `LLM_ENABLED=true` + `GEMINI_API_KEY`).
 
 ---
 
@@ -41,10 +44,10 @@ Retail quantitative traders lose money for two related reasons:
 | Database (dev) | SQLite |
 | Database (prod-ready) | PostgreSQL 15+ (drop-in replacement via `DATABASE_URL`) |
 | Data sources | yfinance (equity/ETF/FX/crypto), ccxt/Binance (crypto fallback), Stooq (FX fallback) |
-| Frontend | React 18 · TypeScript · Vite · TailwindCSS · Plotly.js |
+| Frontend | React 18 · TypeScript · Vite · TailwindCSS · Plotly.js · jsPDF (report export) |
 | Scheduler | APScheduler (nightly data refresh) |
 | Tests | pytest · pytest-asyncio · Vitest |
-| LLM (deferred) | Provider-agnostic; Gemini adapter scaffolded |
+| LLM | Provider-agnostic (`LLMProvider`); `NullProvider` (default) and `GeminiProvider` (Google Gemini, opt-in via env) |
 
 ---
 
@@ -174,7 +177,7 @@ Programming_II_Project_USI/
 │   ├── data/                          ← fetchers (yfinance, ccxt/Binance, Stooq) + cleaner
 │   ├── database/                      ← SQLAlchemy models & connection
 │   ├── llm/                           ← LLMProvider abstraction (Null + Gemini)
-│   └── strategies/                    ← 4 trading strategies + base
+│   └── strategies/                    ← 11 trading strategies + base + registry
 │
 ├── frontend/                          ← React + TS + Vite + Tailwind
 │   └── src/
@@ -192,12 +195,13 @@ Programming_II_Project_USI/
 ## How the system works (high level)
 
 1. **User picks an asset, a strategy, and parameters** in the React UI.
-2. **Backtest run is enqueued** as a FastAPI background task; the UI polls (or subscribes) for status.
+2. **Backtest runs synchronously**: `POST /backtests` blocks until `BacktestAgent.run()` finishes, then the UI navigates to the results page. The Dashboard polls `GET /backtests` every 5 s to surface other runs (or any future async submissions).
 3. The **Backtest Agent** loads OHLCV bars from the local SQL database — *never* from a live API. This guarantees reproducibility.
 4. The engine iterates **bar by bar**: at each bar `t`, the strategy sees only data up to and including `t`, generates a signal, and any resulting order is filled at the **open of bar `t+1`**, with commission and slippage subtracted from the price. This fill rule is enforced in the engine, not delegated to strategies.
-5. The **Analytics Agent** computes all KPIs and chart payloads from the trade ledger and equity curve.
-6. Results are persisted to SQL and rendered in the UI as Plotly charts and a metrics grid.
-7. (Future) The **Explanation Agent** uses a Google Gemini call to translate the metrics into plain language for the user.
+5. The **Backtest Agent** also computes and persists same-asset buy-and-hold and SPY buy-and-hold benchmark equity curves, so chart overlays don't need recomputation.
+6. The **Analytics Agent** computes all KPIs and chart payloads from the trade ledger and equity curve on demand.
+7. Results are persisted to SQL and rendered in the UI as Plotly charts and a metrics grid.
+8. The **Explanation Agent** generates a natural-language report. It runs in demo mode (`NullProvider` returns deterministic canned text) by default; setting `LLM_ENABLED=true` + `LLM_PROVIDER=gemini` + `GEMINI_API_KEY=…` switches it to live Google Gemini responses.
 
 For the deep-dive, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
@@ -209,7 +213,7 @@ For the deep-dive, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 - **Hourly history horizon**: all hourly data is limited to ~730 days back by yfinance (now the primary source across every asset class) — the frontend caps the date picker accordingly. The Binance fallback inside `CryptoFetcher` can still serve older crypto hourly bars for ad-hoc requests.
 - **Single-asset strategies**: each backtest run targets exactly one asset. Portfolio-level (multi-asset) strategies are out of scope for v1.
 - **No live trading / paper trading**: this tool is for research, not execution.
-- **LLM disabled in v1**: the Explanation Agent ships with a `NullProvider` that returns canned text. Activating Google Gemini is a follow-up task.
+- **LLM runs in demo mode by default**: the Explanation Agent ships with `NullProvider`, which returns deterministic canned text. The `GeminiProvider` is fully implemented (retries, role mapping, token accounting); activating it requires `LLM_ENABLED=true` + `LLM_PROVIDER=gemini` + a `GEMINI_API_KEY` in `.env`.
 
 ---
 
@@ -217,9 +221,9 @@ For the deep-dive, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 | Iteration | Focus |
 |---|---|
-| **v1** *(this delivery)* | Single-asset backtester, 4 strategies, full UI, daily + hourly bars, deterministic agents |
-| v1.1 | Activate Google Gemini for the Explanation Agent |
-| v1.2 | Walk-forward / out-of-sample UI, parameter sweeps |
+| **v1** *(this delivery)* | Single-asset backtester, 11 strategies, full UI, daily + hourly bars, benchmark overlays, AI report (Gemini opt-in) |
+| v1.1 | Walk-forward / out-of-sample UI, parameter sweeps |
+| v1.2 | Multi-run comparison view, strategy similarity search |
 | v2.0 | Multi-asset portfolio strategies, minute-level data, paper-trading mode |
 
 ---
@@ -241,3 +245,7 @@ The KPI formulas implemented in `backend/analytics/metrics.py` follow the conven
 - Chan, E. (2008). *Quantitative Trading: How to Build Your Own Algorithmic Trading Business*. Wiley.
 
 Each metric's docstring cites its formula source.
+
+---
+
+_Last verified against code: 2026-05-24._
