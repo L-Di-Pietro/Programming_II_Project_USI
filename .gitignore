@@ -70,6 +70,8 @@ data_cache/
 # Logs
 logs/
 *.log
+# Private working/navigation docs — kept local, never committed
+DOC_PROMPTS.md
 
 # --- Frontend build artifacts that must never be committed ------------------
 # frontend/src is .ts/.tsx only; any .js/.jsx/.d.ts under src/ is a tsc
