@@ -23,8 +23,8 @@ const bh: BenchmarkSeries = {
   kind: "buy_and_hold",
   tag: "B&H",
   label: "Buy & Hold",
-  hex: "#3B82F6",
-  tagClass: "text-accent-blue border-accent-blue/40 bg-accent-blue/[0.08]",
+  hex: "#facc15",
+  tagClass: "text-accent-bh border-accent-bh bg-accent-bh/10",
   equity: mkEquity(20_000),
 };
 

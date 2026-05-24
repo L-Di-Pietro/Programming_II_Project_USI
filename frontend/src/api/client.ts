@@ -225,4 +225,8 @@ export const Api = {
     const { data } = await api.post<Report>(`/backtests/${runId}/report`);
     return data;
   },
+  /** Browser-navigable URL for the styled PDF export of a run's report. */
+  reportPdfUrl(runId: number): string {
+    return `${baseURL}/backtests/${runId}/report.pdf`;
+  },
 };

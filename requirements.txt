@@ -29,6 +29,9 @@ requests==2.32.3                # general HTTP (transitive dep of yfinance/panda
 # --- Plotting ----------------------------------------------------------------
 plotly==5.24.1                  # build figure JSON server-side; render client-side
 
+# --- PDF export --------------------------------------------------------------
+reportlab==4.5.1                # styled PDF for the AI backtest report
+
 # --- Scheduling --------------------------------------------------------------
 APScheduler==3.10.4             # nightly data refresh job
 

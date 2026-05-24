@@ -125,8 +125,8 @@ function HeatmapTable({ equity }: { equity: EquityPoint[] }) {
 // Per-series box border + faint background tint (token-based, static classes).
 const BOX_CLASS: Record<string, string> = {
   strategy:     "border-accent-cyan/40 bg-accent-cyan/[0.02]",
-  buy_and_hold: "border-accent-blue/40 bg-accent-blue/[0.02]",
-  sp500:        "border-accent-pink/40 bg-accent-pink/[0.02]",
+  buy_and_hold: "border-accent-bh/40 bg-accent-bh/[0.02]",
+  sp500:        "border-accent-spx/40 bg-accent-spx/[0.02]",
 };
 
 export function MonthlyHeatmap({

@@ -135,7 +135,7 @@ function MetricCard({
           {rows.map((r, idx) => (
             <div key={idx} className="flex items-center gap-2">
               <span
-                className={`font-mono text-[9px] tracking-wider px-1.5 py-[2px] rounded-sm border ${r.tagClass}`}
+                className={`font-mono text-[10px] uppercase tracking-wider px-1.5 py-[2px] rounded-sm border-[1.5px] ${r.tagClass}`}
               >
                 {r.tag}
               </span>

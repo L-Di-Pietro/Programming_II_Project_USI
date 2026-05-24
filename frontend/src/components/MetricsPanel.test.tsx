@@ -21,7 +21,7 @@ const buyHold: Metrics = {
 const bhSeries = {
   kind: "buy_and_hold",
   tag: "B&H",
-  tagClass: "text-accent-blue",
+  tagClass: "text-accent-bh border-accent-bh bg-accent-bh/10",
   metrics: buyHold,
 };
 
