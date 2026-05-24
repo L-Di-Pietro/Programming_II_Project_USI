@@ -25,7 +25,8 @@ concurrency:
   cancel-in-progress: false
 
 # Least privilege: push the PR branch + open the PR. Nothing more.
-# (API-key auth needs no id-token; that's only for Bedrock/Vertex OIDC.)
+# (Direct Anthropic auth via the OAuth token needs no id-token; that's only
+# for Bedrock/Vertex OIDC.)
 permissions:
   contents: write
   pull-requests: write
@@ -72,7 +73,9 @@ jobs:
       - name: Run Claude Code (headless doc refresh)
         uses: anthropics/claude-code-action@v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Same Claude-subscription OAuth token as claude.yml /
+          # claude-code-review.yml — no extra API billing.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             Read .github/prompts/nightly-doc-update.md and follow it exactly.
           # Read/edit docs + a tightly scoped, read-only Bash allowlist.
