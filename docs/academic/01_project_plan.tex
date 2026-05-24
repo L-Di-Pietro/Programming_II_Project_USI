@@ -1,0 +1,92 @@
+\section{Project plan}
+\label{sec:plan}
+
+\subsection{Problem statement}
+
+Retail quantitative traders lose money for two related reasons. First, many deploy
+strategies that have never been rigorously back-tested on historical data. Second,
+when they \emph{do} test, they cut corners that systematically inflate apparent
+performance: they let the strategy peek at information that would not have been
+available in real time (\emph{look-ahead bias}), they neglect transaction costs and
+execution slippage, and they evaluate over too few trades to distinguish edge from
+noise. The first problem is one of awareness; the second is a software-engineering
+problem. \textbf{QuantBacktest} addresses the second: it is a backtesting platform
+that makes the rigorous path the easy one.
+
+\subsection{Scope}
+
+The system delivered in this submission (\texttt{v1.0.0-rc1}, tagged 2026-05-24)
+provides:
+
+\begin{itemize}
+  \item Single-asset backtests across a seeded universe of 20 US equities, 5 ETFs,
+        5 crypto pairs and 6 FX pairs.
+  \item Daily and hourly bar resolution, each indexed against the \emph{native}
+        trading calendar of its asset class (NYSE for equities and ETFs, 24$\times$5
+        for FX, 24$\times$7 for crypto).
+  \item Eleven strategies across five families (trend, momentum, breakout,
+        mean-reversion, benchmark), each implementing a uniform signal contract.
+  \item An event-driven backtest engine that enforces look-ahead-bias prevention by
+        construction.
+  \item Configurable commission (bps), slippage (bps or ATR-scaled), and
+        position-sizing modes (fixed fraction or volatility-targeted).
+  \item Standard performance dashboard: equity curve, drawdown, monthly heatmap,
+        trade-P\&L scatter, rolling Sharpe, full KPI grid.
+  \item Buy-and-hold and SPY benchmark overlays computed and persisted at run time.
+  \item An optional, opt-in LLM-generated explanatory report grounded on the run's
+        metrics.
+\end{itemize}
+
+Out of scope for this iteration: multi-asset portfolio strategies, minute-level data,
+walk-forward optimisation UI, paper-trading or live-trading hooks. These are
+documented in the roadmap section of \texttt{README.md} as candidates for v1.1+.
+
+\subsection{Tech-stack rationale}
+
+The choices reflect a preference for tools that minimise the gap between the
+production-leaning quality the rubric expects and the four-week timeline the
+academic calendar allows:
+
+\begin{itemize}
+  \item \textbf{Python 3.11+ / FastAPI / SQLAlchemy 2 / Pydantic v2} on the backend.
+        FastAPI gives us OpenAPI for free (the live schema at \texttt{/openapi.json}
+        is the source of truth for the typed frontend client). SQLAlchemy's generic
+        types let the same schema run on SQLite in development and on PostgreSQL in
+        production via a single \texttt{DATABASE\_URL} switch.
+  \item \textbf{React 18 + TypeScript + Vite + TailwindCSS + Plotly.js} on the
+        frontend. Plotly produces interactive charts without manual SVG plumbing;
+        TypeScript catches schema mismatches against the OpenAPI-typed client.
+  \item \textbf{pytest + Vitest} for tests. The single most important test is
+        \texttt{tests/test\_engine\_no\_lookahead.py}, which injects an oracle
+        strategy that ``knows'' the future close \textemdash{} the engine must still
+        only let it trade at next-bar open.
+  \item \textbf{LLM via a provider abstraction.} \texttt{LLMProvider} (in
+        \texttt{backend/llm/base.py}) has two implementations: \texttt{NullProvider}
+        (deterministic, used by tests) and \texttt{GeminiProvider} (Google Gemini,
+        opt-in). LLM features are off by default.
+\end{itemize}
+
+\subsection{Four-week timeline}
+
+The project ran from 2026-04-25 (initial commit) to 2026-05-24 (documentation pass
+and submission), staffed by four contributors. Targets per week:
+
+\begin{itemize}
+  \item \textbf{Week~1 \textemdash{} 2026-04-27 to 2026-05-03.} Scaffold the
+        repository, fix the directory layout, draft \texttt{requirements.txt}, agree
+        on the agent boundaries.
+  \item \textbf{Week~2 \textemdash{} 2026-05-04 to 2026-05-10.} First domain feature
+        (TSLA as an equity asset); first LLM-generated report (proves the
+        \texttt{LLMProvider} abstraction works end-to-end).
+  \item \textbf{Week~3 \textemdash{} 2026-05-11 to 2026-05-17.} Frontend MVP;
+        hourly bar support and per-asset-class native calendars; chart suite; PDF
+        export of the AI report.
+  \item \textbf{Week~4 \textemdash{} 2026-05-18 to 2026-05-24.} Data-layer
+        hardening (yfinance as primary across all classes); strategy catalogue
+        expansion from 5 to 11; benchmark overlays; shared crosshair and legend;
+        CI workflows; full documentation pass.
+\end{itemize}
+
+The four-contributor team meant any single week's deliverable could be split across
+two pairs (frontend + backend), which is reflected in the merge-PR history in
+Section~\ref{sec:diary}.

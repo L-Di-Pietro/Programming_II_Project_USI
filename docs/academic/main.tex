@@ -1,0 +1,115 @@
+\documentclass[10pt,a4paper]{article}
+
+% ---------- Geometry & typography -------------------------------------------
+\usepackage[margin=2.2cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{csquotes}
+
+% Allow looser line breaks before flagging a paragraph as overfull. Removes
+% the small (<40pt) overfull-hbox warnings that arise from long inline
+% \texttt{} runs (e.g. "NullProvider/GeminiProvider", parameter lists).
+\setlength{\emergencystretch}{3em}
+\sloppy
+
+% ---------- Maths -----------------------------------------------------------
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% ---------- Tables & figures ------------------------------------------------
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{graphicx}
+\usepackage{xcolor}
+
+% ---------- Code listings ---------------------------------------------------
+\usepackage{listings}
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+  keywordstyle=\color{blue!60!black},
+  commentstyle=\color{black!50},
+  stringstyle=\color{green!50!black},
+  showstringspaces=false,
+  frame=single,
+  rulecolor=\color{black!20},
+  framerule=0.4pt,
+  xleftmargin=4pt,
+  xrightmargin=4pt
+}
+
+% ---------- TODO notes for team-filled placeholders -------------------------
+\usepackage[colorinlistoftodos,prependcaption,textsize=footnotesize]{todonotes}
+
+% ---------- Hyperlinks (load near the end) ----------------------------------
+\usepackage[hidelinks,colorlinks=true,urlcolor=blue!60!black,linkcolor=black,citecolor=blue!50!black]{hyperref}
+
+% ---------- Bibliography ----------------------------------------------------
+\usepackage[backend=biber,style=numeric,sorting=nyt,maxbibnames=4]{biblatex}
+\addbibresource{references.bib}
+
+% ---------- Document metadata -----------------------------------------------
+\title{%
+  \textbf{QuantBacktest} \\[4pt]
+  \large A Backtesting Framework for Retail Quantitative Traders
+}
+\author{%
+  Aaron Arauz \texttt{[Baumender11]} \and
+  Luca Di Pietro \texttt{[L-Di-Pietro]} \and
+  Stefano Angelo Galdini \and
+  Filippo Selmi \texttt{[FilippoSelmi]}
+}
+\date{2026-05-24}
+
+% ============================================================================
+\begin{document}
+% ============================================================================
+
+\maketitle
+
+\begin{center}
+\small
+\textbf{USI Lugano \textemdash{} Programming in Finance II (2026)} \\
+Project 2.8 \textemdash{} Instructor: P.~H.~Gruber \\
+Source repository: \url{https://github.com/L-Di-Pietro/Programming_II_Project_USI}
+\end{center}
+
+\vspace{1em}
+
+\begin{abstract}
+\noindent
+QuantBacktest is a web-based event-driven backtesting framework for retail quantitative
+traders, built as the final project for USI Lugano's \emph{Programming in Finance~II}
+course. The system targets the two failure modes that cause most retail-backtest losses:
+look-ahead bias (architecturally prevented by enforcing bar-$t \to$ bar-$t{+}1$ fills in
+the engine) and unrealistic execution assumptions (commission and slippage exposed as
+first-class user parameters). It ships eleven trading strategies across five families,
+multi-asset support (equities, ETFs, FX, crypto) with native trading calendars per asset
+class, both daily and hourly bar resolution, and a six-agent backend in which only two
+of the six agents are LLM-backed and are opt-in by default. This document covers the
+project plan, the development diary, the underlying mathematics and data-science
+methodology, sample results and an economic reflection, the lessons we learned, and an
+acknowledgement of the generative-AI tools that participated in the project.
+\end{abstract}
+
+\tableofcontents
+
+\vspace{1em}
+\hrule
+\vspace{1em}
+
+% ---------- Sections --------------------------------------------------------
+\input{01_project_plan}
+\input{02_project_diary}
+\input{03_methodology}
+\input{04_sample_results}
+\input{05_lessons_learned}
+\input{06_ai_acknowledgement}
+
+% ---------- Bibliography ----------------------------------------------------
+\printbibliography[heading=bibnumbered,title={References}]
+
+\end{document}

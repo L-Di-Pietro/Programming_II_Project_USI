@@ -1,0 +1,64 @@
+%% QuantBacktest — end-to-end request flow
+%% Render in any Mermaid-aware viewer (GitHub, VS Code Mermaid extension, mmdc CLI).
+%% Last verified against code: 2026-05-24.
+
+flowchart LR
+    subgraph Browser["Browser (localhost:5173)"]
+        UI["React + TS UI<br/>(Dashboard · NewBacktest · RunResults · Strategies)"]
+        Plotly["react-plotly.js"]
+        UI --> Plotly
+    end
+
+    subgraph Backend["FastAPI backend (localhost:8000)"]
+        Router["API routes<br/>/assets · /strategies · /backtests · /explain · /healthz"]
+        subgraph Agents["Agents (backend/agents/)"]
+            Data["DataAgent"]
+            Strat["StrategyAgent"]
+            BT["BacktestAgent"]
+            Anal["AnalyticsAgent"]
+            Expl["ExplanationAgent<br/>(LLM)"]
+            Orch["OrchestratorAgent<br/>(LLM)"]
+        end
+        Engine["BacktestEngine<br/>(backend/backtest/engine.py)<br/>bar-t → bar-t+1 fills"]
+        Metrics["analytics/metrics.py<br/>Sharpe · Sortino · CAGR · DD · ..."]
+        Viz["analytics/visualizations.py<br/>Plotly figure builders"]
+        LLM["LLMProvider abstraction<br/>(backend/llm/base.py)"]
+        DB[("SQLite / Postgres<br/>assets · ohlcv_bars · strategies<br/>backtest_runs · trades<br/>equity_curve · benchmark_equity_curve<br/>metrics · llm_conversations")]
+    end
+
+    subgraph External["External services"]
+        YF["Yahoo Finance<br/>(yfinance)"]
+        BN["Binance<br/>(ccxt)"]
+        ST["Stooq<br/>(pandas-datareader)"]
+        Gem["Google Gemini API<br/>(opt-in)"]
+    end
+
+    UI -->|HTTPS/JSON| Router
+    Router --> Data
+    Router --> Strat
+    Router --> BT
+    Router --> Anal
+    Router --> Expl
+
+    Data -->|fetch + clean| YF
+    Data -->|crypto fallback| BN
+    Data -->|FX fallback| ST
+    Data -->|upsert| DB
+
+    BT -->|load bars| DB
+    BT -->|build strategy| Strat
+    BT --> Engine
+    Engine -->|persist trades, equity, metrics| DB
+
+    Anal -->|load rows| DB
+    Anal --> Metrics
+    Anal --> Viz
+    Viz -->|figure dict| Router
+
+    Expl --> LLM
+    Orch --> LLM
+    LLM -->|when LLM_ENABLED=true| Gem
+    LLM -->|default| NullProv["NullProvider (deterministic)"]
+
+    Router -->|figure JSON| UI
+    Router -->|metrics, trades, equity| UI

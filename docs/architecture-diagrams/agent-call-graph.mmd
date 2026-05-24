@@ -1,0 +1,51 @@
+%% QuantBacktest — agent call graph
+%% Shows which agent invokes which, and which are LLM-backed.
+%% Last verified against code: 2026-05-24.
+
+graph TD
+    classDef det fill:#dcedc8,stroke:#558b2f,color:#1b5e20;
+    classDef llm fill:#fce4ec,stroke:#ad1457,color:#880e4f;
+    classDef ext fill:#e1f5fe,stroke:#0277bd,color:#01579b;
+
+    %% Entry points
+    API["FastAPI routes<br/>(/backtests · /assets · /strategies · /explain)"]:::ext
+    Orch["OrchestratorAgent<br/>(NL → tool-use loop)"]:::llm
+
+    %% Deterministic agents
+    Data["DataAgent<br/>refresh · freshness · list_assets"]:::det
+    Strat["StrategyAgent<br/>list · build · walk_forward_split"]:::det
+    BT["BacktestAgent<br/>end-to-end run"]:::det
+    Anal["AnalyticsAgent<br/>metrics · chart · benchmark_metrics"]:::det
+
+    %% LLM agent
+    Expl["ExplanationAgent<br/>explain_metric · explain_strategy<br/>compare_runs · answer_question · report_run"]:::llm
+
+    %% Shared services
+    Engine["BacktestEngine<br/>bar-t → bar-t+1"]:::det
+    LLM["LLMProvider abstraction<br/>(Null · Gemini)"]:::ext
+
+    %% Direct API → agent calls (v1)
+    API --> Data
+    API --> Strat
+    API --> BT
+    API --> Anal
+    API --> Expl
+
+    %% Orchestrator dispatches to every agent when LLM_ENABLED=true
+    Orch -.tool call.-> Data
+    Orch -.tool call.-> Strat
+    Orch -.tool call.-> BT
+    Orch -.tool call.-> Anal
+    Orch -.tool call.-> Expl
+
+    %% Backtest internal composition
+    BT --> Strat
+    BT --> Engine
+    BT --> Data
+
+    %% Explanation depends on Analytics for the metrics it explains
+    Expl --> Anal
+
+    %% LLM dispatch
+    Orch --> LLM
+    Expl --> LLM

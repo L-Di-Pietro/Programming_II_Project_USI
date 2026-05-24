@@ -236,6 +236,27 @@ USI Lugano — Programming II (Spring 2026).
 
 MIT — see [`LICENSE`](./LICENSE).
 
+## Further reading
+
+The documentation set that ships with this repository, beyond the files already linked above:
+
+**Repo-root contracts**
+- [`AGENTS.md`](./AGENTS.md) — AI-collaborator contract (per-agent interfaces, onboarding sequence, commit & PR rules).
+- [`CONTRIBUTING.md`](./CONTRIBUTING.md) — branch model, how to run tests/linters, how to add a new strategy/agent/data-source.
+- [`CHANGELOG.md`](./CHANGELOG.md) — Keep-a-Changelog history seeded from `git log`.
+- [`CITATIONS.md`](./CITATIONS.md) — every third-party library (with version + license) and every algorithm/formula citation.
+- [`AI_USAGE.md`](./AI_USAGE.md) — generative-AI tools used during the project, per the course's acknowledgement rule.
+- [`SECURITY.md`](./SECURITY.md) — vulnerability-reporting policy.
+- [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md) — Contributor Covenant–derived code of conduct.
+
+**Technical depth in `docs/`**
+- [`docs/user-guide.md`](./docs/user-guide.md) — end-user walkthrough: first backtest in 5 minutes, chart guide, KPI panel, troubleshooting.
+- [`docs/api.md`](./docs/api.md) — comprehensive HTTP API reference (every endpoint, every Pydantic schema).
+- [`docs/architecture-diagrams/`](./docs/architecture-diagrams/) — Mermaid sources for the system-flow, agent-call-graph, and DB-schema diagrams.
+
+**Academic submission (iCorsi)**
+- [`docs/academic/main.tex`](./docs/academic/main.tex) — LaTeX source of the academic PDF. Build with `cd docs/academic && make pdf`.
+
 ## Citing standard formulas
 
 The KPI formulas implemented in `backend/analytics/metrics.py` follow the conventions of:

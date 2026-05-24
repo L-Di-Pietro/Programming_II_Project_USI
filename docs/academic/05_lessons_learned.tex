@@ -1,0 +1,89 @@
+\section{Lessons learned}
+\label{sec:lessons}
+
+\subsection{What worked}
+
+\paragraph{Pydantic-driven JSON Schemas as the contract between backend and frontend.}
+Every strategy in \texttt{backend/strategies/} declares a Pydantic \texttt{Config}
+class; \texttt{GET /strategies} serialises it as a JSON Schema; the React form
+component renders a complete parameter UI from that schema with no per-strategy
+frontend code. Adding the sixth-through-eleventh strategies (PR~\#7) cost zero
+frontend work as a result. This is the single biggest productivity multiplier in
+the project and we would carry it forward to any future codebase.
+
+\paragraph{The six-agent abstraction.} Splitting the runtime into named agents,
+each inheriting \texttt{BaseAgent[TIn, TOut]} with a single public
+\texttt{run(payload)} method, gave us seam-by-seam testability and a natural
+docking point for the LLM orchestrator. The boundary between the two LLM-backed
+agents and the four deterministic agents was the right boundary: it kept the test
+suite reproducible while leaving the LLM path open as an opt-in feature.
+
+\paragraph{The $\{-1, 0, +1\}$ signal contract.} Forbidding strategies to manage
+their own position size, commissions, or fills made the engine the single point of
+truth for the bar-$t \to$ bar-$t{+}1$ rule, and meant that the
+look-ahead-bias oracle test in \texttt{tests/test\_engine\_no\_lookahead.py} is the
+only invariant guard we need. Every strategy passes through the same fill code
+path; a bug anywhere in fill semantics surfaces everywhere at once.
+
+\paragraph{Native trading calendars per asset class.} The temptation to reindex
+every asset onto NYSE for ``consistency'' would have silently misstated the
+annualisation factor for FX and crypto by 5\textendash{}50\%. Building
+calendar-aware reindexing into the cleaner from the start (PR~\#2) cost a few
+hours and saved us from a class of subtle correctness bugs.
+
+\subsection{What did not work}
+
+\paragraph{Yahoo Finance's 730-day hourly cap.} The cap is a hard external
+constraint that propagates into the UI (date pickers had to gain a per-timeframe
+maximum-look-back constraint) and into the data layer (the Crypto Fetcher learned
+to fall back to Binance via \texttt{ccxt}). We absorbed the cap rather than
+worked around it because the alternatives (paid intraday data, scraping
+alternative sources) carried more cost than the limitation imposes.
+
+\paragraph{LLM tool-call JSON parsing.} The Orchestrator Agent parses tool calls
+out of the model's response by extracting a JSON envelope. This is fragile in two
+ways: the model occasionally wraps the JSON in markdown fences or prose, and
+provider-specific function-calling APIs would handle this better. We chose
+provider-portability over robustness for v1; a future iteration could degrade to
+provider-native function calling when the configured provider supports it.
+
+\paragraph{Asynchronous backtest execution.} The first design had submission
+return immediately and the UI poll for status; we backed it out to a synchronous
+\texttt{POST /backtests} because runs on daily bars complete in under a second
+and the async machinery added an entire state-management layer that nothing in
+v1 actually needed. The Dashboard still polls every five seconds, so future
+async submission can be added back without UI changes.
+
+\subsection{What we would do differently}
+
+\begin{itemize}
+  \item \textbf{Walk-forward UI from day one.} The Strategy Agent already exposes a
+        chronological train/test split, but the UI does not surface it. Without a UI
+        affordance, users will tune parameters by re-running the full backtest
+        \textemdash{} the canonical recipe for overfitting~\cite{bailey2014}. The
+        UI for walk-forward should have been a v1 feature, not a v1.1 candidate.
+  \item \textbf{Postgres as the default development database.} SQLite was fast to set
+        up but does not catch the subset of bugs that only show up under concurrent
+        writes or under strict referential integrity. The schema is already
+        Postgres-compatible (SQLAlchemy generics only); the change is a
+        \texttt{DATABASE\_URL} and a Docker Compose file. We would default to
+        Postgres next time and let users opt down to SQLite.
+  \item \textbf{Earlier CI hygiene.} The \texttt{check-no-build-artifacts.yml}
+        workflow should have been the first \texttt{.github/workflow} we wrote, not
+        the third. Build-artefact leakage produced noisy diffs for a week before we
+        formalised the guard.
+  \item \textbf{Smaller, more frequent PRs.} The 32 commits in this project landed via
+        only 8 merged PRs; some PRs touched a dozen files across two subsystems.
+        Reviewers (human or AI) work better on small, focused diffs. We would aim for
+        roughly twice as many PRs of half the size in a future iteration.
+\end{itemize}
+
+\subsection{What carries forward}
+
+The patterns we would copy verbatim into the next project: the
+schema-as-API discipline, the agent abstraction with a single public
+\texttt{run} method, the deterministic-by-default LLM stance with
+\texttt{NullProvider} for tests, the per-asset-class trading-calendar layer, the
+$\{-1, 0, +1\}$ signal contract, and the convention that every documentation file
+carries a ``\emph{Last verified against code}'' footer so reviewers know when the
+prose was last reconciled with the source.

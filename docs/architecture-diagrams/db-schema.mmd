@@ -1,0 +1,109 @@
+%% QuantBacktest — database schema (SQLAlchemy generic types; runs on SQLite and Postgres).
+%% Composite PKs declared via PrimaryKeyConstraint; cascade-delete on FKs to backtest_runs.
+%% Last verified against code: 2026-05-24.
+
+erDiagram
+    ASSETS ||--o{ OHLCV_BARS         : "has bars (cascade)"
+    ASSETS ||--o{ BACKTEST_RUNS      : "is run on"
+    STRATEGIES ||--o{ BACKTEST_RUNS  : "drives"
+    BACKTEST_RUNS ||--o{ TRADES                  : "ledger (cascade)"
+    BACKTEST_RUNS ||--o{ EQUITY_CURVE            : "curve (cascade)"
+    BACKTEST_RUNS ||--o{ BENCHMARK_EQUITY_CURVE  : "overlays (cascade)"
+    BACKTEST_RUNS ||--o{ METRICS                 : "kpis (cascade)"
+    BACKTEST_RUNS ||--o{ LLM_CONVERSATIONS       : "reports/chat (cascade)"
+
+    ASSETS {
+      int id PK
+      string symbol UK
+      string asset_class
+      string name
+      string exchange
+      string currency
+      bool is_active
+      datetime created_at
+    }
+
+    OHLCV_BARS {
+      int asset_id PK_FK
+      datetime ts PK
+      string timeframe PK
+      float open
+      float high
+      float low
+      float close
+      float volume
+      string source
+    }
+
+    STRATEGIES {
+      int id PK
+      string slug UK
+      string name
+      text description
+      json params_schema
+    }
+
+    BACKTEST_RUNS {
+      int id PK
+      int strategy_id FK
+      int asset_id FK
+      string timeframe
+      datetime start_date
+      datetime end_date
+      json params
+      float commission_bps
+      float slippage_bps
+      float initial_cash
+      string status
+      text error_message
+      datetime created_at
+      datetime completed_at
+    }
+
+    TRADES {
+      int id PK
+      int run_id FK
+      datetime ts
+      string side
+      float qty
+      float price
+      float commission
+      float slippage_cost
+      float gross_pnl
+      float net_pnl
+    }
+
+    EQUITY_CURVE {
+      int run_id PK_FK
+      datetime ts PK
+      float equity
+      float cash
+      float position_value
+      float drawdown_pct
+    }
+
+    BENCHMARK_EQUITY_CURVE {
+      int run_id PK_FK
+      string kind PK
+      datetime ts PK
+      float equity
+    }
+
+    METRICS {
+      int run_id PK_FK
+      string metric_name PK
+      float value
+      string category
+    }
+
+    LLM_CONVERSATIONS {
+      int id PK
+      int run_id FK
+      string role
+      text content
+      string model
+      int prompt_tokens
+      int completion_tokens
+      string op
+      datetime created_at
+    }

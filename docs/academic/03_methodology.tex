@@ -1,0 +1,167 @@
+\section{Methodology: economics, mathematics, data science}
+\label{sec:methodology}
+
+This section makes the project's analytical contract precise. We define the
+event-driven backtest semantics that enforce look-ahead-bias prevention, write the
+KPI formulas in their general form with the per-asset-class annualisation factor,
+explain why each asset class uses its native trading calendar, summarise the
+strategy taxonomy, and motivate the LLM-provider abstraction.
+
+\subsection{Event-driven backtest semantics and look-ahead bias}
+\label{sec:lookahead}
+
+Look-ahead bias is the canonical pitfall of backtest construction: a strategy
+``sees'' information that, in real time, it would not have had access to when it
+needed to act \cite{lopezdeprado2018,bailey2014}. The most common form is a
+\emph{single-bar} leak \textemdash{} a strategy reads bar~$t$'s closing price and
+then places an order that fills at bar~$t$'s open or close. Across a long backtest
+the false edge accumulates and inflates every downstream metric. QuantBacktest
+forbids the leak architecturally: orders generated during bar~$t$ fill at the
+\emph{open of bar~$t{+}1$}, with commission and slippage applied to the fill
+price. The rule is implemented once, in \texttt{backend/backtest/engine.py}, and
+asserted by an oracle-strategy test in \texttt{tests/test\_engine\_no\_lookahead.py}
+that injects a strategy that ``knows'' the future close; the test passes only if
+the engine still forces the oracle to trade at next-bar open.
+
+In pseudocode the engine loop is:
+
+\begin{lstlisting}[language=Python]
+for t in range(len(bars)):
+    # 1. Generate the target position from data up to and including bar t.
+    target = strategy.generate_signals(bars[:t+1]).iloc[t]   # in {-1, 0, 1}
+
+    # 2. If t == len(bars) - 1 there is no t+1 open to fill at; skip.
+    if t == len(bars) - 1: break
+
+    # 3. Decide order from delta (target - current).
+    delta = target - portfolio.current_position
+    if delta == 0: continue
+
+    # 4. Fill at bar (t+1) open. Apply slippage and commission.
+    fill_price = bars.iloc[t+1].open * (1 + sign(delta) * slippage_bps / 10_000)
+    commission = abs(delta * portfolio.size) * fill_price * commission_bps / 10_000
+    portfolio.apply(delta, fill_price, commission)
+\end{lstlisting}
+
+The signal contract is uniformly \texttt{pd.Series[int]} with values in
+$\{-1, 0, +1\}$ for ``short, flat, long''. Strategies do not multiply their own
+signals by a position-size factor; the engine handles sizing via either
+\emph{fixed fractional} (a fraction of equity per trade) or \emph{volatility
+targeting} (inverse ATR scaling). A circuit-breaker stops the run if equity draws
+down beyond a user-supplied threshold.
+
+\subsection{Performance metrics}
+\label{sec:kpi}
+
+The KPI definitions follow the conventions in Bacon~\cite{bacon2008}. Let
+$\{r_t\}_{t=1}^{T}$ denote the per-bar returns of the equity curve
+$\{V_t\}_{t=0}^{T}$, $k$ the number of bars in one calendar year
+(Section~\ref{sec:calendars}), and $y = T/k$ the run's length in years.
+
+\paragraph{Total return and CAGR.}
+\begin{equation}
+  R = \frac{V_T}{V_0} - 1,\qquad
+  \mathrm{CAGR} = \left(\frac{V_T}{V_0}\right)^{1/y} - 1.
+\end{equation}
+
+\paragraph{Annualised volatility.}
+\begin{equation}
+  \sigma_{\text{ann}} = \sqrt{k}\,\sigma(r_t).
+\end{equation}
+
+\paragraph{Sharpe and Sortino ratios.}
+\begin{equation}
+  \mathrm{Sharpe} = \sqrt{k}\,\frac{\bar r}{\sigma(r_t)},\qquad
+  \mathrm{Sortino} = \sqrt{k}\,\frac{\bar r}{\sigma_{-}(r_t)},
+\end{equation}
+where $\sigma_{-}(r_t)$ is the downside semi-deviation $\sqrt{\mathbb{E}[\min(r_t, 0)^2]}$.
+We adopt the zero-risk-free-rate convention for retail backtesting
+\cite{sharpe1966,sortino1994}.
+
+\paragraph{Maximum drawdown and Calmar ratio.}
+\begin{equation}
+  \mathrm{maxDD} = \min_{t} \frac{V_t - \max_{s \le t} V_s}{\max_{s \le t} V_s},\qquad
+  \mathrm{Calmar} = \frac{\mathrm{CAGR}}{|\mathrm{maxDD}|}.
+\end{equation}
+Calmar~\cite{young1991} captures the pain-adjusted return: how much annual growth
+the strategy delivered per unit of drawdown the user had to endure.
+
+\paragraph{Trade-level metrics.} Let $\{p_i\}_{i=1}^{N}$ denote per-leg net P\&L:
+\begin{equation}
+  \mathrm{winrate} = \frac{|\{i:p_i > 0\}|}{N},\qquad
+  \mathrm{PF} = \frac{\sum_{p_i > 0} p_i}{\sum_{p_i < 0} |p_i|},
+\end{equation}
+\begin{equation}
+  \mathrm{expectancy} = \mathrm{winrate}\cdot \overline{p_{+}} - (1-\mathrm{winrate}) \cdot |\overline{p_{-}}|,
+\end{equation}
+where $\overline{p_{+}}$ and $\overline{p_{-}}$ are the means of the positive and
+negative P\&L populations respectively~\cite{pardo2008,tharp1998}.
+
+\subsection{Annualisation factor by asset class and timeframe}
+\label{sec:calendars}
+
+A Sharpe ratio computed against the wrong $k$ misstates the annualised number by
+tens of percent. QuantBacktest looks up $k$ from
+\texttt{backend/analytics/periods.py} as a function of \texttt{(asset\_class,
+timeframe)}:
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lcc}
+\toprule
+\textbf{Asset class} & \textbf{Daily $k$} & \textbf{Hourly $k$} \\
+\midrule
+Equity / ETF (NYSE) & 252  & 1\,638 \\
+FX (24$\times$5)    & 260  & 6\,240 \\
+Crypto (24$\times$7)& 365  & 8\,760 \\
+\bottomrule
+\end{tabular}
+\caption{Annualisation factor $k$ per asset class and timeframe. NYSE hourly uses
+$252 \times 6.5$ elapsed market hours per session.}
+\end{table}
+
+The NYSE hourly value reflects elapsed market hours, not the literal bar count,
+because the first hourly bar of a regular session covers only the opening
+30-minute auction. Early-close sessions (about ten per year) further reduce the
+count slightly; the lookup is calibrated against the
+\texttt{exchange\_calendars} XNYS schedule rather than computed analytically.
+
+\subsection{Strategy taxonomy}
+
+The eleven shipped strategies populate five families. Each family responds well to a
+different market regime, which is the explicit pedagogical motive for shipping the
+breadth: running them side-by-side makes the regime sensitivity of each visible.
+
+\begin{itemize}
+  \item \textbf{Trend} (SMA Crossover \cite{pardo2008}, MACD Crossover \cite{appel2005},
+        Ichimoku Cloud \cite{hosoda1969}): designed to capture sustained directional moves.
+  \item \textbf{Momentum} (Time Series Momentum \cite{moskowitz2012}): own-asset trailing-return
+        sign; profits from 1\textendash{}12 month persistence.
+  \item \textbf{Breakout} (Donchian \cite{faith2007}, Keltner \cite{keltner1960}):
+        long on channel breaks; trades clean trending regimes.
+  \item \textbf{Mean reversion} (Bollinger \cite{bollinger2001}, CCI \cite{lambert1980},
+        RSI \cite{wilder1978}, Stochastic Oscillator \cite{lane1984}): trade fades within
+        range-bound regimes; bleed in trends.
+  \item \textbf{Benchmark} (Buy and Hold): always long; serves as the reference both
+        for active strategies and for the on-chart same-asset overlay.
+\end{itemize}
+
+All eleven strategies share the same signal contract and therefore the same engine
+path. Adding a twelfth is a single-file change plus a registry edit; the frontend's
+parameter form regenerates from the new JSON Schema with no UI work required.
+
+\subsection{The LLM-provider abstraction}
+
+Two of the six runtime agents \textemdash{} the Orchestrator and the Explanation
+Agent \textemdash{} are LLM-backed. Every call they make goes through
+\texttt{LLMProvider.generate(\ldots)} in \texttt{backend/llm/base.py}. Two
+implementations ship: \texttt{NullProvider}, which returns deterministic canned
+text, and \texttt{GeminiProvider}, which calls Google's Gemini API. Three reasons
+justify the abstraction. First, the test suite uses \texttt{NullProvider}
+exclusively, so tests are reproducible without an API key. Second, switching
+provider is a one-line config change rather than a code change; this is the
+practical insurance against vendor lock-in. Third, the abstraction makes the
+project's policy explicit: \emph{the deterministic surface of the product is the
+default}, and any non-determinism is a conscious opt-in by the operator
+(\texttt{LLM\_ENABLED=true} plus a populated \texttt{GEMINI\_API\_KEY}).

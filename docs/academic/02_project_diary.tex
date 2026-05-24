@@ -1,0 +1,132 @@
+\section{Project diary}
+\label{sec:diary}
+
+The four-week development cycle was punctuated by eight merged pull requests and a
+handful of direct-to-\texttt{main} commits for docs and trivia. The narrative below
+follows the actual order of decisions, with commit hashes given so a reviewer can
+verify any claim from \texttt{git log}.
+
+\subsection*{Week~1 \textemdash{} Foundation (2026-04-25 to 2026-04-29)}
+
+The first commit (\texttt{4ff85c1}) bootstrapped an empty repository. Four days
+later, \texttt{ecdf3bb} (``Initial project scaffold for QuantBacktest'') landed the
+full directory layout we would carry through the project: a \texttt{backend/}
+package with \texttt{agents/}, \texttt{api/}, \texttt{analytics/},
+\texttt{backtest/}, \texttt{data/}, \texttt{database/}, \texttt{llm/},
+\texttt{strategies/} subpackages; a \texttt{frontend/} folder primed for Vite; a
+\texttt{tests/} folder; and \texttt{requirements.txt} pinning the backend stack.
+The agent boundaries were committed to at this stage rather than discovered later
+\textemdash{} we used the breakdown in the rubric (data, strategy, backtest,
+analytics, orchestrator, explanation) as the starting point and held to it.
+
+\subsection*{Week~2 \textemdash{} First domain feature + first LLM call (2026-05-08)}
+
+Two commits on the same day represent the project's two first proofs of life. PR~\#1
+(\texttt{376d30e}, ``feat: add TSLA as new equity asset'') validated the end-to-end
+data path: register an asset in the seed list, run \texttt{load\_initial\_data.py},
+see daily bars appear in the database. \texttt{8997d20} (``feat: add LLM generated
+report'') validated the LLM seam: we wanted to make sure the \texttt{LLMProvider}
+abstraction could carry a real response before we built the rest of the analytics
+layer around it.
+
+We deliberately wrote the LLM feature \emph{first} as a worst-case probe. If it
+worked, every other deterministic feature would be easier; if it failed, we had time
+to redesign. It worked, and the rest of the project never had to compromise its
+determinism for the sake of the AI report.
+
+\subsection*{Week~3 \textemdash{} Frontend MVP, hourly bars, charts (2026-05-12 to 2026-05-16)}
+
+Frontend Version~1 (\texttt{1f2f5c7}) landed on 2026-05-12. The same day, PR~\#2
+(\texttt{1f13139}, ``Add native calendars and hourly bar support'') reshaped the
+data layer: the OHLCV composite primary key became \texttt{(asset\_id, ts,
+timeframe)}, so daily and hourly bars could coexist for the same asset, and the
+\texttt{OHLCVCleaner} learned to reindex onto NYSE for equities, a bespoke
+24$\times$5 window for FX, and 24$\times$7 for crypto. This was the project's most
+intricate single change: a missed edge case in any of the three calendars would have
+silently misstated the annualisation factor for every Sharpe ratio we report.
+
+The chart suite then went through a flurry of small fixes (\texttt{3e22d4c},
+\texttt{162ceba}, \texttt{ab1e2de}) that brought the strategy-category badges,
+chart-tooltip alignment, and sidebar navigation up to standard. \texttt{a3b6635}
+(``Chunk upserts, add LLM retries, and fix time indexes'') addressed the SQLite
+parameter-count ceiling we hit when bulk-loading multi-year hourly history.
+
+Late in the week, the PDF-export feature shipped (\texttt{0a7edb1}). The choice to
+render the report client-side via \texttt{jsPDF} rather than server-side via a
+headless browser kept the backend dependency footprint small and avoided the need
+for the OS-level Chromium libraries that other PDF approaches require.
+
+\subsection*{Week~4 \textemdash{} CI hardening, data layer, strategies, benchmarks (2026-05-19 to 2026-05-22)}
+
+The week opened with two Claude Code GitHub Actions workflows: \texttt{claude.yml}
+(\texttt{3d50b41}) for \texttt{@claude} mentions on issues and PRs, and
+\texttt{claude-code-review.yml} (\texttt{6a38f60}) for an automatic
+\texttt{/code-review} pass on every PR. The team's view of generative AI as a
+collaborator-not-author shaped both workflows: they only respond to explicit human
+triggers and they never self-merge.
+
+Build-artefact hygiene then dominated two days (\texttt{4ce0311},
+\texttt{820d610}). TypeScript compile outputs had begun leaking into
+\texttt{frontend/src/}, which would have polluted every diff. PR~\#4 added the
+\texttt{check-no-build-artifacts.yml} workflow that fails the build if any
+\texttt{.js}, \texttt{.d.ts}, or stale \texttt{.tsbuildinfo} appears where it
+should not.
+
+The data layer consolidated on yfinance as the primary source across every asset
+class (PR~\#5, \texttt{c2b6cce}). The Binance \texttt{ccxt} fallback remained for
+crypto hourly windows older than the 730-day yfinance cap, and Stooq remained for
+FX EOD fallback. Fixed-fractional sizing was corrected for crypto and FX (PR~\#6,
+\texttt{ae082ef}).
+
+PR~\#7 (\texttt{b0676ed}, ``added 6 new strategies'') doubled the strategy
+catalogue to eleven by adding MACD Crossover, Ichimoku Cloud, Keltner Channels,
+Time Series Momentum, Stochastic Oscillator, and CCI. Each was added to the
+registry, exposed via JSON Schema so the frontend form rendered automatically, and
+covered by a unit test that asserts the signal series on a known fixture.
+
+PR~\#8 (\texttt{c0801c7}, ``Support benchmark overlays (API + UI)'') and its
+sibling commits (\texttt{be6cf8a}, \texttt{55fa4b0}, \texttt{d432105}) brought the
+chart suite to its final polish: a same-asset buy-and-hold and an SPY buy-and-hold
+curve are now computed and persisted at run time, every chart shares a single
+legend that toggles them, and a shared crosshair tooltip keeps values aligned
+when the mouse hovers anywhere on the timeline.
+
+The week closed with \texttt{d1efa3f} (Quick-Start docs) and \texttt{4a9e6ae}
+(yfinance/httpx/curl\_cffi version bumps). The yfinance bump from 0.2.46 to 1.3.0
+required adding \texttt{curl\_cffi} as a transitive dependency \textemdash{} a
+small change that we noted in \texttt{CHANGELOG.md} because it could surprise
+contributors who ran into install issues on locked-down corporate machines.
+
+\subsection*{Documentation pass (2026-05-24)}
+
+\texttt{79e200a} (``Updated all the current documentation files'') refreshed the
+existing docs \textemdash{} \texttt{README.md}, \texttt{ARCHITECTURE.md},
+\texttt{CLAUDE.md}, \texttt{ONBOARDING.md}, and the four
+\texttt{docs/\{agents,calendars,data-sources,strategies\}.md} \textemdash{} against
+the final code state. A second pass on the same day created the artefacts the
+rubric requires (this PDF among them): \texttt{AGENTS.md}, \texttt{CHANGELOG.md},
+\texttt{CONTRIBUTING.md}, \texttt{CITATIONS.md}, \texttt{AI\_USAGE.md},
+\texttt{SECURITY.md}, \texttt{CODE\_OF\_CONDUCT.md},
+\texttt{docs/user-guide.md}, \texttt{docs/api.md},
+\texttt{docs/architecture-diagrams/}, and this \texttt{docs/academic/} bundle.
+
+\subsection*{Things we tried and abandoned}
+
+A few decisions did not survive the four weeks:
+
+\begin{itemize}
+  \item \textbf{Asynchronous backtest submission.} The first design queued runs and
+        polled status via WebSocket. We backed it out because synchronous \texttt{POST}
+        worked well enough at v1 scale and removed an entire layer of state to debug.
+        The Dashboard still polls \texttt{GET /backtests} every five seconds so it
+        will surface any future async-submission feature without UI changes.
+  \item \textbf{Postgres in development from day one.} We initially set up Docker
+        Compose with Postgres but it slowed local iteration noticeably. SQLite became
+        the default and the schema was kept on SQLAlchemy generic types so a
+        \texttt{DATABASE\_URL} swap reaches Postgres without code changes.
+  \item \textbf{LLM tool-use via the provider SDK's native function calling.} The
+        Orchestrator Agent now parses tool calls from a JSON envelope in the model
+        output rather than relying on Gemini's native function-calling API, because
+        the latter is not directly portable to other providers. The cost is a
+        small parsing step; the benefit is provider-agnostic tool dispatch.
+\end{itemize}
