@@ -12,6 +12,16 @@ This is **Project 2.8** of the USI *Programming II* course — academic context,
 
 ---
 
+## Automation
+
+Docs are auto-refreshed nightly at 02:00 UTC (= 04:00 CEST / 03:00 CET) by
+`.github/workflows/nightly-docs.yml` using Claude Code headless. The workflow
+reads `.github/prompts/nightly-doc-update.md` and opens a PR titled
+`chore(docs): nightly auto-refresh YYYY-MM-DD`. Trigger manually with
+`gh workflow run nightly-docs.yml`.
+
+---
+
 ## Stack at a glance
 
 - **Backend:** Python 3.11+, FastAPI, SQLAlchemy 2.x, Pydantic v2
