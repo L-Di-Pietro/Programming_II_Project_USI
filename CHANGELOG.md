@@ -17,6 +17,11 @@ Hash references use the short SHA (e.g. `abcdef1`); resolve them with `git show 
   request with any stale doc updates. Auth via `CLAUDE_CODE_OAUTH_TOKEN` (PR \#9,
   `612e39e`, `4dfc948`). `id-token: write` permission added after initial OIDC failure
   (PR \#10, `58a4811`).
+- **GitHub Actions bumped to Node 24 majors** (PR \#12, `01d9c30`) —
+  `actions/checkout`, `actions/setup-python`, and `actions/setup-node` updated to v6
+  across all four workflows, ahead of GitHub's 2026-06-02 Node 20 deprecation.
+  Permissions comment in `nightly-docs.yml` clarified to explain why
+  `id-token: write` is required regardless of the model-auth method.
 
 ---
 
@@ -143,6 +148,8 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 - `2026-05-24 612e39e` Nightly headless docs-refresh workflow (`nightly-docs.yml`) added; merged as PR \#9 (Luca Di Pietro).
 - `2026-05-24 4dfc948` CI: authenticate nightly docs via `CLAUDE_CODE_OAUTH_TOKEN` (Luca Di Pietro).
 - `2026-05-24 58a4811` CI: grant `id-token: write` so `claude-code-action` can run; merged as PR \#10 (Luca Di Pietro).
+- `2026-05-24 a5d2bba` chore(docs): nightly auto-refresh 2026-05-24 (automated — Claude Code; merged as PR \#11). First nightly pass; extended `CHANGELOG.md` and `docs/academic/02_project_diary.tex` with post-submission CI entries.
+- `2026-05-24 01d9c30` chore(ci): bump GitHub Actions to Node 24 majors (Luca Di Pietro; merged as PR \#12). `actions/checkout@v6`, `actions/setup-python@v6`, and `actions/setup-node@v6` across all four workflows; `nightly-docs.yml` permissions comment updated.
 
 ---
 
