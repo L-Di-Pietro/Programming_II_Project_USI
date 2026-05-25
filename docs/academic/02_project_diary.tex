@@ -125,6 +125,16 @@ method to \texttt{CLAUDE\_CODE\_OAUTH\_TOKEN} (the token type the
 \texttt{id-token: write} permission that the action requires to mint a GitHub OIDC
 token at startup.
 
+\subsection*{Node 24 Actions upgrade (2026-05-24)}
+
+GitHub announced the retirement of Node 20--based runner actions on 2026-06-02.
+Commit \texttt{01d9c30} (PR~\#12) bumped the three flagged actions
+(\texttt{actions/checkout}, \texttt{actions/setup-python}, \texttt{actions/setup-node})
+to their v6 majors across all four workflows in a single pass. The permissions comment
+in \texttt{nightly-docs.yml} was updated to record why \texttt{id-token: write} is
+required: \texttt{claude-code-action} mints a GitHub OIDC token at startup regardless
+of which model-auth path is active, so the permission is not optional.
+
 \subsection*{Things we tried and abandoned}
 
 A few decisions did not survive the four weeks:
