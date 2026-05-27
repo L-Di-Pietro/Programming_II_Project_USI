@@ -8,6 +8,10 @@ import axios, { AxiosError } from "axios";
 const baseURL = import.meta.env.VITE_API_URL ?? "/api";
 export const api = axios.create({ baseURL, timeout: 60_000 });
 
+// Report generation makes a live LLM call (slow, plus retries on model overload),
+// so it needs a far longer ceiling than the 60 s default applied to every other call.
+const REPORT_GEN_TIMEOUT_MS = 180_000;
+
 // -----------------------------------------------------------------------------
 // Hand-rolled types — kept in sync with backend/api/schemas.py.
 // (Switch to generated openapi-types.ts once the backend is running.)
@@ -222,7 +226,9 @@ export const Api = {
   /** Triggers fresh LLM generation. Used for both initial generation and
    * 'Regenerate'. The new report becomes the latest cached one automatically. */
   async generateReport(runId: number): Promise<Report> {
-    const { data } = await api.post<Report>(`/backtests/${runId}/report`);
+    const { data } = await api.post<Report>(`/backtests/${runId}/report`, null, {
+      timeout: REPORT_GEN_TIMEOUT_MS,
+    });
     return data;
   },
   /** Browser-navigable URL for the styled PDF export of a run's report. */

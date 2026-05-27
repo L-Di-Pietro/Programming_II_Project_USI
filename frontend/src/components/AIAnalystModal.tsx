@@ -254,6 +254,9 @@ function tone(v: number | undefined, good: (v: number) => boolean): string {
 
 function errMsg(e: unknown): string {
   if (e instanceof AxiosError) {
+    if (e.code === "ECONNABORTED" || /timeout/i.test(e.message)) {
+      return "The model is taking longer than usual (it may be busy). Try again — your report may already be saved.";
+    }
     const detail = (e.response?.data as { detail?: string } | undefined)?.detail;
     return detail ?? e.message;
   }
