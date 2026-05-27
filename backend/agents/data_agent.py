@@ -21,6 +21,7 @@ from backend.data.cleaner import CalendarChoice, OHLCVCleaner
 from backend.data.fetchers import CryptoFetcher, EquityFetcher, FXFetcher
 from backend.data.fetchers.base import BaseFetcher
 from backend.database.models import Asset, AssetClass, OHLCVBar, Timeframe
+from backend.timeutils import utcnow
 
 
 # -----------------------------------------------------------------------------
@@ -95,7 +96,7 @@ class DataAgent(BaseAgent[DataAgentInput, DataAgentOutput]):
         fetcher = self._FETCHERS[asset_class]()
         calendar = self._CALENDAR_FOR[asset_class]
 
-        end = payload.end or datetime.utcnow()
+        end = payload.end or utcnow()
         # If we already have data, only fetch the gap (incremental). Otherwise
         # use a 1970 floor so yfinance returns the ticker's full listing-date
         # history; the cleaner drops the NaN pre-history.

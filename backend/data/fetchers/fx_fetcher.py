@@ -30,6 +30,7 @@ import yfinance as yf
 from pandas_datareader import data as pdr
 
 from backend.data.fetchers.base import BaseFetcher, FetcherError
+from backend.timeutils import utcnow
 
 _YF_INTERVAL: dict[str, str] = {"1d": "1d", "1h": "1h"}
 _YF_HOURLY_MAX_DAYS: int = 730
@@ -73,7 +74,7 @@ class FXFetcher(BaseFetcher):
     ) -> pd.DataFrame:
         interval = _YF_INTERVAL[timeframe]
         if timeframe == "1h":
-            age_days = (datetime.utcnow() - start).days
+            age_days = (utcnow() - start).days
             if age_days > _YF_HOURLY_MAX_DAYS:
                 raise FetcherError(
                     f"yfinance hourly history is limited to {_YF_HOURLY_MAX_DAYS} days; "

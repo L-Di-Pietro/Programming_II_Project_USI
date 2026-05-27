@@ -29,6 +29,8 @@ import sys
 from datetime import datetime
 from typing import Any
 
+from backend.timeutils import utcnow
+
 if sys.version_info >= (3, 11):
     from enum import StrEnum
 else:
@@ -106,7 +108,7 @@ class Asset(Base):
     exchange: Mapped[str] = mapped_column(String(32), nullable=False, default="")
     currency: Mapped[str] = mapped_column(String(8), nullable=False, default="USD")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
 
     # ORM relationships --------------------------------------------------------
     bars: Mapped[list[OHLCVBar]] = relationship(
@@ -173,7 +175,7 @@ class Strategy(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # JSON Schema — frontend renders this directly into a form.
     params_schema: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
 
     runs: Mapped[list[BacktestRun]] = relationship(back_populates="strategy")
 
@@ -205,7 +207,7 @@ class BacktestRun(Base):
     # Lifecycle ---------------------------------------------------------------
     status: Mapped[str] = mapped_column(String(16), nullable=False, default=RunStatus.PENDING)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     strategy: Mapped[Strategy] = relationship(back_populates="runs")
@@ -359,6 +361,6 @@ class LLMConversation(Base):
     # Which ExplanationAgent op produced this turn (e.g. "report_run",
     # "answer_question"). Used to look up the latest cached report.
     op: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, nullable=False)
 
     run: Mapped[BacktestRun] = relationship(back_populates="conversations")

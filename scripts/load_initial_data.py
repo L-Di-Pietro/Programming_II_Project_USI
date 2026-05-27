@@ -37,6 +37,7 @@ from backend.agents.data_agent import DataAgent, DataAgentInput
 from backend.config import configure_logging
 from backend.database.connection import SessionLocal
 from backend.database.models import Asset, AssetClass
+from backend.timeutils import utcnow
 
 log = structlog.get_logger(__name__)
 
@@ -86,7 +87,7 @@ def main() -> None:
     db = SessionLocal()
     try:
         agent = DataAgent(db)
-        end = datetime.utcnow()
+        end = utcnow()
 
         for asset in db.query(Asset).filter_by(is_active=True).all():
             for tf in args.timeframes:

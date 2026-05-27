@@ -20,6 +20,7 @@ from backend.database.models import (
     Strategy,
 )
 from backend.llm import ChatMessage, GeminiProvider, LLMFactory, NullProvider
+from backend.timeutils import utcnow
 
 
 # -----------------------------------------------------------------------------
@@ -75,7 +76,7 @@ def test_gemini_provider_construct_does_not_require_sdk():
     provider in environments where google-generativeai is not installed."""
     p = GeminiProvider(api_key="fake")
     assert p.name == "gemini"
-    assert p._configured is False
+    assert p._client is None
 
 
 # -----------------------------------------------------------------------------
@@ -99,7 +100,7 @@ def _seed_run(db, *, with_metrics: bool = True, with_trades: int = 0) -> int:
         slippage_bps=2.0,
         initial_cash=10_000.0,
         status=RunStatus.COMPLETED,
-        completed_at=datetime.utcnow(),
+        completed_at=utcnow(),
     )
     db.add(run)
     db.flush()
@@ -150,8 +151,8 @@ def test_report_run_prompt_includes_metrics_and_strategy(db):
     assert "sharpe_ratio" in prompt
     assert "AAPL" in prompt
     assert "sma-crossover" in prompt
-    assert "Key findings" in prompt
-    assert "Limitations" in prompt
+    assert "Executive summary" in prompt
+    assert "Risks & limitations" in prompt
 
 
 def test_report_run_requires_run_id(db):
@@ -179,7 +180,7 @@ def test_get_cached_report_returns_latest_assistant_turn(db):
     ts = agent.get_cached_report_timestamp(run_id)
     assert ts is not None
     # Newly written, so timestamp is "recent".
-    assert datetime.utcnow() - ts < timedelta(seconds=10)
+    assert utcnow() - ts < timedelta(seconds=10)
 
 
 def test_get_cached_report_ignores_other_ops(db):

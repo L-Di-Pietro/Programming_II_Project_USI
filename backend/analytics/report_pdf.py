@@ -21,6 +21,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from backend.timeutils import utcnow
+
 _INK = colors.HexColor("#1f2937")
 _MUTED = colors.HexColor("#6b7280")
 _ACCENT = colors.HexColor("#0891b2")
@@ -70,7 +72,7 @@ def build_report_pdf(
         ),
         Paragraph(
             f"Model: {model}{'  (demo mode)' if demo_mode else ''} &nbsp;·&nbsp; "
-            f"Generated: {(generated_at or datetime.utcnow()):%Y-%m-%d %H:%M} UTC",
+            f"Generated: {(generated_at or utcnow()):%Y-%m-%d %H:%M} UTC",
             st["meta"],
         ),
         Spacer(1, 10),
@@ -90,7 +92,7 @@ def pdf_filename(strategy_name: str, asset_symbol: str, when: datetime | None) -
     def slug(s: str) -> str:
         return re.sub(r"[^A-Za-z0-9]+", "_", s).strip("_") or "x"
 
-    date = (when or datetime.utcnow()).strftime("%Y-%m-%d")
+    date = (when or utcnow()).strftime("%Y-%m-%d")
     return f"QuantBacktest_{slug(strategy_name)}_{slug(asset_symbol)}_{date}.pdf"
 
 

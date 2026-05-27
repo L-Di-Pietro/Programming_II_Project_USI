@@ -8,7 +8,6 @@ Idempotent — safe to re-run. Run once after cloning the repo:
 from __future__ import annotations
 
 import sys
-from datetime import datetime
 from pathlib import Path
 
 # Allow ``python scripts/init_db.py`` from the project root.
@@ -21,6 +20,7 @@ from backend.database import init_db
 from backend.database.connection import SessionLocal
 from backend.database.models import Asset, AssetClass, Strategy
 from backend.strategies import STRATEGY_REGISTRY
+from backend.timeutils import utcnow
 
 log = structlog.get_logger(__name__)
 
@@ -76,7 +76,7 @@ def _seed_assets(db) -> None:
     for spec in SEED_ASSETS:
         existing = db.query(Asset).filter_by(symbol=spec["symbol"], exchange=spec["exchange"]).one_or_none()
         if existing is None:
-            db.add(Asset(**spec, is_active=True, created_at=datetime.utcnow()))
+            db.add(Asset(**spec, is_active=True, created_at=utcnow()))
     db.commit()
 
 
@@ -90,7 +90,7 @@ def _seed_strategies(db) -> None:
                     name=cls.name,
                     description=cls.description,
                     params_schema=cls.params_schema(),
-                    created_at=datetime.utcnow(),
+                    created_at=utcnow(),
                 )
             )
         else:

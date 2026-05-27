@@ -19,13 +19,6 @@ from tests.test_benchmarks import (
     _seed_strategy_rows,
 )
 
-# Running the agent hits the project-wide ``datetime.utcnow`` deprecation path;
-# suppress it here exactly like ``test_benchmarks`` does so the suite-wide
-# ``filterwarnings = ["error"]`` doesn't promote it to a failure.
-pytestmark = pytest.mark.filterwarnings(
-    "ignore:datetime.datetime.utcnow.*:DeprecationWarning"
-)
-
 
 def _seed_run_with_benchmarks(db, *, with_spy: bool = False) -> int:
     """Seed AAPL (+ optionally SPY) bars and run a buy-and-hold backtest.

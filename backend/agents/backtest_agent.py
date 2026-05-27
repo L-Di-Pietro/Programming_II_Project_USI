@@ -13,7 +13,7 @@ Workflow
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 
 import pandas as pd
 import structlog
@@ -42,6 +42,7 @@ from backend.database.models import (
     TradeSide,
 )
 from backend.strategies import get_strategy
+from backend.timeutils import utcnow
 
 log = structlog.get_logger(__name__)
 
@@ -139,7 +140,7 @@ class BacktestAgent(BaseAgent[BacktestAgentInput, BacktestAgentOutput]):
             self._persist_metrics(run.id, result, periods_per_year=ppy)
 
             run.status = RunStatus.COMPLETED
-            run.completed_at = datetime.utcnow()
+            run.completed_at = utcnow()
             self.db.commit()
 
             return BacktestAgentOutput(
@@ -150,7 +151,7 @@ class BacktestAgent(BaseAgent[BacktestAgentInput, BacktestAgentOutput]):
         except Exception as e:
             run.status = RunStatus.FAILED
             run.error_message = str(e)
-            run.completed_at = datetime.utcnow()
+            run.completed_at = utcnow()
             self.db.commit()
             raise
 
@@ -178,7 +179,7 @@ class BacktestAgent(BaseAgent[BacktestAgentInput, BacktestAgentOutput]):
             slippage_bps=payload.slippage_bps,
             initial_cash=payload.initial_cash,
             status=RunStatus.RUNNING,
-            created_at=datetime.utcnow(),
+            created_at=utcnow(),
         )
         self.db.add(run)
         self.db.commit()

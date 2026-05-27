@@ -23,6 +23,7 @@ from backend.database.models import (
     RunStatus,
     Strategy,
 )
+from backend.timeutils import utcnow
 
 
 # -----------------------------------------------------------------------------
@@ -49,7 +50,7 @@ def _seed_run(db) -> int:
         slippage_bps=2.0,
         initial_cash=10_000.0,
         status=RunStatus.COMPLETED,
-        completed_at=datetime.utcnow(),
+        completed_at=utcnow(),
     )
     db.add(run)
     db.flush()

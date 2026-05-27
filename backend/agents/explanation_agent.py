@@ -30,6 +30,7 @@ from backend.config import settings
 from backend.database.models import Asset, BacktestRun, LLMConversation, Metric, Strategy, Trade
 from backend.llm import ChatMessage, LLMFactory, LLMProvider
 from backend.strategies import STRATEGY_REGISTRY
+from backend.timeutils import utcnow
 
 SYSTEM_PROMPT = """\
 You are an expert quantitative analyst who explains backtest results to retail
@@ -330,7 +331,7 @@ class ExplanationAgent(BaseAgent[ExplanationAgentInput, ExplanationAgentOutput])
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 op=op,
-                created_at=datetime.utcnow(),
+                created_at=utcnow(),
             )
         )
         self.db.commit()

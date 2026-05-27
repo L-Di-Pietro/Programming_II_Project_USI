@@ -20,7 +20,6 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from backend.agents.backtest_agent import BacktestAgent, BacktestAgentInput
 from backend.analytics.benchmarks import (
@@ -40,6 +39,7 @@ from backend.database.models import (
 )
 from backend.strategies import STRATEGY_REGISTRY
 from backend.strategies.buy_and_hold import BuyAndHoldConfig, BuyAndHoldStrategy
+from backend.timeutils import utcnow
 
 
 # -----------------------------------------------------------------------------
@@ -205,17 +205,7 @@ def test_buyhold_no_lookahead(trending_bars: pd.DataFrame) -> None:
 
 # -----------------------------------------------------------------------------
 # BacktestAgent orchestration
-#
-# The orchestration tests below hit the DB-backed code path. The project's
-# ORM models still use ``default=datetime.utcnow`` which Python 3.13 flags as
-# a DeprecationWarning — pytest's ``filterwarnings = ["error"]`` then promotes
-# it to an exception. That issue is project-wide (test_llm.py / test_report_
-# route.py have the same failure) and unrelated to the benchmark feature, so
-# we locally suppress it here.
 # -----------------------------------------------------------------------------
-pytestmark_orchestration = pytest.mark.filterwarnings(
-    "ignore:datetime.datetime.utcnow.*:DeprecationWarning"
-)
 
 
 def _seed_strategy_rows(db) -> None:
@@ -228,7 +218,7 @@ def _seed_strategy_rows(db) -> None:
                 name=cls.name,
                 description=cls.description,
                 params_schema=cls.params_schema(),
-                created_at=datetime.utcnow(),
+                created_at=utcnow(),
             )
         )
     db.commit()
@@ -275,7 +265,6 @@ def _run_agent_and_collect(db, asset_symbol: str) -> int:
     return out.run_id
 
 
-@pytestmark_orchestration
 def test_backtest_agent_persists_asset_benchmark_when_spy_missing(db) -> None:
     """If SPY isn't in the DB, run still completes; only asset_buyhold is
     persisted; a warning is emitted (not asserted, but no exception)."""
@@ -296,7 +285,6 @@ def test_backtest_agent_persists_asset_benchmark_when_spy_missing(db) -> None:
     assert all(r.equity > 0 for r in rows)
 
 
-@pytestmark_orchestration
 def test_backtest_agent_persists_both_benchmarks_when_spy_present(db) -> None:
     _seed_strategy_rows(db)
 
@@ -316,7 +304,6 @@ def test_backtest_agent_persists_both_benchmarks_when_spy_present(db) -> None:
     assert kinds == {str(BenchmarkKind.ASSET_BUYHOLD), str(BenchmarkKind.SPY_BUYHOLD)}
 
 
-@pytestmark_orchestration
 def test_backtest_agent_skips_spy_when_strategy_is_spy(db) -> None:
     """SPY benchmark would duplicate the same-asset benchmark — skip it."""
     _seed_strategy_rows(db)
@@ -334,7 +321,6 @@ def test_backtest_agent_skips_spy_when_strategy_is_spy(db) -> None:
     assert kinds == {str(BenchmarkKind.ASSET_BUYHOLD)}
 
 
-@pytestmark_orchestration
 def test_backtest_run_still_succeeds_with_benchmarks(db) -> None:
     """Smoke: benchmark computation never blocks the run from completing."""
     _seed_strategy_rows(db)
