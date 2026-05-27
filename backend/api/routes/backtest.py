@@ -12,7 +12,6 @@ from backend.agents.analytics_agent import AnalyticsAgent, AnalyticsAgentInput
 from backend.agents.backtest_agent import BacktestAgent, BacktestAgentInput
 from backend.agents.base import AgentError
 from backend.agents.explanation_agent import ExplanationAgent, ExplanationAgentInput
-from backend.analytics.report_pdf import build_report_pdf, pdf_filename
 from backend.api.schemas import (
     BacktestRequest,
     BacktestSummary,
@@ -375,6 +374,17 @@ def get_report_pdf(run_id: int, db: Session = Depends(get_session)) -> Response:
     metrics = AnalyticsAgent(db).run(
         AnalyticsAgentInput(op="metrics", run_id=run_id)
     ).payload
+
+    # reportlab is an optional export-only dependency; import it lazily so a
+    # missing install degrades just this endpoint, not the whole backend.
+    try:
+        from backend.analytics.report_pdf import build_report_pdf, pdf_filename
+    except ModuleNotFoundError as exc:
+        raise HTTPException(
+            503,
+            "PDF export needs the 'reportlab' package. Run "
+            "`pip install -r requirements.txt` in your active environment.",
+        ) from exc
 
     pdf = build_report_pdf(
         strategy_name=run.strategy.name,

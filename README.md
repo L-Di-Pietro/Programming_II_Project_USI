@@ -74,7 +74,16 @@ source .venv/bin/activate        # macOS / Linux
 # .venv\Scripts\Activate.ps1     # Windows (PowerShell)
 # .venv\Scripts\activate.bat     # Windows (cmd)
 
+# Anaconda/Miniconda users: the auto-activated (base) env shadows .venv and is
+# the #1 cause of "runs on main but 500s on a feature branch". Run
+# `conda deactivate` (repeat until the "(base)" prefix is gone) BEFORE the line
+# above. Then confirm your tools resolve INTO .venv, not /opt/anaconda3:
+which python                     # macOS / Linux → must print  .../.venv/bin/python
+# where python                   # Windows       → must print  ...\.venv\Scripts\python.exe
+
 pip install -r requirements.txt
+# ^ Re-run this whenever you switch branches: a branch may add a dependency
+#   (e.g. reportlab). If the active env is missing one, uvicorn won't start.
 
 # Create your local .env from the template:
 cp .env.example .env             # Windows (PowerShell): Copy-Item .env.example .env
@@ -100,6 +109,9 @@ python scripts/load_initial_data.py --timeframes 1d 1h  # fetch DAILY + HOURLY h
 ### 3. Run the backend (terminal 1)
 
 ```bash
+# Make sure THIS terminal has .venv active — a fresh terminal may re-activate
+# conda's (base). Verify:  which uvicorn  → must print .../.venv/bin/uvicorn
+# When in doubt, run it by explicit path:  .venv/bin/uvicorn backend.main:app --reload
 uvicorn backend.main:app --reload
 # Backend at http://localhost:8000  ·  OpenAPI docs at http://localhost:8000/docs
 ```
@@ -117,6 +129,26 @@ npm run dev
 
 Browse to **http://localhost:5173** and run your first backtest.
 (Shortcut: `open http://localhost:5173` on macOS, `start http://localhost:5173` on Windows.)
+
+### Troubleshooting
+
+**Every page shows `500` / "Could not reach backend… Is uvicorn running on
+:8000?" — and the asset/strategy dropdowns are empty.**
+The frontend is up but the backend isn't bound to `:8000`, so Vite's dev proxy
+returns 500 for every `/api` call. The usual cause: the backend was started in
+the wrong Python environment (often Anaconda's `(base)`, which lacks the project
+deps). Fix it in the terminal running the backend:
+
+```bash
+which python                        # must point INTO .venv, not /opt/anaconda3
+pip install -r requirements.txt     # in the ACTIVE env; re-run after switching branches
+curl http://127.0.0.1:8000/healthz  # expect {"status":"ok", ...}
+```
+
+If `ps` shows `uvicorn` "running" yet nothing listens on `:8000`, it import-
+crashed under `--reload` (the file-watcher parent process stays alive). Read its
+terminal for the traceback — a `ModuleNotFoundError` means a missing dependency;
+install it in the active env and uvicorn auto-reloads.
 
 ### Run the tests
 
