@@ -39,12 +39,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # LLM_ENABLED, LLM_PROVIDER, GEMINI_API_KEY are loaded from local .env
+    # so the launcher's saved key flows into the container.
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql+psycopg://quantbacktest:quantbacktest@db:5432/quantbacktest
       API_HOST: 0.0.0.0
       API_PORT: 8000
       LOG_LEVEL: INFO
-      LLM_ENABLED: "false"
     ports:
       - "8000:8000"
     volumes:
@@ -52,7 +55,15 @@ services:
       - ./scripts:/app/scripts
     command: >
       sh -c "python scripts/init_db.py &&
+             python scripts/load_initial_data.py --timeframes 1d 1h &&
              uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload"
+    healthcheck:
+      # start_period covers the 2-5 min first-boot data load before retries count
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/healthz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 360s
 
   frontend:
     build:
@@ -60,7 +71,8 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     environment:
       VITE_API_URL: http://localhost:8000
     ports:
