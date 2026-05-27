@@ -150,6 +150,7 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 - `2026-05-24 58a4811` CI: grant `id-token: write` so `claude-code-action` can run; merged as PR \#10 (Luca Di Pietro).
 - `2026-05-24 a5d2bba` chore(docs): nightly auto-refresh 2026-05-24 (automated — Claude Code; merged as PR \#11). First nightly pass; extended `CHANGELOG.md` and `docs/academic/02_project_diary.tex` with post-submission CI entries.
 - `2026-05-24 01d9c30` chore(ci): bump GitHub Actions to Node 24 majors (Luca Di Pietro; merged as PR \#12). `actions/checkout@v6`, `actions/setup-python@v6`, and `actions/setup-node@v6` across all four workflows; `nightly-docs.yml` permissions comment updated.
+- `2026-05-25 6f940ac` chore(docs): nightly auto-refresh 2026-05-25 (automated — Claude Code; merged as PR \#13). Second nightly pass; recorded the Node 24 Actions upgrade in `CHANGELOG.md` (pre-release timeline + \[Unreleased\] CI section) and added a corresponding subsection to `docs/academic/02_project_diary.tex`.
 
 ---
 
@@ -166,4 +167,4 @@ GitHub Copilot's bot account (`copilot-swe-agent[bot]`) appears in a single merg
 
 ---
 
-_Last verified against code: 2026-05-24._
+_Last verified against code: 2026-05-26._
