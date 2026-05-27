@@ -20,11 +20,11 @@ export default {
           green: "#3fb950",
           red: "#f85149",
           amber: "#f0a500",
-          // Benchmark series accents — colour-blind-safe and kept distinct
-          // from each other, from the cyan strategy line, and from the
-          // green/red/amber metric values.
-          blue: "#3B82F6", // Buy & Hold
-          pink: "#CC79A7", // S&P 500 (reddish-purple)
+          // Benchmark series accents — one vibrant colour per series, kept
+          // distinct from each other, from the cyan strategy line, and from
+          // the green/red/amber metric values.
+          bh: "#facc15",  // Buy & Hold (amber)
+          spx: "#c084fc", // S&P 500 (purple)
         },
       },
       fontFamily: {

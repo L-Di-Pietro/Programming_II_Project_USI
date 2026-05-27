@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
@@ -355,4 +355,52 @@ def generate_report(run_id: int, db: Session = Depends(get_session)) -> ReportRe
         cached=False,
         prompt_tokens=result.prompt_tokens,
         completion_tokens=result.completion_tokens,
+    )
+
+
+@router.get("/{run_id}/report.pdf")
+def get_report_pdf(run_id: int, db: Session = Depends(get_session)) -> Response:
+    """Render the cached LLM report to a styled PDF download. 404 if none exists."""
+    run = db.get(BacktestRun, run_id)
+    if run is None:
+        raise HTTPException(404, f"Run {run_id} not found")
+
+    agent = ExplanationAgent(db)
+    cached = agent.get_cached_report(run_id)
+    if cached is None:
+        raise HTTPException(404, "No report generated for this run yet")
+    generated_at = agent.get_cached_report_timestamp(run_id)
+
+    metrics = AnalyticsAgent(db).run(
+        AnalyticsAgentInput(op="metrics", run_id=run_id)
+    ).payload
+
+    # reportlab is an optional export-only dependency; import it lazily so a
+    # missing install degrades just this endpoint, not the whole backend.
+    try:
+        from backend.analytics.report_pdf import build_report_pdf, pdf_filename
+    except ModuleNotFoundError as exc:
+        raise HTTPException(
+            503,
+            "PDF export needs the 'reportlab' package. Run "
+            "`pip install -r requirements.txt` in your active environment.",
+        ) from exc
+
+    pdf = build_report_pdf(
+        strategy_name=run.strategy.name,
+        asset_symbol=run.asset.symbol,
+        timeframe=run.timeframe,
+        start_date=run.start_date,
+        end_date=run.end_date,
+        metrics=metrics,
+        report_text=cached.text,
+        model=cached.model,
+        generated_at=generated_at,
+        demo_mode=agent.is_demo_mode,
+    )
+    filename = pdf_filename(run.strategy.name, run.asset.symbol, generated_at)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

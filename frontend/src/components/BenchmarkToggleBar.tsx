@@ -5,27 +5,24 @@ import { BENCHMARKS } from "./benchmarks";
 export type BenchmarkState = "idle" | "loading" | "error";
 
 // Per-kind accent classes (static so Tailwind's JIT keeps them). Colours come
-// from the accent.blue / accent.pink tokens.
+// from the accent.bh / accent.spx tokens.
 const ACCENT: Record<BenchmarkKind, {
   onBorder: string;
-  ringColor: string;
-  offBorder: string;
-  checkboxOn: string;
-  checkboxOff: string;
+  onBg: string;
+  onDot: string;
+  onSub: string;
 }> = {
   buy_and_hold: {
-    onBorder: "border-accent-blue",
-    ringColor: "ring-accent-blue/30",
-    offBorder: "border-accent-blue/25",
-    checkboxOn: "bg-accent-blue border-accent-blue",
-    checkboxOff: "border-accent-blue/50",
+    onBorder: "border-accent-bh",
+    onBg: "bg-accent-bh/10",
+    onDot: "bg-accent-bh",
+    onSub: "text-accent-bh/70",
   },
   sp500: {
-    onBorder: "border-accent-pink",
-    ringColor: "ring-accent-pink/30",
-    offBorder: "border-accent-pink/25",
-    checkboxOn: "bg-accent-pink border-accent-pink",
-    checkboxOff: "border-accent-pink/50",
+    onBorder: "border-accent-spx",
+    onBg: "bg-accent-spx/10",
+    onDot: "bg-accent-spx",
+    onSub: "text-accent-spx/70",
   },
 };
 
@@ -74,11 +71,19 @@ function BenchmarkPill({
   const isError = state === "error";
   const isLoading = state === "loading";
 
+  // border-2 in every state (only the colour changes) so toggling never
+  // shifts layout by a pixel.
   const borderClass = on
-    ? `bg-surface ${accent.onBorder} ring-1 ring-inset ${accent.ringColor}`
+    ? `${accent.onBg} ${accent.onBorder}`
     : isError
-      ? "bg-transparent border-accent-red/40 hover:bg-white/[0.025]"
-      : `bg-transparent ${accent.offBorder} hover:bg-white/[0.025]`;
+      ? "bg-transparent border-accent-red/50 hover:bg-white/[0.025]"
+      : "bg-transparent border-border-subtle hover:bg-white/[0.025]";
+
+  const dotClass = on
+    ? accent.onDot
+    : isError
+      ? "bg-accent-red/50"
+      : "bg-ink-muted/40";
 
   return (
     <button
@@ -90,36 +95,26 @@ function BenchmarkPill({
           ? `${label} data is unavailable for this run's date range.`
           : on ? `Hide ${label}` : `Show ${label}`
       }
-      className={`group relative inline-flex items-center gap-2.5 pl-2.5 pr-3.5 py-2 rounded-md border transition-colors ${borderClass}`}
+      className={`group relative inline-flex items-center gap-2.5 pl-2.5 pr-3.5 py-2 rounded-md border-2 transition-colors ${borderClass}`}
     >
       <span className="relative inline-flex items-center justify-center w-4 h-4">
         {isLoading ? (
           <span className="w-3.5 h-3.5 rounded-full border-2 border-ink-muted border-t-transparent animate-spin" />
         ) : (
-          <>
-            <span
-              className={`absolute inset-0 rounded-[3px] border transition-colors ${
-                on ? accent.checkboxOn : isError ? "border-accent-red/50" : accent.checkboxOff
-              }`}
-            />
-            {on && (
-              <svg viewBox="0 0 14 14" className="relative w-2.5 h-2.5">
-                <path
-                  d="M2 7.5 L5.5 11 L12 3.5"
-                  fill="none"
-                  stroke="#0d1117"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            )}
-          </>
+          <span className={`w-2.5 h-2.5 rounded-[2px] transition-colors ${dotClass}`} />
         )}
       </span>
       <div className="text-left leading-none">
-        <div className="text-[12.5px] font-medium text-ink-primary">{label}</div>
-        <div className="text-[10px] text-ink-muted mt-0.5">{isError ? "Unavailable" : sub}</div>
+        <div className={`text-[12.5px] font-medium ${on ? "text-ink-primary" : "text-ink-muted"}`}>
+          {label}
+        </div>
+        <div
+          className={`text-[10px] mt-0.5 ${
+            isError ? "text-accent-red/80" : on ? accent.onSub : "text-ink-muted"
+          }`}
+        >
+          {isError ? "Unavailable" : sub}
+        </div>
       </div>
     </button>
   );

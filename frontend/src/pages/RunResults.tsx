@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
@@ -15,7 +15,7 @@ import { DrawdownChart } from "@/components/DrawdownChart";
 import { EquityCurve, type ChartLegendItem } from "@/components/EquityCurve";
 import { MetricsPanel, type BenchmarkMetricSeries } from "@/components/MetricsPanel";
 import { MonthlyHeatmap } from "@/components/MonthlyHeatmap";
-import { ReportCard } from "@/components/ReportCard";
+import { AIAnalystModal } from "@/components/AIAnalystModal";
 import { RollingSharpChart } from "@/components/RollingSharpChart";
 import { TradePnlChart } from "@/components/TradePnlChart";
 import { TradeList } from "@/components/TradeList";
@@ -47,8 +47,6 @@ export function RunResults() {
   const { runId } = useParams();
   const id = Number(runId);
 
-  const reportRef = useRef<HTMLDivElement>(null);
-
   const [metrics,     setMetrics]     = useState<Metrics | null>(null);
   const [equityFig,   setEquityFig]   = useState<PlotlyFigure["figure"] | null>(null);
   const [drawdownFig, setDrawdownFig] = useState<PlotlyFigure["figure"] | null>(null);
@@ -62,6 +60,7 @@ export function RunResults() {
   } | null>(null);
   const [error,       setError]       = useState<string | null>(null);
   const [activeChart, setActiveChart] = useState<ChartTab>("equity");
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   // Benchmark overlays: which pills are on + a per-kind data cache.
   const [activeBenchmarks, setActiveBenchmarks] = useState<Set<BenchmarkKind>>(new Set());
@@ -156,12 +155,15 @@ export function RunResults() {
       (b) => activeBenchmarks.has(b.kind) && benchData[b.kind]?.status === "loaded",
     ).map((b) => {
       const eq = (benchData[b.kind] as Extract<BenchEntry, { status: "loaded" }>).equity;
+      // Distinct dash per benchmark so the lines read apart from the solid
+      // strategy curve: B&H dashed, S&P 500 dotted. No fill — strategy only.
+      const dash = b.kind === "buy_and_hold" ? "5px,5px" : "2px,4px";
       return {
         x: eq.map((p) => p.ts),
         y: eq.map((p) => p.equity),
         mode: "lines",
         name: b.label,
-        line: { color: b.hex, width: 1.8 },
+        line: { color: b.hex, width: 1.5, dash },
         hovertemplate: "%{x|%Y-%m-%d}<br>$%{y:,.0f}<extra></extra>",
       };
     });
@@ -171,8 +173,10 @@ export function RunResults() {
 
   // Always show the inline legend over the chart — even strategy-only.
   const chartLegend: ChartLegendItem[] = [
-    { label: STRATEGY.label, hex: STRATEGY.hex },
-    ...loadedActive.map((b) => ({ label: b.label, hex: b.hex })),
+    { label: STRATEGY.label, hex: STRATEGY.hex, tag: STRATEGY.tag, tagClass: STRATEGY.tagClass },
+    ...loadedActive.map((b) => ({
+      label: b.label, hex: b.hex, tag: b.tag, tagClass: b.tagClass,
+    })),
   ];
 
   const benchState: Record<BenchmarkKind, BenchmarkState> = {
@@ -220,7 +224,7 @@ export function RunResults() {
         <div className="flex gap-2.5">
           <button
             className="btn-secondary border-accent-cyan text-accent-cyan hover:bg-accent-cyan/10"
-            onClick={() => reportRef.current?.scrollIntoView({ behavior: "smooth" })}
+            onClick={() => setAiModalOpen(true)}
           >
             AI Analysis
           </button>
@@ -247,26 +251,43 @@ export function RunResults() {
       {/* ── Tabbed chart panel ──────────────────────────────────── */}
       <div className="border border-border rounded-lg overflow-hidden">
 
-        {/* Tab bar */}
-        <div className="flex items-center border-b border-border px-5 gap-0 bg-surface">
-          {CHART_TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setActiveChart(t.id)}
-              className={`px-4 py-3.5 text-[13px] border-b-2 transition-colors whitespace-nowrap ${
-                activeChart === t.id
-                  ? "border-accent-cyan text-accent-cyan"
-                  : "border-transparent text-ink-muted hover:text-ink-primary"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        {/* Tab bar — tabs on the left, equity legend on the far right. */}
+        <div className="flex items-center justify-between border-b border-border px-5 bg-surface">
+          <div className="flex items-center">
+            {CHART_TABS.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setActiveChart(t.id)}
+                className={`px-4 py-3.5 text-[13px] border-b-2 transition-colors whitespace-nowrap ${
+                  activeChart === t.id
+                    ? "border-accent-cyan text-accent-cyan"
+                    : "border-transparent text-ink-muted hover:text-ink-primary"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {activeChart === "equity" && chartLegend.length > 0 && (
+            <div className="flex items-center gap-3">
+              {chartLegend.map((it) => (
+                <div key={it.label} className="flex items-center gap-1.5">
+                  <span
+                    className={`font-mono font-bold text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${it.tagClass ?? ""}`}
+                  >
+                    {it.tag ?? it.label}
+                  </span>
+                  <span className="text-[12px] text-ink-muted">{it.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Chart body — every tab responds to the active benchmarks. */}
         <div className="bg-surface">
-          {activeChart === "equity"         && <EquityCurve      figure={equityFigWithOverlays} legend={chartLegend} />}
+          {activeChart === "equity"         && <EquityCurve      figure={equityFigWithOverlays} />}
           {activeChart === "drawdown"       && <DrawdownChart    figure={drawdownFig}    benchmarks={benchmarkSeries} />}
           {activeChart === "heatmap"        && <MonthlyHeatmap   equityData={equityData} benchmarks={benchmarkSeries} />}
           {activeChart === "trade_pnl"      && <TradePnlChart    trades={trades} showBenchmarkNote={activeBenchmarks.size > 0} />}
@@ -277,10 +298,14 @@ export function RunResults() {
       {/* ── Trade log ───────────────────────────────────────────── */}
       <TradeList trades={trades} />
 
-      {/* ── AI Report ───────────────────────────────────────────── */}
-      <div ref={reportRef}>
-        <ReportCard runId={id} />
-      </div>
+      {/* ── AI Analyst modal ────────────────────────────────────── */}
+      <AIAnalystModal
+        open={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+        runId={id}
+        metrics={metrics}
+        runInfo={runInfo}
+      />
     </div>
   );
 }

@@ -18,7 +18,7 @@ const DARK_LAYOUT: Partial<Plotly.Layout> = {
 /** Explains why benchmarks have no per-trade P&L. Shown when a benchmark is on. */
 function BenchmarkNote() {
   return (
-    <div className="mx-5 mb-4 rounded-lg border border-dashed border-accent-pink/[0.35] bg-accent-pink/[0.05] px-3.5 py-3 text-[12px] text-ink-muted leading-relaxed">
+    <div className="mx-5 mb-4 rounded-lg border border-dashed border-accent-spx/[0.35] bg-accent-spx/[0.05] px-3.5 py-3 text-[12px] text-ink-muted leading-relaxed">
       Per-trade view. Benchmarks (Buy &amp; Hold, S&amp;P 500) are passive holdings,
       not trading strategies — they don&rsquo;t generate per-trade P&amp;L to compare
       against. See the <span className="text-accent-cyan">Equity Curve</span>,{" "}

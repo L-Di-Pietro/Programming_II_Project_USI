@@ -9,6 +9,10 @@ export interface ChartLegendItem {
   hex: string;
   /** SVG `stroke-dasharray` for the sample (omit = solid) — used by thresholds. */
   dash?: string;
+  /** Short identifier (e.g. "STR") — used by the equity-chart badge legend. */
+  tag?: string;
+  /** Tailwind classes for the identifier badge — used by the badge legend. */
+  tagClass?: string;
 }
 
 export function LegendChip({ item }: { item: ChartLegendItem }) {
