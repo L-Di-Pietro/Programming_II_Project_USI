@@ -30,6 +30,7 @@ export function AIAnalystModal({
   const [report, setReport] = useState<Report | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState("");
+  const [downloading, setDownloading] = useState(false);
   // Which runId we've already kicked off a load for — guards the open effect
   // against re-running (and aborting its own fetch) when state changes.
   const loadedRef = useRef<number | null>(null);
@@ -91,12 +92,19 @@ export function AIAnalystModal({
     }
   };
 
-  const downloadPdf = () => {
-    const a = document.createElement("a");
-    a.href = Api.reportPdfUrl(runId);
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  const downloadPdf = async () => {
+    if (!report) return;
+    setError("");
+    setDownloading(true);
+    try {
+      const { exportReportPdf } = await import("@/utils/exportReportPdf");
+      await exportReportPdf(runId, report); // cover + 5 charts + AI analysis + footer
+    } catch (e) {
+      setError(errMsg(e));
+      setStatus("error");
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -206,9 +214,9 @@ export function AIAnalystModal({
               type="button"
               className="btn-primary text-xs py-1.5"
               onClick={downloadPdf}
-              disabled={!report || status === "loading"}
+              disabled={!report || status === "loading" || downloading}
             >
-              Download PDF
+              {downloading ? "Downloading…" : "Download PDF"}
             </button>
           </div>
         </div>
