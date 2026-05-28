@@ -51,6 +51,11 @@ export interface BacktestSummary {
   completed_at: string | null;
 }
 
+/** Single-run detail — summary plus the strategy params the user chose. */
+export interface BacktestDetail extends BacktestSummary {
+  params: Record<string, unknown>;
+}
+
 export interface BacktestRequest {
   asset_symbol: string;
   strategy_slug: string;
@@ -171,7 +176,7 @@ export const Api = {
     return data;
   },
   async getBacktest(runId: number) {
-    const { data } = await api.get<BacktestSummary>(`/backtests/${runId}`);
+    const { data } = await api.get<BacktestDetail>(`/backtests/${runId}`);
     return data;
   },
   async getMetrics(runId: number) {

@@ -13,6 +13,7 @@ from backend.agents.backtest_agent import BacktestAgent, BacktestAgentInput
 from backend.agents.base import AgentError
 from backend.agents.explanation_agent import ExplanationAgent, ExplanationAgentInput
 from backend.api.schemas import (
+    BacktestDetail,
     BacktestRequest,
     BacktestSummary,
     ChartResponse,
@@ -132,12 +133,12 @@ def list_backtests(
     return [_to_summary(r) for r in runs]
 
 
-@router.get("/{run_id}", response_model=BacktestSummary)
-def get_backtest(run_id: int, db: Session = Depends(get_session)) -> BacktestSummary:
+@router.get("/{run_id}", response_model=BacktestDetail)
+def get_backtest(run_id: int, db: Session = Depends(get_session)) -> BacktestDetail:
     run = db.get(BacktestRun, run_id)
     if run is None:
         raise HTTPException(404, f"Run {run_id} not found")
-    return _to_summary(run)
+    return BacktestDetail(**_to_summary(run).model_dump(), params=run.params or {})
 
 
 # -----------------------------------------------------------------------------

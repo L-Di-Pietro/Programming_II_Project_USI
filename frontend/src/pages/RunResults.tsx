@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
@@ -55,8 +55,10 @@ export function RunResults() {
   const [runInfo,     setRunInfo]     = useState<{
     strategyName: string;
     asset: string;
-    startYear: string;
-    endYear: string;
+    startDate: string;
+    endDate: string;
+    timeframe: string;
+    params: Record<string, unknown>;
   } | null>(null);
   const [error,       setError]       = useState<string | null>(null);
   const [activeChart, setActiveChart] = useState<ChartTab>("equity");
@@ -88,8 +90,10 @@ export function RunResults() {
         setRunInfo({
           strategyName: run.strategy_name,
           asset: run.asset_symbol,
-          startYear: run.start_date.slice(0, 4),
-          endYear: run.end_date.slice(0, 4),
+          startDate: run.start_date,
+          endDate: run.end_date,
+          timeframe: run.timeframe,
+          params: run.params,
         });
       })
       .catch((e) => { if (active) setError(String(e)); });
@@ -199,7 +203,7 @@ export function RunResults() {
       {/* ── Header ──────────────────────────────────────────────── */}
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <div className="flex items-center gap-2 text-[13px] mb-2 flex-wrap">
+          <div className="flex items-center gap-2.5 text-[17px] mb-2.5 flex-wrap">
             <Link to="/" className="text-ink-muted hover:text-ink-primary transition-colors">
               Backtest
             </Link>
@@ -213,13 +217,14 @@ export function RunResults() {
                   {runInfo.strategyName}
                 </Link>
                 <span className="text-border-subtle">&middot;</span>
-                <span className="font-mono text-[12px] text-ink-muted">
+                <span className="font-mono text-[15px] text-ink-muted">
                   {runInfo.asset}
                 </span>
                 <span className="text-border-subtle">&middot;</span>
-                <span className="font-mono text-[12px] text-ink-muted">
-                  {runInfo.startYear}&ndash;{runInfo.endYear}
+                <span className="font-mono text-[15px] text-ink-muted">
+                  {fmtDate(runInfo.startDate)} &ndash; {fmtDate(runInfo.endDate)}
                 </span>
+                <ConfigPopover run={runInfo} />
               </>
             )}
           </div>
@@ -312,6 +317,118 @@ export function RunResults() {
         metrics={metrics}
         runInfo={runInfo}
       />
+    </div>
+  );
+}
+
+// ── Header config popover ───────────────────────────────────────────────────────
+
+/** "2018-01-15T00:00:00Z" → "Jan 15, 2018" (UTC, so no off-by-one). */
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+  });
+}
+
+/** "fast_window" → "Fast Window". */
+function humanizeKey(k: string): string {
+  return k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+type RunConfig = {
+  strategyName: string;
+  asset: string;
+  startDate: string;
+  endDate: string;
+  timeframe: string;
+  params: Record<string, unknown>;
+};
+
+/**
+ * Understated ⓘ pill beside the date range. Click toggles a read-only popover
+ * listing the run's full config; clicking it again, clicking outside, or Esc
+ * closes it. Always starts collapsed — never opens on its own.
+ */
+function ConfigPopover({ run }: { run: RunConfig }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Close on outside-click or Esc. The button lives inside `ref`, so a click on
+  // it doesn't count as "outside" — the toggle handler runs cleanly.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const configRows = [
+    { label: "Strategy", value: run.strategyName },
+    { label: "Asset",    value: run.asset },
+    { label: "Interval", value: run.timeframe === "1h" ? "Hourly (1H)" : "Daily (1D)" },
+    { label: "Period",   value: `${fmtDate(run.startDate)} – ${fmtDate(run.endDate)}` },
+  ];
+  const paramRows = Object.entries(run.params);
+
+  return (
+    <div ref={ref} className="relative inline-flex">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-label="Show backtest parameters"
+        title="Backtest parameters"
+        className={`inline-flex items-center justify-center w-[18px] h-[18px] rounded-full border transition-colors ${
+          open
+            ? "border-accent-cyan text-accent-cyan"
+            : "border-border-subtle text-ink-muted hover:text-accent-cyan hover:border-accent-cyan"
+        }`}
+      >
+        <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <circle cx="8" cy="8" r="6.4" />
+          <path d="M8 7.3v3.4" strokeLinecap="round" />
+          <circle cx="8" cy="5" r="0.55" fill="currentColor" stroke="none" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-[26px] z-30 w-[280px] bg-surface border border-border rounded-lg shadow-xl p-4 text-left cursor-default">
+          <div className="font-mono text-[10px] uppercase tracking-[2px] text-ink-muted mb-2.5">
+            Backtest Configuration
+          </div>
+          <div className="flex flex-col divide-y divide-border">
+            {configRows.map((r) => (
+              <div key={r.label} className="flex justify-between items-baseline gap-3 py-1.5">
+                <span className="text-ink-muted text-[12px]">{r.label}</span>
+                <span className="font-mono text-[12px] text-ink-primary text-right">{r.value}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="font-mono text-[10px] uppercase tracking-[2px] text-ink-muted mt-3 mb-2.5">
+            Strategy Parameters
+          </div>
+          {paramRows.length === 0 ? (
+            <div className="text-ink-muted text-[12px]">No parameters.</div>
+          ) : (
+            <div className="flex flex-col divide-y divide-border">
+              {paramRows.map(([k, v]) => (
+                <div key={k} className="flex justify-between items-baseline gap-3 py-1.5">
+                  <span className="text-ink-muted text-[12px]">{humanizeKey(k)}</span>
+                  <span className="font-mono text-[12px] text-accent-cyan text-right">{String(v)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

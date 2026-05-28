@@ -124,6 +124,11 @@ class BacktestSummary(ORMBase):
     completed_at: UtcDatetime | None = None
 
 
+class BacktestDetail(BacktestSummary):
+    """Single-run payload — summary plus the strategy params the user chose."""
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
 class TradeOut(ORMBase):
     id: int
     ts: UtcDatetime
