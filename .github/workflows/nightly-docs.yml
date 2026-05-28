@@ -83,7 +83,7 @@ jobs:
           # Claude has NO git commit/push tool - the workflow opens the PR.
           claude_args: |
             --allowedTools "Read,Grep,Edit,Write,Bash(git log *),Bash(git diff *),Bash(git status *),Bash(pytest --collect-only *),Bash(npm --version)"
-            --max-turns 30
+            --max-turns 60
 
       - name: Detect documentation drift
         id: drift

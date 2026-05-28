@@ -24,21 +24,21 @@ It is triggered by `.github/workflows/nightly-docs.yml` at 02:00 UTC. Your edits
    If there are **no** commits in that window: make no edits, leave the working tree
    clean, and stop. The workflow detects the empty diff and skips the PR.
 
-2. For each changed file, decide whether any of these docs are now stale, and edit only
-   the stale ones: `README.md`, `ARCHITECTURE.md`, `CLAUDE.md`, `ONBOARDING.md`,
-   `AGENTS.md`, `CHANGELOG.md`, `docs/agents.md`, `docs/strategies.md`,
-   `docs/calendars.md`, `docs/data-sources.md`, `docs/user-guide.md`, `docs/api.md`,
-   `docs/academic/02_project_diary.tex`. Map by area, e.g.:
+2. **Do these two mandatory updates first** (whenever there was ≥1 commit in the window),
+   so the highest-value docs are done even if you run long:
+   - `CHANGELOG.md` — add/extend the entry covering the last 24h of commits.
+   - `docs/academic/02_project_diary.tex` — add a dated diary entry for the same.
+
+3. Then, for each changed file, decide whether any of these docs are now stale, and edit
+   only the stale ones: `README.md`, `ARCHITECTURE.md`, `CLAUDE.md`, `ONBOARDING.md`,
+   `AGENTS.md`, `docs/agents.md`, `docs/strategies.md`, `docs/calendars.md`,
+   `docs/data-sources.md`, `docs/user-guide.md`, `docs/api.md`. Map by area, e.g.:
    - `backend/strategies/*` → `docs/strategies.md` (+ strategy count in `README.md`/`CLAUDE.md`)
    - `backend/agents/*` → `docs/agents.md`, `AGENTS.md`
    - `backend/api/routes/*`, `backend/api/schemas.py` → `docs/api.md`
    - `backend/data/fetchers/*`, `backend/data/cleaner.py` → `docs/data-sources.md`, `docs/calendars.md`
    - `frontend/src/**` → `docs/user-guide.md`, `README.md`
    - workflows / config → `CLAUDE.md` (Automation / commands), `ONBOARDING.md`
-
-3. **Always** (if there was ≥1 commit in the window) update:
-   - `CHANGELOG.md` — add/extend the entry covering the last 24h of commits.
-   - `docs/academic/02_project_diary.tex` — add a dated diary entry for the same.
 
 4. **Never** modify code, tests, configuration, CI workflows, schemas, `requirements.txt`,
    or `package.json`. Documentation files only.
@@ -54,6 +54,12 @@ It is triggered by `.github/workflows/nightly-docs.yml` at 02:00 UTC. Your edits
 You may use: Read, Grep, Edit, Write, and a restricted, read-only Bash set
 (`git log`, `git diff`, `git status`, `pytest --collect-only`, `npm --version`).
 You cannot commit or push — that is the workflow's job.
+
+**Work within a bounded turn budget.** You have a limited number of agent turns, so spend
+them on edits, not overhead: don't re-read a file you've already read, and do **not** run
+`pytest --collect-only` or `npm --version` unless you specifically need to verify a fact
+for a doc. Batch related edits. If you cannot finish everything, make sure the two
+mandatory updates (step 2) and the docs for the most-affected areas are complete first.
 
 ---
 
