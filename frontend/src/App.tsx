@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, Route, Routes, useLocation } from "react-router-dom";
 
 import { Api } from "./api/client";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Dashboard } from "./pages/Dashboard";
 import { NewBacktest } from "./pages/NewBacktest";
 import { RunResults } from "./pages/RunResults";
@@ -158,12 +159,14 @@ export default function App() {
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto">
-          <Routes>
-            <Route path="/"                  element={<Dashboard />} />
-            <Route path="/strategies"        element={<Strategies />} />
-            <Route path="/backtests/new"     element={<NewBacktest />} />
-            <Route path="/backtests/:runId"  element={<RunResults />} />
-          </Routes>
+          <ErrorBoundary key={location.pathname}>
+            <Routes>
+              <Route path="/"                  element={<Dashboard />} />
+              <Route path="/strategies"        element={<Strategies />} />
+              <Route path="/backtests/new"     element={<NewBacktest />} />
+              <Route path="/backtests/:runId"  element={<RunResults />} />
+            </Routes>
+          </ErrorBoundary>
         </main>
       </div>
     </div>

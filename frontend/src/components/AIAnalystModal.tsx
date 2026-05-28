@@ -124,9 +124,6 @@ export function AIAnalystModal({
             <span className="text-[15px] font-semibold text-ink-primary">
               AI Strategy Analyst
             </span>
-            <span className="tag-mono border-accent-cyan text-accent-cyan text-[9px] tracking-widest">
-              Claude
-            </span>
           </div>
           <button
             type="button"

@@ -9,6 +9,10 @@ from backend.strategies import STRATEGY_REGISTRY
 
 router = APIRouter(prefix="/strategies", tags=["strategies"])
 
+# Slugs that are registered for internal use (benchmark curves) but must not
+# be offered to users as selectable strategies.
+_HIDDEN_FROM_PICKER: frozenset[str] = frozenset({"buy-and-hold"})
+
 
 @router.get("", response_model=list[StrategyOut])
 def list_strategies() -> list[StrategyOut]:
@@ -23,4 +27,5 @@ def list_strategies() -> list[StrategyOut]:
             params_schema=cls.params_schema(),
         )
         for cls in STRATEGY_REGISTRY.values()
+        if cls.slug not in _HIDDEN_FROM_PICKER
     ]

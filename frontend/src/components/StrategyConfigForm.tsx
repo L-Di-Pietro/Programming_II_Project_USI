@@ -5,6 +5,8 @@
  */
 import { useEffect, useMemo, useState } from "react";
 
+import { clamp, formatRange } from "@/utils/apiError";
+
 interface JSONSchema {
   type?: string;
   properties?: Record<string, JSONSchema>;
@@ -53,12 +55,18 @@ export function StrategyConfigForm({
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       {keys.map((key) => {
         const sub = props[key];
+        const isNumeric = sub.type === "number" || sub.type === "integer";
+        const range = isNumeric ? formatRange(sub.minimum, sub.maximum) : "";
         return (
           <div key={key}>
             <label className="label-base">{sub.title ?? key}</label>
             {renderField(key, sub, values[key], update)}
-            {sub.description && (
-              <p className="text-[11px] text-ink-muted mt-1">{sub.description}</p>
+            {(sub.description || range) && (
+              <p className="text-[11px] text-ink-muted mt-1">
+                {sub.description}
+                {sub.description && range && " · "}
+                {range && <span>Range: {range}</span>}
+              </p>
             )}
           </div>
         );
@@ -113,18 +121,23 @@ function renderField(
         <input
           type="number"
           className="input-base"
-          value={value === undefined ? "" : Number(value)}
+          value={value === undefined || !Number.isFinite(value as number) ? "" : Number(value)}
           min={sub.minimum}
           max={sub.maximum}
           step={sub.type === "integer" ? 1 : 0.01}
-          onChange={(e) =>
-            update(
-              key,
-              sub.type === "integer"
-                ? parseInt(e.target.value, 10)
-                : parseFloat(e.target.value),
-            )
-          }
+          onChange={(e) => {
+            if (e.target.value === "") { update(key, undefined); return; }
+            const n = sub.type === "integer"
+              ? parseInt(e.target.value, 10)
+              : parseFloat(e.target.value);
+            if (Number.isFinite(n)) update(key, n);
+          }}
+          onBlur={() => {
+            const n = value as number;
+            if (!Number.isFinite(n)) return;
+            const c = clamp(n, sub.minimum, sub.maximum);
+            if (c !== n) update(key, sub.type === "integer" ? Math.round(c) : c);
+          }}
         />
       );
     case "string":

@@ -3,6 +3,15 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { Api, type Asset, type Strategy, type Timeframe } from "@/api/client";
 import { StrategyConfigForm } from "@/components/StrategyConfigForm";
+import { clamp, formatApiError, formatRange } from "@/utils/apiError";
+
+// Engine-parameter bounds. Mirrors backend/api/schemas.py:BacktestRequest;
+// keep these in sync if the Pydantic constraints change.
+const RISK_FRACTION_MIN = 0.01;
+const RISK_FRACTION_MAX = 1.0;
+const INITIAL_CASH_MIN = 1000;
+const BPS_MIN = 0;
+const BPS_MAX = 1000;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function groupByClass(assets: Asset[]): Record<string, Asset[]> {
@@ -118,7 +127,7 @@ export function NewBacktest() {
         setAssetClass(firstClass);
         setSymbol(groups[firstClass]?.[0]?.symbol ?? null);
       })
-      .catch((e) => setError(String(e)));
+      .catch((e) => setError(formatApiError(e)));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When asset class changes, reset symbol to first in that class
@@ -156,18 +165,17 @@ export function NewBacktest() {
         start_date:    new Date(start).toISOString(),
         end_date:      new Date(end).toISOString(),
         params,
-        initial_cash:    initialCash,
-        commission_bps:  commissionBps,
-        slippage_bps:    slippageBps,
-        risk_fraction:   riskFraction,
+        initial_cash:    clamp(initialCash, INITIAL_CASH_MIN),
+        commission_bps:  clamp(commissionBps, BPS_MIN, BPS_MAX),
+        slippage_bps:    clamp(slippageBps, BPS_MIN, BPS_MAX),
+        risk_fraction:   clamp(riskFraction, RISK_FRACTION_MIN, RISK_FRACTION_MAX),
         timeframe,
       });
       // Snap the bar to 100%, let it render briefly, then go to results.
       setProgress(100);
       setTimeout(() => navigate(`/backtests/${result.id}`), 250);
     } catch (e: unknown) {
-      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setError(detail ?? String(e));
+      setError(formatApiError(e));
       setSubmitting(false);
     }
   };
@@ -375,7 +383,7 @@ export function NewBacktest() {
               value={initialCash}
               onChange={setInitialCash}
               step={10000}
-              min={1000}
+              min={INITIAL_CASH_MIN}
               hint="Starting portfolio value"
             />
             <NumField
@@ -383,7 +391,8 @@ export function NewBacktest() {
               value={commissionBps}
               onChange={setCommBps}
               step={0.5}
-              min={0}
+              min={BPS_MIN}
+              max={BPS_MAX}
               hint="Per trade, per leg"
             />
             <NumField
@@ -391,7 +400,8 @@ export function NewBacktest() {
               value={slippageBps}
               onChange={setSlipBps}
               step={0.5}
-              min={0}
+              min={BPS_MIN}
+              max={BPS_MAX}
               hint="Market impact cost"
             />
             <NumField
@@ -399,8 +409,8 @@ export function NewBacktest() {
               value={riskFraction}
               onChange={setRiskFraction}
               step={0.05}
-              min={0}
-              max={1}
+              min={RISK_FRACTION_MIN}
+              max={RISK_FRACTION_MAX}
               hint="Fraction of equity per position"
             />
           </div>
@@ -466,26 +476,38 @@ function NumField({
   max?: number;
   hint?: string;
 }) {
+  const range = formatRange(min, max);
+  const display = Number.isFinite(value)
+    ? (label.includes("$") || label.includes("Capital") ? `$${value.toLocaleString()}` : value)
+    : "—";
   return (
     <div>
       <div className="flex justify-between items-center mb-1.5">
         <label className="label-base mb-0">{label}</label>
-        <span className="font-mono text-[12px] text-accent-cyan">
-          {label.includes("$") || label.includes("Capital")
-            ? `$${Number(value).toLocaleString()}`
-            : value}
-        </span>
+        <span className="font-mono text-[12px] text-accent-cyan">{display}</span>
       </div>
       <input
         type="number"
         className="input-base"
-        value={value}
+        value={Number.isFinite(value) ? value : ""}
         step={step}
         min={min}
         max={max}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
+        onChange={(e) => {
+          if (e.target.value === "") { onChange(NaN); return; }
+          const n = parseFloat(e.target.value);
+          if (Number.isFinite(n)) onChange(n);
+        }}
+        onBlur={() => {
+          const c = clamp(value, min, max);
+          if (c !== value) onChange(c);
+        }}
       />
-      {hint && <div className="text-[11px] text-ink-muted mt-1">{hint}</div>}
+      <div className="text-[11px] text-ink-muted mt-1">
+        {hint}
+        {hint && range && " · "}
+        {range && <span>Range: {range}</span>}
+      </div>
     </div>
   );
 }

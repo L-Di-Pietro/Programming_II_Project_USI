@@ -2,19 +2,26 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Api, type BacktestSummary } from "@/api/client";
+import { formatLocal } from "@/utils/datetime";
 
-// ── Static platform stats ────────────────────────────────────────────────────
-const PLATFORM_STATS = [
-  { val: "4",  label: "Strategies Available" },
-  { val: "3",  label: "Asset Classes" },
-  { val: "10Y", label: "Max Lookback" },
-  { val: "1D",  label: "Data Interval" },
+// ── Max lookback descriptors (text rather than a single big number) ─────────
+const LOOKBACK_LIMITS = [
+  { tf: "Daily",  text: "Max yfinance Limit (Full History)" },
+  { tf: "Hourly", text: "Max yfinance Limit (729 Days)" },
 ];
+
+// Shared grid template for the Recent Backtests table. minmax(0, …fr) prevents
+// columns from auto-growing past their fr-share when content (e.g. timestamps)
+// is wider than the available space — otherwise header and rows desync.
+const RUNS_GRID_COLUMNS =
+  "minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.6fr) 90px";
+const RUNS_HEADERS = ["Strategy", "Asset", "Period", "Status", "Created", ""];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function Dashboard() {
   const [runs, setRuns] = useState<BacktestSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [strategyCount, setStrategyCount] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -33,6 +40,20 @@ export function Dashboard() {
     const interval = setInterval(tick, 5000);
     return () => { active = false; clearInterval(interval); };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    Api.listStrategies()
+      .then((s) => { if (active) setStrategyCount(s.length); })
+      .catch(() => { /* fall back to a dash; not worth surfacing here */ });
+    return () => { active = false; };
+  }, []);
+
+  const topStats: { val: string; label: string; small?: boolean }[] = [
+    { val: strategyCount === null ? "…" : String(strategyCount), label: "Strategies Available" },
+    { val: "4",       label: "Asset Classes" },
+    { val: "1D / 1H", label: "Data Interval", small: true },
+  ];
 
   return (
     <div className="pb-16">
@@ -65,19 +86,42 @@ export function Dashboard() {
         </div>
 
         {/* Stat box */}
-        <div className="flex-shrink-0 w-[280px] border border-border-subtle rounded-lg overflow-hidden">
-          <div className="grid grid-cols-2">
-            {PLATFORM_STATS.map((s, i) => (
+        <div className="flex-shrink-0 w-[380px] border border-border-subtle rounded-lg overflow-hidden">
+          {/* Top row — three small stat cells. Fixed-height value area keeps
+              labels aligned across boxes even when one value is smaller. */}
+          <div className="grid grid-cols-3">
+            {topStats.map((s, i) => (
               <div
                 key={s.label}
-                className={`bg-base px-5 py-5 text-center
-                  ${i % 2 === 0 ? "border-r border-border" : ""}
-                  ${i < 2 ? "border-b border-border" : ""}`}
+                className={`bg-base px-3 py-5 flex flex-col items-center justify-center text-center border-b border-border
+                  ${i < 2 ? "border-r border-border" : ""}`}
               >
-                <div className="font-mono text-3xl font-bold text-accent-cyan">{s.val}</div>
-                <div className="text-ink-muted text-xs mt-1">{s.label}</div>
+                <div className="h-9 flex items-center justify-center">
+                  <span
+                    className={`font-mono font-bold text-accent-cyan whitespace-nowrap ${
+                      s.small ? "text-2xl" : "text-3xl"
+                    }`}
+                  >
+                    {s.val}
+                  </span>
+                </div>
+                <div className="text-[#F5F5F0] text-xs mt-1">{s.label}</div>
               </div>
             ))}
+          </div>
+
+          {/* Bottom row — full-width Max Lookback box.
+              Label sits ABOVE the two timeframe lines. */}
+          <div className="bg-base px-5 py-5 text-center">
+            <div className="text-[#F5F5F0] text-xs mb-2">Max Lookback</div>
+            <div className="flex flex-col gap-1.5">
+              {LOOKBACK_LIMITS.map((l) => (
+                <div key={l.tf} className="text-[13px] leading-snug">
+                  <span className="font-mono text-accent-cyan">{l.tf}:</span>{" "}
+                  <span className="text-ink-muted">{l.text}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -99,9 +143,9 @@ export function Dashboard() {
       <div className="w-full overflow-x-auto">
         {/* Table header */}
         <div className="grid gap-0 border-b border-border px-10 py-2.5"
-          style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 1fr" }}>
-          {["Strategy", "Asset", "Period", "Status", "Created", "", ""].map((h) => (
-            <div key={h} className="font-mono text-[10px] uppercase tracking-widest text-ink-muted">
+          style={{ gridTemplateColumns: RUNS_GRID_COLUMNS }}>
+          {RUNS_HEADERS.map((h, i) => (
+            <div key={i} className="font-mono text-[10px] uppercase tracking-widest text-ink-muted min-w-0 text-center">
               {h}
             </div>
           ))}
@@ -121,24 +165,23 @@ export function Dashboard() {
           <div
             key={r.id}
             className="grid border-b border-border px-10 py-3.5 hover:bg-white/[0.02] transition-colors cursor-default"
-            style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr 1fr 1fr" }}
+            style={{ gridTemplateColumns: RUNS_GRID_COLUMNS }}
           >
-            <div className="text-ink-primary text-sm font-medium flex items-center">
+            <div className="text-ink-primary text-sm font-medium flex items-center justify-center min-w-0 truncate text-center">
               {r.strategy_name}
             </div>
-            <div className="font-mono text-[12px] text-ink-muted flex items-center">
+            <div className="font-mono text-[12px] text-ink-muted flex items-center justify-center min-w-0 truncate text-center">
               {r.asset_symbol}
             </div>
-            <div className="font-mono text-[11px] text-ink-muted flex items-center">
+            <div className="font-mono text-[11px] text-ink-muted flex items-center justify-center min-w-0 truncate text-center">
               {r.start_date.slice(0, 10)} &ndash; {r.end_date.slice(0, 10)}
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center justify-center min-w-0">
               <StatusPill status={r.status} />
             </div>
-            <div className="text-[11px] text-ink-muted flex items-center">
-              {new Date(r.created_at).toLocaleString()}
+            <div className="text-[11px] text-ink-muted flex items-center justify-center min-w-0 truncate text-center">
+              {formatLocal(r.created_at)}
             </div>
-            <div />
             <div className="flex items-center justify-end">
               <Link to={`/backtests/${r.id}`} className="btn-ghost text-xs">
                 View

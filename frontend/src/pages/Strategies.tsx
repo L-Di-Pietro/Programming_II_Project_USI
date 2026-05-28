@@ -8,88 +8,26 @@ interface StrategyMeta {
   abbr: string;
   complexity: 1 | 2 | 3;
   badge: string | null;
-  assets: string[];
-  profile: { cagr: number; winRate: number };
 }
 
 const STRATEGY_META: Record<string, StrategyMeta> = {
-  "sma-crossover": {
-    abbr: "SMA-X",
-    complexity: 1,
-    badge: "Classic",
-    assets: ["Equities", "FX", "Crypto"],
-    profile: { cagr: 0.12, winRate: 0.42 },
-  },
-  "macd-crossover": {
-    abbr: "MACD",
-    complexity: 2,
-    badge: "Popular",
-    assets: ["Equities", "FX", "Crypto"],
-    profile: { cagr: 0.14, winRate: 0.46 },
-  },
-  "ichimoku-cloud": {
-    abbr: "ICH",
-    complexity: 3,
-    badge: null,
-    assets: ["Equities", "FX", "Crypto"],
-    profile: { cagr: 0.15, winRate: 0.48 },
-  },
-  "donchian-breakout": {
-    abbr: "DON",
-    complexity: 1,
-    badge: "Turtle",
-    assets: ["Equities", "FX", "Crypto"],
-    profile: { cagr: 0.17, winRate: 0.35 },
-  },
-  "keltner-channels": {
-    abbr: "KC",
-    complexity: 2,
-    badge: null,
-    assets: ["Equities", "FX", "Crypto"],
-    profile: { cagr: 0.13, winRate: 0.40 },
-  },
-  "time-series-momentum": {
-    abbr: "TSM",
-    complexity: 1,
-    badge: "Academic",
-    assets: ["Equities", "FX", "Crypto"],
-    profile: { cagr: 0.16, winRate: 0.44 },
-  },
-  "rsi-mean-reversion": {
-    abbr: "RSI-MR",
-    complexity: 1,
-    badge: "Popular",
-    assets: ["Equities", "Crypto"],
-    profile: { cagr: 0.19, winRate: 0.62 },
-  },
-  "bollinger-bands": {
-    abbr: "BB",
-    complexity: 2,
-    badge: null,
-    assets: ["Equities", "FX", "Crypto"],
-    profile: { cagr: 0.11, winRate: 0.55 },
-  },
-  "stochastic-oscillator": {
-    abbr: "STO",
-    complexity: 1,
-    badge: null,
-    assets: ["Equities", "FX"],
-    profile: { cagr: 0.10, winRate: 0.58 },
-  },
-  "cci": {
-    abbr: "CCI",
-    complexity: 2,
-    badge: null,
-    assets: ["Equities", "FX", "Crypto"],
-    profile: { cagr: 0.12, winRate: 0.57 },
-  },
+  "sma-crossover":         { abbr: "SMA-X",  complexity: 1, badge: "Classic" },
+  "macd-crossover":        { abbr: "MACD",   complexity: 2, badge: "Popular" },
+  "ichimoku-cloud":        { abbr: "ICH",    complexity: 3, badge: null },
+  "donchian-breakout":     { abbr: "DON",    complexity: 1, badge: "Turtle" },
+  "keltner-channels":      { abbr: "KC",     complexity: 2, badge: null },
+  "time-series-momentum":  { abbr: "TSM",    complexity: 1, badge: "Academic" },
+  "rsi-mean-reversion":    { abbr: "RSI-MR", complexity: 1, badge: "Popular" },
+  "bollinger-bands":       { abbr: "BB",     complexity: 2, badge: null },
+  "stochastic-oscillator": { abbr: "STO",    complexity: 1, badge: null },
+  "cci":                   { abbr: "CCI",    complexity: 2, badge: null },
 };
 
 const COMPLEXITY_LABEL: Record<number, string> = { 1: "Beginner", 2: "Intermediate", 3: "Advanced" };
-const COMPLEXITY_COLOR: Record<number, string> = {
-  1: "text-accent-green",
-  2: "text-accent-amber",
-  3: "text-accent-red",
+const COMPLEXITY_BADGE: Record<number, string> = {
+  1: "border-accent-green text-accent-green",
+  2: "border-accent-amber text-accent-amber",
+  3: "border-accent-red   text-accent-red",
 };
 
 const CATEGORIES = ["All", "Trend Following", "Momentum", "Breakout", "Mean Reversion"];
@@ -164,74 +102,40 @@ export function Strategies() {
                   : "border-border-subtle bg-base"
               }`}
             >
-              {/* Top: abbr + badge */}
+              {/* Top: abbr + category badge on the left, level badge on the right */}
               <div className="flex items-start justify-between gap-2">
-                <span
-                  className={`tag-mono border-accent-cyan text-accent-cyan ${
-                    isHovered ? "bg-accent-cyan/10" : ""
-                  }`}
-                >
-                  {meta?.abbr ?? s.slug.toUpperCase()}
-                </span>
-                {meta?.badge && (
+                <div className="flex items-center gap-2 min-w-0">
                   <span
-                    className={`tag-mono transition-colors ${
-                      isHovered
-                        ? "border-accent-cyan text-accent-cyan"
-                        : "border-border-subtle text-ink-muted"
+                    className={`tag-mono border-accent-cyan text-accent-cyan ${
+                      isHovered ? "bg-accent-cyan/10" : ""
                     }`}
                   >
-                    {meta.badge}
+                    {meta?.abbr ?? s.slug.toUpperCase()}
+                  </span>
+                  {meta?.badge && (
+                    <span
+                      className={`tag-mono transition-colors ${
+                        isHovered
+                          ? "border-accent-cyan text-accent-cyan"
+                          : "border-border-subtle text-ink-muted"
+                      }`}
+                    >
+                      {meta.badge}
+                    </span>
+                  )}
+                </div>
+                {meta && (
+                  <span className={`tag-mono ${COMPLEXITY_BADGE[meta.complexity]}`}>
+                    {COMPLEXITY_LABEL[meta.complexity]}
                   </span>
                 )}
               </div>
 
-              {/* Name + category */}
-              <div>
-                <h3 className="text-ink-primary text-[15px] font-semibold mb-0.5">{s.name}</h3>
-                {meta && (
-                  <span className={`font-mono text-[11px] ${COMPLEXITY_COLOR[meta.complexity]}`}>
-                    {s.category}
-                  </span>
-                )}
-              </div>
+              {/* Name */}
+              <h3 className="text-ink-primary text-[15px] font-semibold">{s.name}</h3>
 
               {/* Description */}
               <p className="text-ink-muted text-[13px] leading-relaxed flex-1">{s.description}</p>
-
-              {/* Meta stats */}
-              {meta && (
-                <div className="flex border-t border-b border-border py-2.5 gap-0">
-                  <MetaStat label="CAGR (hist.)" value={`~${(meta.profile.cagr * 100).toFixed(0)}%`} valueClass="text-accent-green" />
-                  <MetaStat label="Win Rate"     value={`${(meta.profile.winRate * 100).toFixed(0)}%`} />
-                  <MetaStat
-                    label="Level"
-                    value={COMPLEXITY_LABEL[meta.complexity]}
-                    valueClass={COMPLEXITY_COLOR[meta.complexity]}
-                  />
-                </div>
-              )}
-
-              {/* Footer: asset tags + SELECT */}
-              <div className="flex items-center justify-between">
-                <div className="flex gap-1.5 flex-wrap">
-                  {(meta?.assets ?? []).map((a) => (
-                    <span
-                      key={a}
-                      className="font-mono text-[10px] text-ink-muted border border-border-subtle rounded px-2 py-0.5"
-                    >
-                      {a}
-                    </span>
-                  ))}
-                </div>
-                <span
-                  className={`font-mono text-[11px] tracking-wider transition-colors ${
-                    isHovered ? "text-accent-cyan" : "text-ink-muted"
-                  }`}
-                >
-                  SELECT
-                </span>
-              </div>
             </div>
           );
         })}
@@ -246,14 +150,3 @@ export function Strategies() {
   );
 }
 
-// ── Inline helper ─────────────────────────────────────────────────────────────
-function MetaStat({
-  label, value, valueClass = "text-ink-primary",
-}: { label: string; value: string; valueClass?: string }) {
-  return (
-    <div className="flex-1 flex flex-col gap-1 pr-3">
-      <span className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">{label}</span>
-      <span className={`font-mono text-sm font-semibold ${valueClass}`}>{value}</span>
-    </div>
-  );
-}

@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import Plotly from "plotly.js-dist-min";
 
 import { Api, type Report } from "@/api/client";
+import { formatLocal } from "@/utils/datetime";
 
 const CHART_KINDS = [
   { kind: "equity",         label: "Equity Curve"    },
@@ -101,7 +102,7 @@ function drawCover(doc: jsPDF, y: number, c: CoverData): number {
     ["Timeframe", c.timeframe === "1h" ? "Hourly" : "Daily"],
     ["Range",     `${c.startDate.slice(0, 10)} → ${c.endDate.slice(0, 10)}`],
     ["Model",     `${c.model}${c.demoMode ? "  (demo mode)" : ""}`],
-    ["Generated", new Date(c.generatedAt).toLocaleString()],
+    ["Generated", formatLocal(c.generatedAt)],
   ];
 
   doc.setFontSize(11);
