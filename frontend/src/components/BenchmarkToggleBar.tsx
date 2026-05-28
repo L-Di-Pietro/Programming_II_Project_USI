@@ -35,14 +35,17 @@ export function BenchmarkToggleBar({
   active,
   state,
   onToggle,
+  exclude,
 }: {
   active: Set<BenchmarkKind>;
   state: Record<BenchmarkKind, BenchmarkState>;
   onToggle: (kind: BenchmarkKind) => void;
+  /** Benchmarks to omit from the bar entirely (e.g. S&P 500 when the asset is SPY). */
+  exclude?: Set<BenchmarkKind>;
 }) {
   return (
     <div className="flex items-center gap-2.5 flex-wrap">
-      {BENCHMARKS.map((b) => (
+      {BENCHMARKS.filter((b) => !exclude?.has(b.kind)).map((b) => (
         <BenchmarkPill
           key={b.kind}
           kind={b.kind}

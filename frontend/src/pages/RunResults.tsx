@@ -184,6 +184,11 @@ export function RunResults() {
     sp500: pillState(benchData.sp500),
   };
 
+  // The S&P 500 benchmark is SPY buy-and-hold, so comparing SPY against itself
+  // is meaningless (and the backend never persists it). Hide the pill entirely.
+  const hiddenBenchmarks = new Set<BenchmarkKind>();
+  if (runInfo?.asset?.toUpperCase() === "SPY") hiddenBenchmarks.add("sp500");
+
   if (!Number.isFinite(id)) {
     return <div className="m-10 card border-accent-red text-accent-red">Invalid run ID.</div>;
   }
@@ -239,6 +244,7 @@ export function RunResults() {
         active={activeBenchmarks}
         state={benchState}
         onToggle={toggleBenchmark}
+        exclude={hiddenBenchmarks}
       />
 
       {error && (
