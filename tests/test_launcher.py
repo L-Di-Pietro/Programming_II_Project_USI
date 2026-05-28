@@ -63,17 +63,36 @@ def test_update_env_creates_file_if_missing(tmp_path: Path) -> None:
     assert env.read_text() == "X=1\n"
 
 
-def test_read_env_ignores_comments_and_blanks(tmp_path: Path) -> None:
+def test_read_env_ignores_blank_lines_and_full_line_comments(tmp_path: Path) -> None:
     env = tmp_path / ".env"
-    env.write_text("# a comment\n\nKEY1=v1\nKEY2=v2 # not a value comment\n")
-    result = launcher.read_env(env)
-    assert result == {"KEY1": "v1", "KEY2": "v2 # not a value comment"}
+    env.write_text("# a comment\n\nKEY1=v1\nKEY2=v2\n")
+    assert launcher.read_env(env) == {"KEY1": "v1", "KEY2": "v2"}
 
 
 def test_read_env_strips_surrounding_quotes(tmp_path: Path) -> None:
     env = tmp_path / ".env"
     env.write_text('KEY="quoted"\n')
     assert launcher.read_env(env)["KEY"] == "quoted"
+
+
+def test_read_env_strips_inline_comment_unquoted(tmp_path: Path) -> None:
+    env = tmp_path / ".env"
+    env.write_text("KEY=plainvalue  # trailing comment\n")
+    assert launcher.read_env(env)["KEY"] == "plainvalue"
+
+
+def test_read_env_strips_inline_comment_after_quoted_value(tmp_path: Path) -> None:
+    # The user's actual .env shape: KEY="value"  # comment
+    env = tmp_path / ".env"
+    env.write_text('GEMINI_API_KEY="AIzaSyDxxx"   # populate to activate Google Gemini\n')
+    assert launcher.read_env(env)["GEMINI_API_KEY"] == "AIzaSyDxxx"
+
+
+def test_read_env_keeps_hash_when_no_space_before(tmp_path: Path) -> None:
+    # `K=val#frag` (no space) is treated as part of the value, not a comment.
+    env = tmp_path / ".env"
+    env.write_text("KEY=value#fragment\n")
+    assert launcher.read_env(env)["KEY"] == "value#fragment"
 
 
 def test_read_env_returns_empty_for_missing_file(tmp_path: Path) -> None:
@@ -212,49 +231,83 @@ def test_prompt_skips_when_key_already_set(tmp_path: Path, monkeypatch: pytest.M
     env = tmp_path / ".env"
     env.write_text("GEMINI_API_KEY=abc\nLLM_ENABLED=true\n")
     monkeypatch.setattr(launcher, "ENV_FILE", env)
-    called = mock.Mock()
-    monkeypatch.setattr("getpass.getpass", called)
+    input_called = mock.Mock()
+    getpass_called = mock.Mock()
+    monkeypatch.setattr("builtins.input", input_called)
+    monkeypatch.setattr("getpass.getpass", getpass_called)
     launcher.prompt_for_api_key()
-    called.assert_not_called()
+    input_called.assert_not_called()
+    getpass_called.assert_not_called()
 
 
 def test_prompt_skips_when_llm_disabled(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     env = tmp_path / ".env"
     env.write_text("GEMINI_API_KEY=\nLLM_ENABLED=false\n")
     monkeypatch.setattr(launcher, "ENV_FILE", env)
-    called = mock.Mock()
-    monkeypatch.setattr("getpass.getpass", called)
+    input_called = mock.Mock()
+    monkeypatch.setattr("builtins.input", input_called)
     launcher.prompt_for_api_key()
-    called.assert_not_called()
+    input_called.assert_not_called()
 
 
-def test_prompt_saves_pasted_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_prompt_yn_no_disables_llm_without_asking_for_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     env = tmp_path / ".env"
     env.write_text("GEMINI_API_KEY=\nLLM_ENABLED=true\n")
     monkeypatch.setattr(launcher, "ENV_FILE", env)
-    monkeypatch.setattr("getpass.getpass", lambda _: "secret_key_123")
-    launcher.prompt_for_api_key()
-    assert "GEMINI_API_KEY=secret_key_123" in env.read_text()
-
-
-def test_prompt_disables_llm_on_empty_input(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    env = tmp_path / ".env"
-    env.write_text("GEMINI_API_KEY=\nLLM_ENABLED=true\n")
-    monkeypatch.setattr(launcher, "ENV_FILE", env)
-    monkeypatch.setattr("getpass.getpass", lambda _: "")
+    monkeypatch.setattr("builtins.input", lambda _: "n")
+    getpass_called = mock.Mock()
+    monkeypatch.setattr("getpass.getpass", getpass_called)
     launcher.prompt_for_api_key()
     parsed = launcher.read_env(env)
     assert parsed["LLM_ENABLED"] == "false"
     assert parsed.get("GEMINI_API_KEY", "") == ""
+    getpass_called.assert_not_called()
+
+
+def test_prompt_yn_yes_then_pastes_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    env = tmp_path / ".env"
+    env.write_text("GEMINI_API_KEY=\nLLM_ENABLED=true\n")
+    monkeypatch.setattr(launcher, "ENV_FILE", env)
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+    monkeypatch.setattr("getpass.getpass", lambda _: "secret_key_123")
+    launcher.prompt_for_api_key()
+    parsed = launcher.read_env(env)
+    assert parsed["GEMINI_API_KEY"] == "secret_key_123"
+
+
+def test_prompt_yn_yes_with_empty_paste_disables_llm(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = tmp_path / ".env"
+    env.write_text("GEMINI_API_KEY=\nLLM_ENABLED=true\n")
+    monkeypatch.setattr(launcher, "ENV_FILE", env)
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+    monkeypatch.setattr("getpass.getpass", lambda _: "")
+    launcher.prompt_for_api_key()
+    parsed = launcher.read_env(env)
+    assert parsed["LLM_ENABLED"] == "false"
+
+
+def test_prompt_yn_yes_case_insensitive(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    env = tmp_path / ".env"
+    env.write_text("GEMINI_API_KEY=\nLLM_ENABLED=true\n")
+    monkeypatch.setattr(launcher, "ENV_FILE", env)
+    monkeypatch.setattr("builtins.input", lambda _: "YES")
+    monkeypatch.setattr("getpass.getpass", lambda _: "k")
+    launcher.prompt_for_api_key()
+    assert launcher.read_env(env)["GEMINI_API_KEY"] == "k"
 
 
 def test_prompt_reset_clears_existing_choice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     env = tmp_path / ".env"
     env.write_text("GEMINI_API_KEY=oldkey\nLLM_ENABLED=true\n")
     monkeypatch.setattr(launcher, "ENV_FILE", env)
+    monkeypatch.setattr("builtins.input", lambda _: "y")
     monkeypatch.setattr("getpass.getpass", lambda _: "newkey")
     launcher.prompt_for_api_key(reset=True)
-    assert "GEMINI_API_KEY=newkey" in env.read_text()
+    assert launcher.read_env(env)["GEMINI_API_KEY"] == "newkey"
 
 
 # ---------------------------------------------------------------------------
@@ -269,7 +322,7 @@ def test_db_has_bars_false_when_file_missing(tmp_path: Path, monkeypatch: pytest
 def test_db_has_bars_false_on_empty_table(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     db = tmp_path / "test.db"
     with sqlite3.connect(db) as conn:
-        conn.execute("CREATE TABLE bars (id INTEGER PRIMARY KEY)")
+        conn.execute("CREATE TABLE ohlcv_bars (id INTEGER PRIMARY KEY)")
     monkeypatch.setattr(launcher, "SQLITE_DB", db)
     assert launcher.db_has_bars() is False
 
@@ -277,8 +330,8 @@ def test_db_has_bars_false_on_empty_table(tmp_path: Path, monkeypatch: pytest.Mo
 def test_db_has_bars_true_when_populated(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     db = tmp_path / "test.db"
     with sqlite3.connect(db) as conn:
-        conn.execute("CREATE TABLE bars (id INTEGER PRIMARY KEY)")
-        conn.execute("INSERT INTO bars (id) VALUES (1)")
+        conn.execute("CREATE TABLE ohlcv_bars (id INTEGER PRIMARY KEY)")
+        conn.execute("INSERT INTO ohlcv_bars (id) VALUES (1)")
     monkeypatch.setattr(launcher, "SQLITE_DB", db)
     assert launcher.db_has_bars() is True
 
@@ -400,3 +453,56 @@ def test_parse_args_flags(monkeypatch: pytest.MonkeyPatch) -> None:
         args.no_data, args.no_browser, args.reload_data,
         args.reset_key, args.reset_venv, args.exit_after_health,
     ])
+
+
+# ---------------------------------------------------------------------------
+# check_ports_free + _port_holder (spec §7.4)
+# ---------------------------------------------------------------------------
+
+def test_check_ports_free_passes_when_all_free(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(launcher, "_port_holder", lambda _port: None)
+    launcher.check_ports_free([8000, 5173])  # should not raise
+
+
+def test_check_ports_free_exits_with_spec_message(
+    monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    def fake_holder(port: int):
+        return ("12345", "uvicorn") if port == 8000 else None
+    monkeypatch.setattr(launcher, "_port_holder", fake_holder)
+    with pytest.raises(SystemExit) as exc:
+        launcher.check_ports_free([8000, 5173])
+    assert exc.value.code == 1
+    out = capsys.readouterr().out
+    assert "port :8000 is held by PID 12345 (uvicorn)" in out
+    if sys.platform == "win32":
+        assert "taskkill /F /PID 12345" in out
+    else:
+        assert "kill -9 12345" in out
+
+
+def test_check_ports_free_reports_both_ports_when_both_held(
+    monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    def fake_holder(port: int):
+        return (str(port * 10), f"proc_{port}")
+    monkeypatch.setattr(launcher, "_port_holder", fake_holder)
+    with pytest.raises(SystemExit):
+        launcher.check_ports_free([8000, 5173])
+    out = capsys.readouterr().out
+    assert ":8000 is held by PID 80000 (proc_8000)" in out
+    assert ":5173 is held by PID 51730 (proc_5173)" in out
+
+
+def test_process_name_falls_back_when_lookup_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(*a, **k):
+        raise FileNotFoundError("no ps")
+    monkeypatch.setattr(launcher.subprocess, "run", boom)
+    assert launcher._process_name("99999") == "process name unknown"
+
+
+def test_port_holder_returns_none_when_lsof_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    def boom(*a, **k):
+        raise FileNotFoundError("no lsof")
+    monkeypatch.setattr(launcher.subprocess, "run", boom)
+    assert launcher._port_holder(8000) is None

@@ -100,7 +100,19 @@ def read_env(path: Path) -> dict[str, str]:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
-        out[key.strip()] = value.strip().strip('"').strip("'")
+        value = value.strip()
+        if value and value[0] in ('"', "'"):
+            quote = value[0]
+            end = value.find(quote, 1)
+            value = value[1:end] if end > 0 else value[1:]
+        else:
+            for sep in (" #", "\t#"):
+                idx = value.find(sep)
+                if idx >= 0:
+                    value = value[:idx]
+                    break
+            value = value.rstrip()
+        out[key.strip()] = value
     return out
 
 
@@ -168,9 +180,14 @@ def ensure_venv(reset: bool = False) -> Path:
 
 
 def install_deps(py: Path) -> None:
+    if not REQUIREMENTS.exists():
+        fail(f"requirements.txt missing at {REQUIREMENTS} — broken checkout?")
     if DEPS_MARKER.exists() and REQUIREMENTS.stat().st_mtime <= DEPS_MARKER.stat().st_mtime:
         return
-    info("Installing Python dependencies (this can take a minute on first run)…")
+    if DEPS_MARKER.exists():
+        info("requirements.txt changed since last install — re-syncing Python deps…")
+    else:
+        info("Installing Python dependencies (first run, can take a couple of minutes)…")
     proc = subprocess.run(
         [str(py), "-m", "pip", "install", "-r", str(REQUIREMENTS)],
         capture_output=True,
@@ -207,10 +224,20 @@ def prompt_for_api_key(reset: bool = False) -> None:
         return
     print()
     print(f"{C_DIM}The AI-generated report uses Google Gemini.{C_RESET}")
-    print(f"{C_DIM}Paste your Gemini API key, or press Enter to skip (backtests/charts still work).{C_RESET}")
+    try:
+        answer = input("Do you want to set up a Google Gemini API key now? [y/N]: ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        answer = ""
+    if answer not in ("y", "yes"):
+        update_env(ENV_FILE, {"LLM_ENABLED": "false"})
+        warn(
+            "AI report disabled. Backtests, charts, and metrics still work.\n"
+            "         Run `python run.py --reset-key` to enable it later."
+        )
+        return
     try:
         import getpass
-        key = getpass.getpass("Gemini API key: ").strip()
+        key = getpass.getpass("Paste your Gemini API key (input is hidden): ").strip()
     except (EOFError, KeyboardInterrupt):
         key = ""
     if key:
@@ -218,7 +245,7 @@ def prompt_for_api_key(reset: bool = False) -> None:
         ok("API key saved to .env (gitignored). Won't ask again.")
     else:
         update_env(ENV_FILE, {"LLM_ENABLED": "false"})
-        warn("AI report disabled. Run `python run.py --reset-key` to set the key later.")
+        warn("No key pasted — AI report disabled. Run `python run.py --reset-key` to retry.")
 
 
 def init_database(py: Path) -> None:
@@ -233,9 +260,9 @@ def db_has_bars() -> bool:
         return False
     try:
         with sqlite3.connect(str(SQLITE_DB)) as conn:
-            row = conn.execute("SELECT 1 FROM bars LIMIT 1").fetchone()
+            row = conn.execute("SELECT 1 FROM ohlcv_bars LIMIT 1").fetchone()
         return row is not None
-    except sqlite3.Error:
+    except (sqlite3.Error, OSError):
         return False
 
 
@@ -257,9 +284,14 @@ def load_data_if_empty(py: Path, force: bool = False, skip: bool = False) -> Non
 
 
 def install_frontend_deps(npm: str) -> None:
+    if not PACKAGE_LOCK.exists():
+        fail(f"package-lock.json missing at {PACKAGE_LOCK} — broken checkout?")
     if NODE_MARKER.exists() and PACKAGE_LOCK.stat().st_mtime <= NODE_MARKER.stat().st_mtime:
         return
-    info("Installing frontend dependencies (npm install)…")
+    if NODE_MARKER.exists():
+        info("package-lock.json changed since last install — re-syncing frontend deps…")
+    else:
+        info("Installing frontend dependencies (first run, can take a minute)…")
     proc = subprocess.run([npm, "install"], cwd=str(FRONTEND_DIR), text=True)
     if proc.returncode != 0:
         fail("npm install failed — see output above. Try: cd frontend && npm install")
@@ -276,9 +308,12 @@ def _stream(proc: subprocess.Popen, prefix: str, color: str) -> None:
 
 def start_backend(py: Path) -> subprocess.Popen:
     info("Starting backend (uvicorn)…")
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"  # so uvicorn streams line-buffered into our pipe
     proc = subprocess.Popen(
         [str(py), "-m", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8000"],
         cwd=str(ROOT),
+        env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
@@ -310,7 +345,29 @@ def _http_ok(url: str) -> bool:
         return False
 
 
-def _port_holder(port: int) -> str | None:
+def _process_name(pid: str) -> str:
+    try:
+        if sys.platform == "win32":
+            out = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+                capture_output=True, text=True, timeout=5,
+            ).stdout.strip()
+            if out:
+                return out.splitlines()[0].split(",")[0].strip('"')
+        else:
+            out = subprocess.run(
+                ["ps", "-p", pid, "-o", "comm="],
+                capture_output=True, text=True, timeout=5,
+            ).stdout.strip()
+            if out:
+                return out
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    return "process name unknown"
+
+
+def _port_holder(port: int) -> tuple[str, str] | None:
+    """Return (pid, process_name) of the listener on `port`, or None if free."""
     try:
         if sys.platform == "win32":
             out = subprocess.run(
@@ -318,18 +375,41 @@ def _port_holder(port: int) -> str | None:
             ).stdout
             for line in out.splitlines():
                 if f":{port} " in line and "LISTENING" in line:
-                    return line.split()[-1]
+                    pid = line.split()[-1]
+                    return (pid, _process_name(pid))
         else:
             out = subprocess.run(
                 ["lsof", "-ti", f":{port}"], capture_output=True, text=True, timeout=5
             ).stdout.strip()
-            return out.splitlines()[0] if out else None
+            if out:
+                pid = out.splitlines()[0]
+                return (pid, _process_name(pid))
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
     return None
 
 
-def wait_for_health(processes: list[subprocess.Popen], timeout: float = 60.0) -> None:
+def check_ports_free(ports: list[int]) -> None:
+    held: list[tuple[int, str, str]] = []
+    for port in ports:
+        holder = _port_holder(port)
+        if holder:
+            held.append((port, holder[0], holder[1]))
+    if not held:
+        return
+    for port, pid, name in held:
+        kill_cmd = (
+            f"taskkill /F /PID {pid}" if sys.platform == "win32" else f"kill -9 {pid}"
+        )
+        print(
+            f"{C_ERR}[run.py]{C_RESET} port :{port} is held by PID {pid} ({name}) "
+            f"— kill it with `{kill_cmd}`",
+            flush=True,
+        )
+    sys.exit(1)
+
+
+def wait_for_health(processes: list[subprocess.Popen], timeout: float = 120.0) -> None:
     start = time.monotonic()
     ready = {BACKEND_URL: False, FRONTEND_URL: False}
     while time.monotonic() - start < timeout:
@@ -346,12 +426,10 @@ def wait_for_health(processes: list[subprocess.Popen], timeout: float = 60.0) ->
         if all(ready.values()):
             return
         time.sleep(0.5)
-    for port in (8000, 5173):
-        holder = _port_holder(port)
-        if holder:
-            kill = f"taskkill /F /PID {holder}" if sys.platform == "win32" else f"kill -9 {holder}"
-            warn(f"Port {port} held by PID {holder} — try `{kill}` and re-run.")
-    fail("Servers did not become healthy within 60 s.")
+    fail(
+        f"Servers did not become healthy within {int(timeout)} s. "
+        "Check logs above for clues."
+    )
 
 
 def install_shutdown_handler(processes: list[subprocess.Popen]) -> None:
@@ -419,6 +497,8 @@ def main() -> None:
     if not npm:
         fail("npm not found on PATH. Did Node install correctly?")
     install_frontend_deps(npm)
+
+    check_ports_free([8000, 5173])
 
     backend = start_backend(py)
     frontend = start_frontend(npm)
