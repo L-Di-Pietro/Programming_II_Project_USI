@@ -227,31 +227,81 @@ def test_ensure_env_file_preserves_existing(tmp_path: Path, monkeypatch: pytest.
 # prompt_for_api_key — skip semantics (spec §5.5)
 # ---------------------------------------------------------------------------
 
-def test_prompt_skips_when_key_already_set(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.fixture
+def fake_tty(monkeypatch: pytest.MonkeyPatch):
+    """Force sys.stdin.isatty() to return True so the prompt actually fires."""
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+
+
+def test_prompt_skips_when_stdin_not_a_tty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     env = tmp_path / ".env"
-    env.write_text("GEMINI_API_KEY=abc\nLLM_ENABLED=true\n")
+    env.write_text("GEMINI_API_KEY=\nLLM_ENABLED=true\n")
     monkeypatch.setattr(launcher, "ENV_FILE", env)
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: False)
     input_called = mock.Mock()
-    getpass_called = mock.Mock()
     monkeypatch.setattr("builtins.input", input_called)
-    monkeypatch.setattr("getpass.getpass", getpass_called)
     launcher.prompt_for_api_key()
     input_called.assert_not_called()
+
+
+def test_prompt_asks_even_when_key_already_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_tty
+) -> None:
+    env = tmp_path / ".env"
+    env.write_text('GEMINI_API_KEY="abc123"\nLLM_ENABLED=true\n')
+    monkeypatch.setattr(launcher, "ENV_FILE", env)
+    questions: list[str] = []
+    monkeypatch.setattr("builtins.input", lambda q: questions.append(q) or "n")
+    launcher.prompt_for_api_key()
+    assert len(questions) == 1
+    assert "replace" in questions[0].lower()
+
+
+def test_prompt_n_with_existing_key_preserves_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_tty
+) -> None:
+    env = tmp_path / ".env"
+    env.write_text('GEMINI_API_KEY=oldkey\nLLM_ENABLED=true\n')
+    monkeypatch.setattr(launcher, "ENV_FILE", env)
+    monkeypatch.setattr("builtins.input", lambda _: "")
+    getpass_called = mock.Mock()
+    monkeypatch.setattr("getpass.getpass", getpass_called)
+    launcher.prompt_for_api_key()
+    parsed = launcher.read_env(env)
+    assert parsed["GEMINI_API_KEY"] == "oldkey"
+    assert parsed["LLM_ENABLED"] == "true"
     getpass_called.assert_not_called()
 
 
-def test_prompt_skips_when_llm_disabled(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_prompt_y_with_existing_key_replaces_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_tty
+) -> None:
     env = tmp_path / ".env"
-    env.write_text("GEMINI_API_KEY=\nLLM_ENABLED=false\n")
+    env.write_text("GEMINI_API_KEY=oldkey\nLLM_ENABLED=true\n")
     monkeypatch.setattr(launcher, "ENV_FILE", env)
-    input_called = mock.Mock()
-    monkeypatch.setattr("builtins.input", input_called)
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+    monkeypatch.setattr("getpass.getpass", lambda _: "newkey")
     launcher.prompt_for_api_key()
-    input_called.assert_not_called()
+    assert launcher.read_env(env)["GEMINI_API_KEY"] == "newkey"
 
 
-def test_prompt_yn_no_disables_llm_without_asking_for_key(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_prompt_asks_set_when_no_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_tty
+) -> None:
+    env = tmp_path / ".env"
+    env.write_text("GEMINI_API_KEY=\nLLM_ENABLED=true\n")
+    monkeypatch.setattr(launcher, "ENV_FILE", env)
+    questions: list[str] = []
+    monkeypatch.setattr("builtins.input", lambda q: questions.append(q) or "n")
+    launcher.prompt_for_api_key()
+    assert len(questions) == 1
+    assert "set" in questions[0].lower()
+
+
+def test_prompt_n_with_no_key_disables_llm(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_tty
 ) -> None:
     env = tmp_path / ".env"
     env.write_text("GEMINI_API_KEY=\nLLM_ENABLED=true\n")
@@ -266,19 +316,22 @@ def test_prompt_yn_no_disables_llm_without_asking_for_key(
     getpass_called.assert_not_called()
 
 
-def test_prompt_yn_yes_then_pastes_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_prompt_y_with_no_key_then_paste_saves(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_tty
+) -> None:
     env = tmp_path / ".env"
     env.write_text("GEMINI_API_KEY=\nLLM_ENABLED=true\n")
     monkeypatch.setattr(launcher, "ENV_FILE", env)
     monkeypatch.setattr("builtins.input", lambda _: "y")
-    monkeypatch.setattr("getpass.getpass", lambda _: "secret_key_123")
+    monkeypatch.setattr("getpass.getpass", lambda _: "fresh_key")
     launcher.prompt_for_api_key()
     parsed = launcher.read_env(env)
-    assert parsed["GEMINI_API_KEY"] == "secret_key_123"
+    assert parsed["GEMINI_API_KEY"] == "fresh_key"
+    assert parsed["LLM_ENABLED"] == "true"
 
 
-def test_prompt_yn_yes_with_empty_paste_disables_llm(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_prompt_y_with_empty_paste_disables_when_no_prior_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_tty
 ) -> None:
     env = tmp_path / ".env"
     env.write_text("GEMINI_API_KEY=\nLLM_ENABLED=true\n")
@@ -286,11 +339,12 @@ def test_prompt_yn_yes_with_empty_paste_disables_llm(
     monkeypatch.setattr("builtins.input", lambda _: "y")
     monkeypatch.setattr("getpass.getpass", lambda _: "")
     launcher.prompt_for_api_key()
-    parsed = launcher.read_env(env)
-    assert parsed["LLM_ENABLED"] == "false"
+    assert launcher.read_env(env)["LLM_ENABLED"] == "false"
 
 
-def test_prompt_yn_yes_case_insensitive(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_prompt_yes_case_insensitive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_tty
+) -> None:
     env = tmp_path / ".env"
     env.write_text("GEMINI_API_KEY=\nLLM_ENABLED=true\n")
     monkeypatch.setattr(launcher, "ENV_FILE", env)
@@ -300,14 +354,19 @@ def test_prompt_yn_yes_case_insensitive(tmp_path: Path, monkeypatch: pytest.Monk
     assert launcher.read_env(env)["GEMINI_API_KEY"] == "k"
 
 
-def test_prompt_reset_clears_existing_choice(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_prompt_reset_clears_then_re_prompts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake_tty
+) -> None:
     env = tmp_path / ".env"
     env.write_text("GEMINI_API_KEY=oldkey\nLLM_ENABLED=true\n")
     monkeypatch.setattr(launcher, "ENV_FILE", env)
-    monkeypatch.setattr("builtins.input", lambda _: "y")
+    # After reset the key is gone, so the question is the "set" variant.
+    questions: list[str] = []
+    monkeypatch.setattr("builtins.input", lambda q: questions.append(q) or "y")
     monkeypatch.setattr("getpass.getpass", lambda _: "newkey")
     launcher.prompt_for_api_key(reset=True)
     assert launcher.read_env(env)["GEMINI_API_KEY"] == "newkey"
+    assert "set" in questions[0].lower()
 
 
 # ---------------------------------------------------------------------------

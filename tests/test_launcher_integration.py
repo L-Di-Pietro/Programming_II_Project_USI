@@ -27,6 +27,7 @@ def test_launcher_boots_and_exits_cleanly() -> None:
         [sys.executable, str(PROJECT_ROOT / "run.py"),
          "--no-data", "--no-browser", "--exit-after-health"],
         cwd=str(PROJECT_ROOT),
+        stdin=subprocess.DEVNULL,  # prompt_for_api_key skips when stdin isn't a tty
         capture_output=True,
         text=True,
         timeout=180,

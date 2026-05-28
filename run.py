@@ -214,26 +214,34 @@ def ensure_env_file() -> None:
 
 
 def prompt_for_api_key(reset: bool = False) -> None:
+    # In non-interactive contexts (CI, piped stdin, integration test) skip to
+    # avoid blocking on input().
+    if not sys.stdin.isatty():
+        return
     env = read_env(ENV_FILE)
     if reset:
         update_env(ENV_FILE, {"GEMINI_API_KEY": "", "LLM_ENABLED": "true"})
         env = read_env(ENV_FILE)
-    if env.get("GEMINI_API_KEY"):
-        return
-    if env.get("LLM_ENABLED", "").lower() == "false":
-        return
+    has_key = bool(env.get("GEMINI_API_KEY"))
     print()
     print(f"{C_DIM}The AI-generated report uses Google Gemini.{C_RESET}")
+    if has_key:
+        print(f"{C_DIM}A Gemini API key is already saved in .env — press Enter to keep it.{C_RESET}")
+        question = "Do you want to replace the saved key with a new one? [y/N]: "
+    else:
+        question = "Do you want to set a Google Gemini API key now? [y/N]: "
     try:
-        answer = input("Do you want to set up a Google Gemini API key now? [y/N]: ").strip().lower()
+        answer = input(question).strip().lower()
     except (EOFError, KeyboardInterrupt):
         answer = ""
     if answer not in ("y", "yes"):
-        update_env(ENV_FILE, {"LLM_ENABLED": "false"})
-        warn(
-            "AI report disabled. Backtests, charts, and metrics still work.\n"
-            "         Run `python run.py --reset-key` to enable it later."
-        )
+        if not has_key:
+            update_env(ENV_FILE, {"LLM_ENABLED": "false"})
+            warn(
+                "AI report disabled. Backtests, charts, and metrics still work.\n"
+                "         Run `python run.py --reset-key` to enable it later."
+            )
+        # If key was already there and user pressed Enter, keep it as-is.
         return
     try:
         import getpass
@@ -241,9 +249,9 @@ def prompt_for_api_key(reset: bool = False) -> None:
     except (EOFError, KeyboardInterrupt):
         key = ""
     if key:
-        update_env(ENV_FILE, {"GEMINI_API_KEY": key})
-        ok("API key saved to .env (gitignored). Won't ask again.")
-    else:
+        update_env(ENV_FILE, {"GEMINI_API_KEY": key, "LLM_ENABLED": "true"})
+        ok("API key saved to .env (gitignored).")
+    elif not has_key:
         update_env(ENV_FILE, {"LLM_ENABLED": "false"})
         warn("No key pasted — AI report disabled. Run `python run.py --reset-key` to retry.")
 
