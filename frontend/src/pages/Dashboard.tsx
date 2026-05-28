@@ -70,16 +70,16 @@ export function Dashboard() {
             Backtest Before<br />
             <span className="text-accent-cyan">You Risk Capital.</span>
           </h1>
-          <p className="text-ink-muted text-[15px] leading-relaxed max-w-[500px]">
+          <p className="text-ink-muted text-[19px] leading-relaxed max-w-[500px]">
             A professional-grade backtesting engine for retail quant traders. Test strategies
             across equities, FX and crypto — stress-test with commissions, slippage, and
             AI-powered insights.
           </p>
           <div className="flex gap-3 mt-8">
-            <Link to="/strategies" className="btn-primary">
+            <Link to="/strategies" className="btn-primary text-lg px-7 py-3.5 rounded-lg">
               Select Strategy
             </Link>
-            <Link to="/backtests/new" className="btn-secondary">
+            <Link to="/backtests/new" className="btn-secondary text-lg px-7 py-3.5 rounded-lg">
               Configure Run
             </Link>
           </div>
