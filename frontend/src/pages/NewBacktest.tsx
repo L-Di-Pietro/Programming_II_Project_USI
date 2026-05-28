@@ -38,12 +38,6 @@ const BARS_PER_YEAR: Record<string, Record<Timeframe, number>> = {
 const HOURLY_HISTORY_DAYS = 730;
 const YFINANCE_HOURLY_CLASSES = new Set(["equity", "etf", "fx"]);
 
-function daysAgoISO(days: number): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().slice(0, 10);
-}
-
 // Cosmetic pipeline steps cycled through on the loading screen while the
 // backtest API call is in flight — purely UI, not tied to real progress.
 const PIPELINE_STEPS = [
@@ -91,21 +85,26 @@ export function NewBacktest() {
 
   const selectedStrategy = strategies.find((s) => s.slug === strategySlug) ?? null;
 
-  const hourlyMinDate    = useMemo(() => daysAgoISO(HOURLY_HISTORY_DAYS), []);
   const isHourlyCapped   = timeframe === "1h" && YFINANCE_HOURLY_CLASSES.has(assetClass);
-  const dateMin          = isHourlyCapped ? hourlyMinDate : undefined;
+
+  // Real dataset coverage for the selected (asset, timeframe) — bounds the pickers.
+  const bounds  = assets.find((a) => a.symbol === symbol)?.coverage?.[timeframe];
+  const dateMin = bounds?.first;
+  const dateMax = bounds?.last;
 
   const years        = yearsBetween(start, end);
   const barsPerYear  = BARS_PER_YEAR[assetClass]?.[timeframe] ?? 252;
   const barCount     = Math.round(years * barsPerYear);
 
-  // When user switches into a capped (timeframe, asset_class), clamp start
-  // up so submitting doesn't trip the backend's pre-flight rejection.
+  // Snap the period into the dataset's available range whenever the asset or
+  // timeframe changes, so the shown dates are always valid before "Run".
   useEffect(() => {
-    if (isHourlyCapped && start < hourlyMinDate) {
-      setStart(hourlyMinDate);
-    }
-  }, [isHourlyCapped, hourlyMinDate]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!bounds) return;
+    if (start < bounds.first)     setStart(bounds.first);
+    else if (start > bounds.last) setStart(bounds.last);
+    if (end > bounds.last)        setEnd(bounds.last);
+    else if (end < bounds.first)  setEnd(bounds.first);
+  }, [bounds?.first, bounds?.last]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load assets + strategies on mount
   useEffect(() => {
@@ -334,14 +333,20 @@ export function NewBacktest() {
           {/* Backtest period */}
           <Section title="Backtest Period">
             <div className="flex items-end gap-4 flex-wrap">
-              <DateField label="Start Date" value={start} min={dateMin} onCommit={setStart} />
-              <DateField label="End Date"   value={end}   min={dateMin} onCommit={setEnd} />
+              <DateField label="Start Date" value={start} min={dateMin} max={dateMax} onCommit={setStart} />
+              <DateField label="End Date"   value={end}   min={dateMin} max={dateMax} onCommit={setEnd} />
               {years > 0 && (
                 <div className="font-mono text-[12px] text-ink-muted pb-2 whitespace-nowrap">
                   {years.toFixed(1)} yrs &middot; ~{barCount.toLocaleString()} bars
                 </div>
               )}
             </div>
+            {bounds && (
+              <p className="text-[11px] text-ink-muted mt-2">
+                Available data: <span className="font-mono">{bounds.first}</span> &ndash;{" "}
+                <span className="font-mono">{bounds.last}</span> &middot; out-of-range dates snap to these bounds.
+              </p>
+            )}
           </Section>
 
           {/* Strategy parameters */}
@@ -436,47 +441,74 @@ export function NewBacktest() {
   );
 }
 
-// ── Date input with commit-on-blur ─────────────────────────────────────────────
-// Keeps the user's raw keystrokes in local state while the field is focused and
-// only writes the validated value up to form state on blur — so a re-render can
-// never overwrite an in-progress entry mid-typing. (The "Run Backtest" click
-// blurs the field first, so submit still reads the committed value.)
+// ── Date parsing + clamping for the text-based period fields ────────────────────
+function clampISO(iso: string, min?: string, max?: string): string {
+  if (min && iso < min) return min;
+  if (max && iso > max) return max;
+  return iso;
+}
+
+/**
+ * Parse free-typed input into a clamped ISO yyyy-mm-dd. Accepts a full date
+ * (forgiving separators / widths, or yyyymmdd) or a bare year (→ Jan 1).
+ * Unparseable or impossible dates revert to `fallback`, so the field never
+ * commits garbage; valid dates are clamped into [min, max].
+ */
+function normalizeDate(raw: string, fallback: string, min?: string, max?: string): string {
+  const s = raw.trim();
+  if (/^\d{1,4}$/.test(s)) return clampISO(`${s.padStart(4, "0")}-01-01`, min, max);
+  const m =
+    s.match(/^(\d{1,4})\D+(\d{1,2})\D+(\d{1,2})$/) ?? s.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (!m) return fallback;
+  const iso = `${m[1].padStart(4, "0")}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  const dt = new Date(`${iso}T00:00:00Z`);
+  if (Number.isNaN(dt.getTime()) || dt.toISOString().slice(0, 10) !== iso) return fallback;
+  return clampISO(iso, min, max);
+}
+
+// ── Date input — text field, validated + clamped on blur ────────────────────────
+// A plain text draft (not a native date input) so keystrokes can never be
+// reset mid-typing in any browser. On blur the value is parsed, clamped into the
+// dataset's [min, max] bounds, and committed. The "Run Backtest" click blurs the
+// field first, so submit still reads the committed value.
 function DateField({
-  label, value, min, onCommit,
+  label, value, min, max, onCommit,
 }: {
   label: string;
   value: string;
   min?: string;
+  max?: string;
   onCommit: (v: string) => void;
 }) {
   const [draft, setDraft]     = useState(value);
   const [focused, setFocused] = useState(false);
 
-  // Pull external changes in (initial load, hourly-cap clamp) only while the
+  // Pull external changes in (initial load, asset/timeframe snap) only while the
   // user isn't editing, so we never clobber in-progress input.
   useEffect(() => {
     if (!focused) setDraft(value);
   }, [value, focused]);
 
+  const commit = () => {
+    setFocused(false);
+    const next = normalizeDate(draft, value, min, max);
+    setDraft(next);
+    if (next !== value) onCommit(next);
+  };
+
   return (
     <div className="flex-1 min-w-[140px]">
       <label className="label-base">{label}</label>
       <input
-        type="date"
+        type="text"
+        inputMode="numeric"
+        placeholder="YYYY-MM-DD"
         className="input-base"
         value={draft}
-        min={min}
         onFocus={() => setFocused(true)}
         onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => {
-          setFocused(false);
-          // Empty/cleared — revert to the last committed value.
-          if (!draft) { setDraft(value); return; }
-          // Clamp below-floor entries up to the min (hourly history cap).
-          const committed = min && draft < min ? min : draft;
-          if (committed !== draft) setDraft(committed);
-          if (committed !== value) onCommit(committed);
-        }}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
       />
     </div>
   );

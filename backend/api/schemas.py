@@ -60,6 +60,12 @@ class HealthResponse(BaseModel):
 # -----------------------------------------------------------------------------
 # Assets
 # -----------------------------------------------------------------------------
+class DateBounds(BaseModel):
+    """First and last available bar date (ISO yyyy-mm-dd) for one timeframe."""
+    first: str
+    last: str
+
+
 class AssetOut(ORMBase):
     id: int
     symbol: str
@@ -68,6 +74,8 @@ class AssetOut(ORMBase):
     exchange: str
     currency: str
     is_active: bool
+    # Per-timeframe data coverage ("1d"/"1h"); absent key = no bars for that tf.
+    coverage: dict[str, DateBounds] = Field(default_factory=dict)
 
 
 class RefreshResponse(BaseModel):

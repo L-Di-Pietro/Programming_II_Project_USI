@@ -18,6 +18,12 @@ const REPORT_GEN_TIMEOUT_MS = 180_000;
 // -----------------------------------------------------------------------------
 export type Timeframe = "1d" | "1h";
 
+/** First and last available bar date (ISO yyyy-mm-dd) for one timeframe. */
+export interface DateBounds {
+  first: string;
+  last: string;
+}
+
 export interface Asset {
   id: number;
   symbol: string;
@@ -26,6 +32,8 @@ export interface Asset {
   exchange: string;
   currency: string;
   is_active: boolean;
+  /** Per-timeframe data coverage ("1d"/"1h"); absent key = no bars for that tf. */
+  coverage?: Record<string, DateBounds>;
 }
 
 export interface Strategy {
