@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { Api, type Asset, type Strategy, type Timeframe } from "@/api/client";
+import { DateField } from "@/components/DateField";
 import { StrategyConfigForm } from "@/components/StrategyConfigForm";
 import { clamp, formatApiError, formatRange } from "@/utils/apiError";
 
@@ -437,79 +438,6 @@ export function NewBacktest() {
           </p>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── Date parsing + clamping for the text-based period fields ────────────────────
-function clampISO(iso: string, min?: string, max?: string): string {
-  if (min && iso < min) return min;
-  if (max && iso > max) return max;
-  return iso;
-}
-
-/**
- * Parse free-typed input into a clamped ISO yyyy-mm-dd. Accepts a full date
- * (forgiving separators / widths, or yyyymmdd) or a bare year (→ Jan 1).
- * Unparseable or impossible dates revert to `fallback`, so the field never
- * commits garbage; valid dates are clamped into [min, max].
- */
-function normalizeDate(raw: string, fallback: string, min?: string, max?: string): string {
-  const s = raw.trim();
-  if (/^\d{1,4}$/.test(s)) return clampISO(`${s.padStart(4, "0")}-01-01`, min, max);
-  const m =
-    s.match(/^(\d{1,4})\D+(\d{1,2})\D+(\d{1,2})$/) ?? s.match(/^(\d{4})(\d{2})(\d{2})$/);
-  if (!m) return fallback;
-  const iso = `${m[1].padStart(4, "0")}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
-  const dt = new Date(`${iso}T00:00:00Z`);
-  if (Number.isNaN(dt.getTime()) || dt.toISOString().slice(0, 10) !== iso) return fallback;
-  return clampISO(iso, min, max);
-}
-
-// ── Date input — text field, validated + clamped on blur ────────────────────────
-// A plain text draft (not a native date input) so keystrokes can never be
-// reset mid-typing in any browser. On blur the value is parsed, clamped into the
-// dataset's [min, max] bounds, and committed. The "Run Backtest" click blurs the
-// field first, so submit still reads the committed value.
-function DateField({
-  label, value, min, max, onCommit,
-}: {
-  label: string;
-  value: string;
-  min?: string;
-  max?: string;
-  onCommit: (v: string) => void;
-}) {
-  const [draft, setDraft]     = useState(value);
-  const [focused, setFocused] = useState(false);
-
-  // Pull external changes in (initial load, asset/timeframe snap) only while the
-  // user isn't editing, so we never clobber in-progress input.
-  useEffect(() => {
-    if (!focused) setDraft(value);
-  }, [value, focused]);
-
-  const commit = () => {
-    setFocused(false);
-    const next = normalizeDate(draft, value, min, max);
-    setDraft(next);
-    if (next !== value) onCommit(next);
-  };
-
-  return (
-    <div className="flex-1 min-w-[140px]">
-      <label className="label-base">{label}</label>
-      <input
-        type="text"
-        inputMode="numeric"
-        placeholder="YYYY-MM-DD"
-        className="input-base"
-        value={draft}
-        onFocus={() => setFocused(true)}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-      />
     </div>
   );
 }
