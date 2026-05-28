@@ -334,26 +334,8 @@ export function NewBacktest() {
           {/* Backtest period */}
           <Section title="Backtest Period">
             <div className="flex items-end gap-4 flex-wrap">
-              <div className="flex-1 min-w-[140px]">
-                <label className="label-base">Start Date</label>
-                <input
-                  type="date"
-                  className="input-base"
-                  value={start}
-                  min={dateMin}
-                  onChange={(e) => setStart(e.target.value)}
-                />
-              </div>
-              <div className="flex-1 min-w-[140px]">
-                <label className="label-base">End Date</label>
-                <input
-                  type="date"
-                  className="input-base"
-                  value={end}
-                  min={dateMin}
-                  onChange={(e) => setEnd(e.target.value)}
-                />
-              </div>
+              <DateField label="Start Date" value={start} min={dateMin} onCommit={setStart} />
+              <DateField label="End Date"   value={end}   min={dateMin} onCommit={setEnd} />
               {years > 0 && (
                 <div className="font-mono text-[12px] text-ink-muted pb-2 whitespace-nowrap">
                   {years.toFixed(1)} yrs &middot; ~{barCount.toLocaleString()} bars
@@ -450,6 +432,52 @@ export function NewBacktest() {
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Date input with commit-on-blur ─────────────────────────────────────────────
+// Keeps the user's raw keystrokes in local state while the field is focused and
+// only writes the validated value up to form state on blur — so a re-render can
+// never overwrite an in-progress entry mid-typing. (The "Run Backtest" click
+// blurs the field first, so submit still reads the committed value.)
+function DateField({
+  label, value, min, onCommit,
+}: {
+  label: string;
+  value: string;
+  min?: string;
+  onCommit: (v: string) => void;
+}) {
+  const [draft, setDraft]     = useState(value);
+  const [focused, setFocused] = useState(false);
+
+  // Pull external changes in (initial load, hourly-cap clamp) only while the
+  // user isn't editing, so we never clobber in-progress input.
+  useEffect(() => {
+    if (!focused) setDraft(value);
+  }, [value, focused]);
+
+  return (
+    <div className="flex-1 min-w-[140px]">
+      <label className="label-base">{label}</label>
+      <input
+        type="date"
+        className="input-base"
+        value={draft}
+        min={min}
+        onFocus={() => setFocused(true)}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => {
+          setFocused(false);
+          // Empty/cleared — revert to the last committed value.
+          if (!draft) { setDraft(value); return; }
+          // Clamp below-floor entries up to the min (hourly history cap).
+          const committed = min && draft < min ? min : draft;
+          if (committed !== draft) setDraft(committed);
+          if (committed !== value) onCommit(committed);
+        }}
+      />
     </div>
   );
 }
