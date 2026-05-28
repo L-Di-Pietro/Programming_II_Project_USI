@@ -87,37 +87,37 @@ export function Dashboard() {
 
         {/* Stat box. Width tracks the ~20% content scale-up so the widest
             value ("1D / 1H") keeps its room; structure/columns/colors unchanged. */}
-        <div className="flex-shrink-0 w-[456px] border border-border-subtle rounded-lg overflow-hidden">
+        <div className="flex-shrink-0 w-[548px] border border-border-subtle rounded-lg overflow-hidden">
           {/* Top row — three small stat cells. Fixed-height value area keeps
               labels aligned across boxes even when one value is smaller. */}
           <div className="grid grid-cols-3">
             {topStats.map((s, i) => (
               <div
                 key={s.label}
-                className={`bg-base px-3.5 py-6 flex flex-col items-center justify-center text-center border-b border-border
+                className={`bg-base px-4 py-7 flex flex-col items-center justify-center text-center border-b border-border
                   ${i < 2 ? "border-r border-border" : ""}`}
               >
-                <div className="h-11 flex items-center justify-center">
+                <div className="h-[52px] flex items-center justify-center">
                   <span
                     className={`font-mono font-bold text-accent-cyan whitespace-nowrap ${
-                      s.small ? "text-[28px]" : "text-4xl"
+                      s.small ? "text-[34px]" : "text-[44px]"
                     }`}
                   >
                     {s.val}
                   </span>
                 </div>
-                <div className="text-[#F5F5F0] text-sm mt-1.5">{s.label}</div>
+                <div className="text-[#F5F5F0] text-[17px] mt-2">{s.label}</div>
               </div>
             ))}
           </div>
 
           {/* Bottom row — full-width Max Lookback box.
               Label sits ABOVE the two timeframe lines. */}
-          <div className="bg-base px-6 py-6 text-center">
-            <div className="text-[#F5F5F0] text-sm mb-2.5">Max Lookback</div>
-            <div className="flex flex-col gap-2">
+          <div className="bg-base px-7 py-7 text-center">
+            <div className="text-[#F5F5F0] text-[17px] mb-3">Max Lookback</div>
+            <div className="flex flex-col gap-2.5">
               {LOOKBACK_LIMITS.map((l) => (
-                <div key={l.tf} className="text-[16px] leading-snug">
+                <div key={l.tf} className="text-[19px] leading-snug">
                   <span className="font-mono text-accent-cyan">{l.tf}:</span>{" "}
                   <span className="text-ink-muted">{l.text}</span>
                 </div>
