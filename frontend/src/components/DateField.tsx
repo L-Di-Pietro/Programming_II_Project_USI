@@ -1,28 +1,30 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-// ── Date parsing + clamping ─────────────────────────────────────────────────────
+// ── Date format + clamping ──────────────────────────────────────────────────────
 function clampISO(iso: string, min?: string, max?: string): string {
   if (min && iso < min) return min;
   if (max && iso > max) return max;
   return iso;
 }
 
+/** ISO "YYYY-MM-DD" → display "MM/DD/YYYY" (the original native-input format). */
+function toDisplay(iso: string): string {
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[2]}/${m[3]}/${m[1]}` : iso;
+}
+
 /**
- * Parse free-typed input into a clamped ISO yyyy-mm-dd. Accepts a full date
- * (forgiving separators / widths, or yyyymmdd) or a bare year (→ Jan 1).
- * Unparseable or impossible dates revert to `fallback`, so the field never
- * commits garbage; valid dates are clamped into [min, max].
+ * Parse "MM/DD/YYYY" (forgiving separators / widths) → ISO yyyy-mm-dd, or null
+ * if it isn't yet a real, complete date. Never throws — callers treat null as
+ * "incomplete / invalid, leave things as they are".
  */
-function normalizeDate(raw: string, fallback: string, min?: string, max?: string): string {
-  const s = raw.trim();
-  if (/^\d{1,4}$/.test(s)) return clampISO(`${s.padStart(4, "0")}-01-01`, min, max);
-  const m =
-    s.match(/^(\d{1,4})\D+(\d{1,2})\D+(\d{1,2})$/) ?? s.match(/^(\d{4})(\d{2})(\d{2})$/);
-  if (!m) return fallback;
-  const iso = `${m[1].padStart(4, "0")}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+function parseDisplay(raw: string): string | null {
+  const m = raw.trim().match(/^(\d{1,2})\D+(\d{1,2})\D+(\d{4})$/);
+  if (!m) return null;
+  const iso = `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
   const dt = new Date(`${iso}T00:00:00Z`);
-  if (Number.isNaN(dt.getTime()) || dt.toISOString().slice(0, 10) !== iso) return fallback;
-  return clampISO(iso, min, max);
+  if (Number.isNaN(dt.getTime()) || dt.toISOString().slice(0, 10) !== iso) return null;
+  return iso;
 }
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -73,10 +75,11 @@ function makeIsPresent(ranges?: [string, string][]): (iso: string) => boolean {
 }
 
 /**
- * Backtest-period date field: a typeable text input (robust against
- * mid-typing resets in every browser) plus a themed calendar popup. Typed
- * input is parsed/clamped to [min, max] on blur; picking a day commits it
- * directly. Out-of-range days are greyed and non-selectable. The "Run
+ * Backtest-period date field: a typeable MM/DD/YYYY text input (robust against
+ * mid-typing resets in every browser) plus a themed calendar popup. Clicking
+ * the field or the icon opens the calendar; the calendar tracks manual edits
+ * live (every keystroke that forms a valid date), without clamping until blur.
+ * Out-of-range days are greyed; in-range days with no bar show a dot. The "Run
  * Backtest" click blurs the field first, so submit reads the committed value.
  */
 export function DateField({
@@ -90,23 +93,27 @@ export function DateField({
   ranges?: [string, string][];
   onCommit: (v: string) => void;
 }) {
-  const [draft, setDraft]     = useState(value);
-  const [focused, setFocused] = useState(false);
-  const [open, setOpen]       = useState(false);
-  // Month shown in the calendar, as the first-of-month ISO.
-  const [view, setView]       = useState(() => firstOfMonth(value));
+  const [draft, setDraft]         = useState(() => toDisplay(value));
+  const [focused, setFocused]     = useState(false);
+  const [open, setOpen]           = useState(false);
+  // The last valid date the calendar reflects (selection + centered month).
+  const [previewISO, setPreview]  = useState(value);
+  const [view, setView]           = useState(() => firstOfMonth(value));
   const ref = useRef<HTMLDivElement>(null);
 
-  // Pull external changes in (initial load, asset/timeframe snap) only while the
-  // user isn't editing, so we never clobber in-progress input.
+  // Pull external changes in (asset-switch defaults, etc.) only while the user
+  // isn't editing, so we never clobber in-progress input.
   useEffect(() => {
-    if (!focused) setDraft(value);
+    if (focused) return;
+    setDraft(toDisplay(value));
+    setPreview(value);
+    setView(firstOfMonth(value));
   }, [value, focused]);
 
-  // Open the calendar on the selected value's month.
+  // Center the calendar on the previewed date when it opens.
   useEffect(() => {
-    if (open) setView(firstOfMonth(value));
-  }, [open, value]);
+    if (open) setView(firstOfMonth(previewISO));
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close on outside-click or Esc.
   useEffect(() => {
@@ -123,11 +130,37 @@ export function DateField({
     };
   }, [open]);
 
+  // Live edit — reflect a valid date in the calendar immediately; leave the
+  // calendar in its last valid state for incomplete/invalid input. No clamping.
+  const onType = (raw: string) => {
+    setDraft(raw);
+    const iso = parseDisplay(raw);
+    if (iso) {
+      setPreview(iso);
+      setView(firstOfMonth(iso));
+    }
+  };
+
+  // Blur — parse, clamp to bounds, commit; revert to the last value if invalid.
   const commit = () => {
     setFocused(false);
-    const next = normalizeDate(draft, value, min, max);
-    setDraft(next);
+    const iso = parseDisplay(draft);
+    if (iso === null) {
+      setDraft(toDisplay(value));
+      setPreview(value);
+      return;
+    }
+    const next = clampISO(iso, min, max);
+    setDraft(toDisplay(next));
+    setPreview(next);
     if (next !== value) onCommit(next);
+  };
+
+  const pick = (iso: string) => {
+    setDraft(toDisplay(iso));
+    setPreview(iso);
+    setOpen(false);
+    if (iso !== value) onCommit(iso);
   };
 
   const [vy, vm] = [Number(view.slice(0, 4)), Number(view.slice(5, 7)) - 1];
@@ -135,15 +168,8 @@ export function DateField({
   const isPresent = useMemo(() => makeIsPresent(ranges), [ranges]);
   const shiftMonth = (delta: number) =>
     setView(new Date(Date.UTC(vy, vm + delta, 1)).toISOString().slice(0, 10));
-  // Disable nav once the visible month is entirely outside the data range.
   const prevDisabled = !!min && view <= firstOfMonth(min);
   const nextDisabled = !!max && view >= firstOfMonth(max);
-
-  const pick = (iso: string) => {
-    setDraft(iso);
-    setOpen(false);
-    if (iso !== value) onCommit(iso);
-  };
 
   return (
     <div className="flex-1 min-w-[140px]">
@@ -152,11 +178,12 @@ export function DateField({
         <input
           type="text"
           inputMode="numeric"
-          placeholder="YYYY-MM-DD"
+          placeholder="MM/DD/YYYY"
           className="input-base pr-9"
           value={draft}
           onFocus={() => setFocused(true)}
-          onChange={(e) => setDraft(e.target.value)}
+          onClick={() => setOpen(true)}
+          onChange={(e) => onType(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
         />
@@ -199,7 +226,7 @@ export function DateField({
             <div className="grid grid-cols-7 gap-0.5">
               {cells.map((c) => {
                 const outOfRange = (!!min && c.iso < min) || (!!max && c.iso > max);
-                const selected = c.iso === value;
+                const selected = c.iso === previewISO;
                 // In-range day with no bar (weekend / holiday / gap) — still
                 // selectable, but flagged with a dot so absent data is visible.
                 const missing = !outOfRange && !selected && !isPresent(c.iso);

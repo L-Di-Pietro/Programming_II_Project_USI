@@ -97,14 +97,12 @@ export function NewBacktest() {
   const barsPerYear  = BARS_PER_YEAR[assetClass]?.[timeframe] ?? 252;
   const barCount     = Math.round(years * barsPerYear);
 
-  // Snap the period into the dataset's available range whenever the asset or
-  // timeframe changes, so the shown dates are always valid before "Run".
+  // Default the period to the asset's full available range; updates reactively
+  // whenever the selected asset (and thus its data bounds) changes.
   useEffect(() => {
     if (!bounds) return;
-    if (start < bounds.first)     setStart(bounds.first);
-    else if (start > bounds.last) setStart(bounds.last);
-    if (end > bounds.last)        setEnd(bounds.last);
-    else if (end < bounds.first)  setEnd(bounds.first);
+    setStart(bounds.first);
+    setEnd(bounds.last);
   }, [bounds?.first, bounds?.last]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load assets + strategies on mount
