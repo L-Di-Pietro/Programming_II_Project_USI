@@ -1,0 +1,6 @@
+# Keep the build context lean and prevent host node_modules (macOS native binaries)
+# from clobbering the Linux deps installed by `npm ci` inside the image.
+node_modules
+dist
+.vite
+*.log

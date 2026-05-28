@@ -12,7 +12,7 @@ websockets==13.1                # for live run-progress streaming
 # --- Database ----------------------------------------------------------------
 SQLAlchemy==2.0.36
 alembic==1.13.3                 # migrations
-# psycopg[binary]==3.2.3        # uncomment to enable Postgres in prod
+psycopg[binary]==3.2.3          # Postgres driver for prod (postgresql+psycopg:// dialect)
 
 # --- Data analysis -----------------------------------------------------------
 pandas==2.2.3

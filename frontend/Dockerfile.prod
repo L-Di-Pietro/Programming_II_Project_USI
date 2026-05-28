@@ -1,0 +1,20 @@
+# Production frontend image — build the Vite app, serve dist/ as static with SPA fallback.
+# Used by the Railway "frontend" service (set Dockerfile path = frontend/Dockerfile.prod).
+# VITE_API_URL is baked in at build time because Vite inlines import.meta.env.VITE_* values.
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm ci
+COPY . .
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+RUN npm install -g serve
+COPY --from=builder /app/dist ./dist
+EXPOSE 8080
+# -s = single-page-app fallback (unknown routes → index.html); $PORT is injected by Railway.
+CMD exec serve -s dist -l ${PORT:-8080}

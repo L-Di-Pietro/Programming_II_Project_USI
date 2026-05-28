@@ -43,8 +43,17 @@ def _build_engine(url: str) -> Engine:
     )
 
 
+def _normalize_db_url(url: str) -> str:
+    """Force Postgres URLs to the psycopg v3 dialect (postgresql+psycopg://); SQLite passes through."""
+    if url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql://", 1)
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return url
+
+
 # Module-level engine — instantiated once per process.
-engine: Engine = _build_engine(settings.database_url)
+engine: Engine = _build_engine(_normalize_db_url(settings.database_url))
 
 # Session factory. Use ``get_session`` as a FastAPI dependency rather than
 # instantiating directly.

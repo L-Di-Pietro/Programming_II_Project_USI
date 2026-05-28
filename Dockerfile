@@ -28,4 +28,6 @@ COPY pyproject.toml .
 
 EXPOSE 8000
 
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell form (exec) so Railway's injected $PORT expands while keeping uvicorn as PID 1.
+# docker-compose overrides this command, so local dev is unaffected.
+CMD exec uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}
