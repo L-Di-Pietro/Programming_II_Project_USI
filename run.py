@@ -156,7 +156,8 @@ def check_prereqs() -> None:
     if not node:
         fail("Node not found on PATH. Install Node 20 from https://nodejs.org/en/download")
     try:
-        out = subprocess.run([node, "--version"], capture_output=True, text=True, check=True)
+        out = subprocess.run([node, "--version"],
+                             capture_output=True, text=True, check=True)
         major = int(out.stdout.strip().lstrip("v").split(".")[0])
     except (subprocess.CalledProcessError, ValueError) as exc:
         fail(f"Could not parse `node --version` output: {exc}")
@@ -226,7 +227,8 @@ def prompt_for_api_key(reset: bool = False) -> None:
     print()
     print(f"{C_DIM}The AI-generated report uses Google Gemini.{C_RESET}")
     if has_key:
-        print(f"{C_DIM}A Gemini API key is already saved in .env — press Enter to keep it.{C_RESET}")
+        print(
+            f"{C_DIM}A Gemini API key is already saved in .env — press Enter to keep it.{C_RESET}")
         question = "Do you want to replace the saved key with a new one? [y/N]: "
     else:
         question = "Do you want to set a Google Gemini API key now? [y/N]: "
@@ -245,7 +247,8 @@ def prompt_for_api_key(reset: bool = False) -> None:
         return
     try:
         import getpass
-        key = getpass.getpass("Paste your Gemini API key (input is hidden): ").strip()
+        key = getpass.getpass(
+            "Paste your Gemini API key (input is hidden): ").strip()
     except (EOFError, KeyboardInterrupt):
         key = ""
     if key:
@@ -258,7 +261,8 @@ def prompt_for_api_key(reset: bool = False) -> None:
 
 def init_database(py: Path) -> None:
     info("Initializing database schema and seed data…")
-    proc = subprocess.run([str(py), str(INIT_DB_SCRIPT)], capture_output=True, text=True)
+    proc = subprocess.run([str(py), str(INIT_DB_SCRIPT)],
+                          capture_output=True, text=True)
     if proc.returncode != 0:
         fail(f"init_db.py failed:\n{proc.stderr or proc.stdout}")
 
@@ -317,9 +321,11 @@ def _stream(proc: subprocess.Popen, prefix: str, color: str) -> None:
 def start_backend(py: Path) -> subprocess.Popen:
     info("Starting backend (uvicorn)…")
     env = os.environ.copy()
-    env["PYTHONUNBUFFERED"] = "1"  # so uvicorn streams line-buffered into our pipe
+    # so uvicorn streams line-buffered into our pipe
+    env["PYTHONUNBUFFERED"] = "1"
     proc = subprocess.Popen(
-        [str(py), "-m", "uvicorn", "backend.main:app", "--host", "127.0.0.1", "--port", "8000"],
+        [str(py), "-m", "uvicorn", "backend.main:app",
+         "--host", "127.0.0.1", "--port", "8000"],
         cwd=str(ROOT),
         env=env,
         stdout=subprocess.PIPE,
@@ -327,7 +333,8 @@ def start_backend(py: Path) -> subprocess.Popen:
         text=True,
         bufsize=1,
     )
-    threading.Thread(target=_stream, args=(proc, "backend", C_BACKEND), daemon=True).start()
+    threading.Thread(target=_stream, args=(
+        proc, "backend", C_BACKEND), daemon=True).start()
     return proc
 
 
@@ -341,7 +348,8 @@ def start_frontend(npm: str) -> subprocess.Popen:
         text=True,
         bufsize=1,
     )
-    threading.Thread(target=_stream, args=(proc, "frontend", C_FRONTEND), daemon=True).start()
+    threading.Thread(target=_stream, args=(
+        proc, "frontend", C_FRONTEND), daemon=True).start()
     return proc
 
 
@@ -411,7 +419,7 @@ def check_ports_free(ports: list[int]) -> None:
         )
         print(
             f"{C_ERR}[run.py]{C_RESET} port :{port} is held by PID {pid} ({name}) "
-            f"— kill it with `{kill_cmd}`",
+            f"— kill it with `{kill_cmd}` and run `python run.py` again.",
             flush=True,
         )
     sys.exit(1)
@@ -466,7 +474,8 @@ def open_browser_and_wait(processes: list[subprocess.Popen], no_browser: bool) -
     while True:
         for p in processes:
             if p.poll() is not None:
-                fail(f"A subprocess exited unexpectedly (code={p.returncode}).")
+                fail(
+                    f"A subprocess exited unexpectedly (code={p.returncode}).")
         time.sleep(1)
 
 
@@ -475,12 +484,18 @@ def open_browser_and_wait(processes: list[subprocess.Popen], no_browser: bool) -
 # ---------------------------------------------------------------------------
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="QuantBacktest one-command launcher.")
-    p.add_argument("--no-data", action="store_true", help="skip the bulk data load")
-    p.add_argument("--no-browser", action="store_true", help="don't auto-open the browser")
-    p.add_argument("--reload-data", action="store_true", help="force a re-fetch of bulk data")
-    p.add_argument("--reset-key", action="store_true", help="clear saved Gemini key and re-prompt")
-    p.add_argument("--reset-venv", action="store_true", help="delete .venv before re-creating")
+    p = argparse.ArgumentParser(
+        description="QuantBacktest one-command launcher.")
+    p.add_argument("--no-data", action="store_true",
+                   help="skip the bulk data load")
+    p.add_argument("--no-browser", action="store_true",
+                   help="don't auto-open the browser")
+    p.add_argument("--reload-data", action="store_true",
+                   help="force a re-fetch of bulk data")
+    p.add_argument("--reset-key", action="store_true",
+                   help="clear saved Gemini key and re-prompt")
+    p.add_argument("--reset-venv", action="store_true",
+                   help="delete .venv before re-creating")
     p.add_argument(
         "--exit-after-health",
         action="store_true",
