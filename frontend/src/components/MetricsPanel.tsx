@@ -31,7 +31,7 @@ const METRICS: MetricDef[] = [
   { key: "total_return_pct", label: "Total Return",   group: "return", sub: "Full period",    format: pct,  color: signedColor },
   { key: "win_rate_pct",     label: "Win Rate",       group: "trade",  sub: "Trades won",     format: pct,  color: threshColor(40, 55), benchmarkBlank: true },
   { key: "profit_factor",    label: "Profit Factor",  group: "trade",  sub: "Gross P / Gross L", format: n2, color: threshColor(1, 1.5), benchmarkBlank: true },
-  { key: "avg_win_loss",     label: "Avg Win/Loss",   group: "trade",  sub: "Payoff ratio",   format: (v) => `${n2(v)}x`, color: alwaysGreen, benchmarkBlank: true },
+  { key: "win_loss_ratio",   label: "Avg Win/Loss",   group: "trade",  sub: "Payoff ratio",   format: (v) => `${n2(v)}x`, color: alwaysGreen, benchmarkBlank: true },
   { key: "total_trades",     label: "Total Trades",   group: "trade",  sub: "Executions",     format: (v) => Math.round(v).toString(), color: neutral },
 ];
 
@@ -46,11 +46,18 @@ export interface BenchmarkMetricSeries {
   metrics: Metrics;
 }
 
+// "—" is shown ONLY when the metric is mathematically undefined for this run:
+//   - key missing from the API response  → undefined
+//   - Pydantic emitted JSON null because the backend produced inf/NaN
+//     (e.g. Payoff Ratio with zero losing trades, Profit Factor with zero gross
+//      losses, Sortino with zero downside volatility)
+// A finite 0 is a real value (e.g. 0 trades, 0% return) and renders as "0", not "—".
 function cellFor(m: MetricDef, src: Metrics): { value: string; valueClass: string } {
   const raw = src[m.group]?.[m.key];
-  return raw === undefined
-    ? { value: "—", valueClass: "text-ink-muted" }
-    : { value: m.format(raw), valueClass: m.color(raw) };
+  if (raw === undefined || raw === null || !Number.isFinite(raw)) {
+    return { value: "—", valueClass: "text-ink-muted" };
+  }
+  return { value: m.format(raw), valueClass: m.color(raw) };
 }
 
 export function MetricsPanel({
@@ -159,6 +166,5 @@ function pct(v: number) {
   return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 }
 function n2(v: number) {
-  if (!isFinite(v)) return "inf";
   return v.toFixed(2);
 }
