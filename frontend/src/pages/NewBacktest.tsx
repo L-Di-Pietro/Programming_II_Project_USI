@@ -334,8 +334,8 @@ export function NewBacktest() {
           {/* Backtest period */}
           <Section title="Backtest Period">
             <div className="flex items-end gap-4 flex-wrap">
-              <DateField label="Start Date" value={start} min={dateMin} max={dateMax} onCommit={setStart} />
-              <DateField label="End Date"   value={end}   min={dateMin} max={dateMax} onCommit={setEnd} />
+              <DateField label="Start Date" value={start} min={dateMin} max={dateMax} ranges={bounds?.ranges} onCommit={setStart} />
+              <DateField label="End Date"   value={end}   min={dateMin} max={dateMax} ranges={bounds?.ranges} onCommit={setEnd} />
               {years > 0 && (
                 <div className="font-mono text-[12px] text-ink-muted pb-2 whitespace-nowrap">
                   {years.toFixed(1)} yrs &middot; ~{barCount.toLocaleString()} bars

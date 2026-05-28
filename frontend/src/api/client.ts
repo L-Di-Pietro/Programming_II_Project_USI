@@ -18,10 +18,12 @@ const REPORT_GEN_TIMEOUT_MS = 180_000;
 // -----------------------------------------------------------------------------
 export type Timeframe = "1d" | "1h";
 
-/** First and last available bar date (ISO yyyy-mm-dd) for one timeframe. */
+/** Data coverage for one timeframe: overall bounds + RLE present-day ranges. */
 export interface DateBounds {
   first: string;
   last: string;
+  /** Inclusive [start, end] ISO runs of consecutive days that have a bar. */
+  ranges: [string, string][];
 }
 
 export interface Asset {

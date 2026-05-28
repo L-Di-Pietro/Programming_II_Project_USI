@@ -61,9 +61,16 @@ class HealthResponse(BaseModel):
 # Assets
 # -----------------------------------------------------------------------------
 class DateBounds(BaseModel):
-    """First and last available bar date (ISO yyyy-mm-dd) for one timeframe."""
+    """Data coverage for one timeframe.
+
+    `first`/`last` are the overall bounds; `ranges` is the run-length-encoded
+    set of present days as inclusive [start, end] ISO pairs (consecutive
+    calendar days fold into one range) — lets the calendar mark in-range days
+    that have no bar (weekends, holidays, gaps).
+    """
     first: str
     last: str
+    ranges: list[tuple[str, str]] = Field(default_factory=list)
 
 
 class AssetOut(ORMBase):

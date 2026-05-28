@@ -19,6 +19,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from backend.api.routes import backtest as backtest_routes
 from backend.api.routes import data as data_routes
@@ -122,6 +123,8 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    # Compress larger JSON payloads (e.g. /assets coverage ranges).
+    app.add_middleware(GZipMiddleware, minimum_size=1024)
 
     @app.get("/healthz", response_model=HealthResponse, tags=["meta"])
     def healthz() -> HealthResponse:

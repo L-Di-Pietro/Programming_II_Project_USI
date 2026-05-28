@@ -55,6 +55,23 @@ function firstOfMonth(iso: string): string {
   return `${iso.slice(0, 7)}-01`;
 }
 
+/** Build an `isPresent(iso)` from sorted, non-overlapping [start, end] ranges. */
+function makeIsPresent(ranges?: [string, string][]): (iso: string) => boolean {
+  if (!ranges || ranges.length === 0) return () => true; // no data → don't dot anything
+  return (iso: string) => {
+    let lo = 0;
+    let hi = ranges.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      const [s, e] = ranges[mid];
+      if (iso < s) hi = mid - 1;
+      else if (iso > e) lo = mid + 1;
+      else return true;
+    }
+    return false;
+  };
+}
+
 /**
  * Backtest-period date field: a typeable text input (robust against
  * mid-typing resets in every browser) plus a themed calendar popup. Typed
@@ -63,12 +80,14 @@ function firstOfMonth(iso: string): string {
  * Backtest" click blurs the field first, so submit reads the committed value.
  */
 export function DateField({
-  label, value, min, max, onCommit,
+  label, value, min, max, ranges, onCommit,
 }: {
   label: string;
   value: string;
   min?: string;
   max?: string;
+  /** RLE present-day ranges; in-range days outside these are marked "no data". */
+  ranges?: [string, string][];
   onCommit: (v: string) => void;
 }) {
   const [draft, setDraft]     = useState(value);
@@ -113,6 +132,7 @@ export function DateField({
 
   const [vy, vm] = [Number(view.slice(0, 4)), Number(view.slice(5, 7)) - 1];
   const cells = useMemo(() => monthGrid(vy, vm), [vy, vm]);
+  const isPresent = useMemo(() => makeIsPresent(ranges), [ranges]);
   const shiftMonth = (delta: number) =>
     setView(new Date(Date.UTC(vy, vm + delta, 1)).toISOString().slice(0, 10));
   // Disable nav once the visible month is entirely outside the data range.
@@ -180,24 +200,46 @@ export function DateField({
               {cells.map((c) => {
                 const outOfRange = (!!min && c.iso < min) || (!!max && c.iso > max);
                 const selected = c.iso === value;
+                // In-range day with no bar (weekend / holiday / gap) — still
+                // selectable, but flagged with a dot so absent data is visible.
+                const missing = !outOfRange && !selected && !isPresent(c.iso);
                 return (
                   <button
                     key={c.iso}
                     type="button"
                     disabled={outOfRange}
                     onClick={() => pick(c.iso)}
-                    className={`h-7 rounded text-[12px] flex items-center justify-center transition-colors ${
+                    title={missing ? "No data for this day" : undefined}
+                    className={`relative h-7 rounded text-[12px] flex items-center justify-center transition-colors ${
                       outOfRange
                         ? "text-ink-muted/30 cursor-not-allowed"
                         : selected
                           ? "bg-accent-cyan text-[#0d1117] font-semibold"
-                          : `${c.inMonth ? "text-ink-primary" : "text-ink-muted"} hover:bg-white/[0.06]`
+                          : missing
+                            ? "text-ink-muted/60 hover:bg-white/[0.06]"
+                            : `${c.inMonth ? "text-ink-primary" : "text-ink-muted"} hover:bg-white/[0.06]`
                     }`}
                   >
                     {c.day}
+                    {missing && (
+                      <span className="absolute bottom-[3px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-ink-muted/50" />
+                    )}
                   </button>
                 );
               })}
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-3 mt-2.5 pt-2 border-t border-border text-[10px] text-ink-muted">
+              <span className="inline-flex items-center gap-1">
+                <span className="relative w-3 inline-flex justify-center">
+                  <span className="absolute -bottom-0.5 w-1 h-1 rounded-full bg-ink-muted/50" />
+                </span>
+                no data
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <span className="text-ink-muted/30">15</span> out of range
+              </span>
             </div>
           </div>
         )}
