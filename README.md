@@ -51,6 +51,29 @@ Retail quantitative traders lose money for two related reasons:
 
 ---
 
+## TL;DR — run the whole app in one command
+
+Skip the step-by-step in [Quick start](#quick-start) below if you'd rather run
+everything from one terminal. Both paths read your Gemini API key the first
+time and remember it; subsequent runs are fast.
+
+```bash
+python run.py                # macOS / Linux / Windows — uses local Python + Node
+```
+
+```bash
+docker compose up --build    # if you don't want to install Python + Node locally
+```
+
+`python run.py` prompts for your Gemini API key on first run, creates the
+venv, installs deps, seeds the DB, loads historical data, and starts both the
+backend and frontend. Press Ctrl-C to stop. Pass `--no-data`, `--no-browser`,
+`--reload-data`, `--reset-key`, or `--reset-venv` to control individual steps.
+
+Need step-by-step control (e.g. for debugging)? Read on.
+
+---
+
 ## Quick start
 
 This is the canonical way to run QuantBacktest locally. It works the same on
@@ -194,6 +217,7 @@ Programming_II_Project_USI/
 ├── README.md                          ← you are here
 ├── CLAUDE.md                          ← guide for Claude Code (and humans)
 ├── ARCHITECTURE.md                    ← detailed architecture & design
+├── run.py                             ← one-command launcher (see TL;DR above)
 ├── requirements.txt                   ← Python dependencies
 ├── pyproject.toml                     ← Python tooling config
 ├── .env.example                       ← environment variable template
