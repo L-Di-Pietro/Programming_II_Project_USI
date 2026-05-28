@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { fmtBacktestDate } from "@/utils/datetime";
 
@@ -13,6 +14,33 @@ export type RunConfig = {
 
 function humanizeKey(k: string): string {
   return k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const POPOVER_W = 280; // keep in sync with the popover's width style below
+const MARGIN = 8; // min gap from the viewport edge
+const GAP = 6; // gap between badge and popover
+
+/**
+ * Smart placement: prefer opening down-and-right from the badge, but flip left
+ * when the popover would overflow the right edge and flip up when it would
+ * overflow the bottom. Measured against the viewport — the popover is portaled
+ * to <body>, so no ancestor (e.g. the AI modal's overflow-hidden panel) clips
+ * it. Returns fixed-position coordinates.
+ */
+function placeFromBadge(badge: DOMRect, popH: number): { top: number; left: number } {
+  const vw = document.documentElement.clientWidth;
+  const vh = document.documentElement.clientHeight;
+
+  let left = badge.left; // right-opening: popover's left edge aligns to badge's left
+  if (left + POPOVER_W > vw - MARGIN) left = badge.right - POPOVER_W; // flip left
+  left = Math.max(MARGIN, Math.min(left, vw - POPOVER_W - MARGIN));
+
+  let top = badge.bottom + GAP; // down-opening
+  if (top + popH > vh - MARGIN) {
+    const above = badge.top - GAP - popH; // flip up
+    top = above >= MARGIN ? above : Math.max(MARGIN, vh - popH - MARGIN);
+  }
+  return { top, left };
 }
 
 /**
@@ -35,14 +63,39 @@ export function ConfigPopover({
   forceClosed?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popRef = useRef<HTMLDivElement>(null);
 
   const effectiveOpen = open && !forceClosed;
 
+  // Position the popover when open, and keep it anchored on scroll/resize.
+  useLayoutEffect(() => {
+    if (!effectiveOpen) {
+      setCoords(null);
+      return;
+    }
+    const place = () => {
+      const badge = btnRef.current?.getBoundingClientRect();
+      if (badge) setCoords(placeFromBadge(badge, popRef.current?.offsetHeight ?? 0));
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [effectiveOpen]);
+
+  // Close on outside-click or Esc. The popover lives in a portal, so check both
+  // the badge and the popover before treating a click as "outside".
   useEffect(() => {
     if (!effectiveOpen) return;
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (btnRef.current?.contains(t) || popRef.current?.contains(t)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("mousedown", onDown);
@@ -62,8 +115,9 @@ export function ConfigPopover({
   const paramRows = Object.entries(run.params);
 
   return (
-    <div ref={ref} className="relative inline-flex">
+    <>
       <button
+        ref={btnRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={effectiveOpen}
@@ -81,8 +135,18 @@ export function ConfigPopover({
         </svg>
       </button>
 
-      {effectiveOpen && (
-        <div className="absolute left-0 top-[26px] z-30 w-[280px] bg-surface border border-border rounded-lg shadow-xl p-4 text-left cursor-default">
+      {effectiveOpen && createPortal(
+        <div
+          ref={popRef}
+          style={{
+            position: "fixed",
+            top: coords?.top ?? -9999,
+            left: coords?.left ?? -9999,
+            width: POPOVER_W,
+            visibility: coords ? "visible" : "hidden",
+          }}
+          className="z-[60] bg-surface border border-border rounded-lg shadow-xl p-4 text-left cursor-default"
+        >
           <div className="font-mono text-[10px] uppercase tracking-[2px] text-ink-muted mb-2.5">
             Backtest Configuration
           </div>
@@ -110,8 +174,9 @@ export function ConfigPopover({
               ))}
             </div>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
-    </div>
+    </>
   );
 }
