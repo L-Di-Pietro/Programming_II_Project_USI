@@ -7,6 +7,15 @@ export function formatLocal(iso: string): string {
   return new Date(iso).toLocaleString();
 }
 
+// Backtest period dates are anchored in UTC; pinning timeZone here keeps the
+// rendered date stable regardless of where the viewer is — so the Results
+// header and AI Analyst panel always show the same range.
+export function fmtBacktestDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric", month: "short", day: "numeric", timeZone: "UTC",
+  });
+}
+
 export function timeAgo(iso: string): string {
   const seconds = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
   if (seconds < 60) return "just now";
