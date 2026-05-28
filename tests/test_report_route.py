@@ -13,7 +13,12 @@ from datetime import datetime
 import pytest
 from fastapi import HTTPException
 
-from backend.api.routes.backtest import generate_report, get_report
+from backend.api.routes.backtest import (
+    generate_report,
+    get_backtest,
+    get_report,
+    list_backtests,
+)
 from backend.database.models import (
     Asset,
     BacktestRun,
@@ -145,6 +150,53 @@ def test_full_report_lifecycle(db):
     # contains the run_id and metrics, so equal text is expected here.
     # Even so, generated_at advances (or stays equal within timer resolution).
     assert cached_after_regen.generated_at >= first.generated_at
+
+
+# -----------------------------------------------------------------------------
+# List / detail — report status surfaced to the Dashboard "AI Report" column
+# -----------------------------------------------------------------------------
+def test_list_backtests_reports_status_before_and_after_generation(db):
+    run_id = _seed_run(db)
+
+    # Before any report: has_report is False, no timestamp.
+    [summary] = [s for s in list_backtests(db=db) if s.id == run_id]
+    assert summary.has_report is False
+    assert summary.report_generated_at is None
+
+    # After generation: has_report flips True and the timestamp matches the cache.
+    gen = generate_report(run_id=run_id, db=db)
+    [summary] = [s for s in list_backtests(db=db) if s.id == run_id]
+    assert summary.has_report is True
+    assert summary.report_generated_at == gen.generated_at
+
+
+def test_get_backtest_detail_reports_status(db):
+    run_id = _seed_run(db)
+
+    detail = get_backtest(run_id=run_id, db=db)
+    assert detail.has_report is False
+    assert detail.report_generated_at is None
+
+    generate_report(run_id=run_id, db=db)
+    detail = get_backtest(run_id=run_id, db=db)
+    assert detail.has_report is True
+    assert detail.report_generated_at is not None
+
+
+def test_report_timestamps_batched(db):
+    from backend.agents.explanation_agent import ExplanationAgent
+
+    run_id = _seed_run(db)
+    agent = ExplanationAgent(db)
+
+    # Empty input → empty mapping; a run with no report → absent from the mapping.
+    assert agent.report_timestamps([]) == {}
+    assert agent.report_timestamps([run_id]) == {}
+
+    # After generation → present, equal to the single-run cached timestamp.
+    generate_report(run_id=run_id, db=db)
+    ts = agent.report_timestamps([run_id])
+    assert ts[run_id] == agent.get_cached_report_timestamp(run_id)
 
 
 def test_other_op_conversations_do_not_shadow_cache(db):

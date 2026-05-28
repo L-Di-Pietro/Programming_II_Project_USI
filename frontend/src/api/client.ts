@@ -59,6 +59,8 @@ export interface BacktestSummary {
   error_message: string | null;
   created_at: string;
   completed_at: string | null;
+  has_report: boolean;
+  report_generated_at: string | null;
 }
 
 /** Single-run detail — summary plus the strategy params the user chose. */

@@ -137,6 +137,8 @@ class BacktestSummary(ORMBase):
     error_message: str | None = None
     created_at: UtcDatetime
     completed_at: UtcDatetime | None = None
+    has_report: bool = False
+    report_generated_at: UtcDatetime | None = None
 
 
 class BacktestDetail(BacktestSummary):

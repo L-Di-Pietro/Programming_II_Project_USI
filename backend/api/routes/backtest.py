@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
@@ -36,8 +37,14 @@ from backend.database.models import (
 router = APIRouter(prefix="/backtests", tags=["backtests"])
 
 
-def _to_summary(run: BacktestRun) -> BacktestSummary:
-    """Enrich a run with its strategy name + asset symbol for the API payload."""
+def _to_summary(
+    run: BacktestRun, report_generated_at: datetime | None = None
+) -> BacktestSummary:
+    """Enrich a run with its strategy name + asset symbol for the API payload.
+
+    ``report_generated_at`` is the timestamp of the run's latest cached AI report
+    (None if none exists); it drives the ``has_report`` flag the Dashboard reads.
+    """
     return BacktestSummary(
         id=run.id,
         strategy_id=run.strategy_id,
@@ -51,6 +58,8 @@ def _to_summary(run: BacktestRun) -> BacktestSummary:
         error_message=run.error_message,
         created_at=run.created_at,
         completed_at=run.completed_at,
+        has_report=report_generated_at is not None,
+        report_generated_at=report_generated_at,
     )
 
 
@@ -130,7 +139,8 @@ def list_backtests(
         .scalars()
         .all()
     )
-    return [_to_summary(r) for r in runs]
+    report_ts = ExplanationAgent(db).report_timestamps([r.id for r in runs])
+    return [_to_summary(r, report_ts.get(r.id)) for r in runs]
 
 
 @router.get("/{run_id}", response_model=BacktestDetail)
@@ -138,7 +148,10 @@ def get_backtest(run_id: int, db: Session = Depends(get_session)) -> BacktestDet
     run = db.get(BacktestRun, run_id)
     if run is None:
         raise HTTPException(404, f"Run {run_id} not found")
-    return BacktestDetail(**_to_summary(run).model_dump(), params=run.params or {})
+    report_ts = ExplanationAgent(db).get_cached_report_timestamp(run_id)
+    return BacktestDetail(
+        **_to_summary(run, report_ts).model_dump(), params=run.params or {}
+    )
 
 
 # -----------------------------------------------------------------------------

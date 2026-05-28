@@ -312,6 +312,21 @@ class ExplanationAgent(BaseAgent[ExplanationAgentInput, ExplanationAgentOutput])
         ).scalar_one_or_none()
         return ts
 
+    def report_timestamps(self, run_ids: list[int]) -> dict[int, datetime]:
+        """Latest report timestamp per run, for the runs that have one. One query."""
+        if not run_ids:
+            return {}
+        rows = self.db.execute(
+            select(LLMConversation.run_id, func.max(LLMConversation.created_at))
+            .where(
+                LLMConversation.run_id.in_(run_ids),
+                LLMConversation.role == "assistant",
+                LLMConversation.op == "report_run",
+            )
+            .group_by(LLMConversation.run_id)
+        ).all()
+        return {run_id: ts for run_id, ts in rows}
+
     def _persist_turn(
         self,
         run_id: int,

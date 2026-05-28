@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { Api, type BacktestSummary } from "@/api/client";
+import { formatApiError } from "@/utils/apiError";
 import { formatLocal } from "@/utils/datetime";
 
 // ── Max lookback descriptors (text rather than a single big number) ─────────
@@ -14,8 +15,8 @@ const LOOKBACK_LIMITS = [
 // columns from auto-growing past their fr-share when content (e.g. timestamps)
 // is wider than the available space — otherwise header and rows desync.
 const RUNS_GRID_COLUMNS =
-  "minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.6fr) 90px";
-const RUNS_HEADERS = ["Strategy", "Asset", "Period", "Status", "Created", ""];
+  "minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.6fr) 110px 90px";
+const RUNS_HEADERS = ["Strategy", "Asset", "Period", "Status", "Created", "AI Report", ""];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export function Dashboard() {
@@ -54,6 +55,17 @@ export function Dashboard() {
     { val: "4",       label: "Asset Classes" },
     { val: "1D / 1H", label: "Data Interval", small: true },
   ];
+
+  // Optimistically flip a row to the "report exists" state right after generation
+  // so the UI updates without waiting for the 5s poll to reconcile the real value.
+  const markGenerated = (id: number) =>
+    setRuns((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? { ...r, has_report: true, report_generated_at: new Date().toISOString() }
+          : r,
+      ),
+    );
 
   return (
     <div className="pb-16">
@@ -183,6 +195,9 @@ export function Dashboard() {
             <div className="text-[11px] text-ink-muted flex items-center justify-center min-w-0 truncate text-center">
               {formatLocal(r.created_at)}
             </div>
+            <div className="flex items-center justify-center gap-1 min-w-0">
+              <AiReportCell run={r} onGenerated={markGenerated} />
+            </div>
             <div className="flex items-center justify-end">
               <Link to={`/backtests/${r.id}`} className="btn-ghost text-xs">
                 View
@@ -210,5 +225,135 @@ function StatusPill({ status }: { status: string }) {
     >
       {status}
     </span>
+  );
+}
+
+// ── AI Report cell ──────────────────────────────────────────────────────────────
+// Three states per row, keyed by run id so transient state survives the 5s poll:
+//   • no report  → Generate
+//   • has report → Download + Regenerate
+//   • working    → spinner (actions hidden ⇒ disabled); on failure → ⚠ + retry
+type ReportPhase = "idle" | "working" | "error";
+
+function AiReportCell({
+  run,
+  onGenerated,
+}: {
+  run: BacktestSummary;
+  onGenerated: (id: number) => void;
+}) {
+  const [phase, setPhase] = useState<ReportPhase>("idle");
+  const [errMsg, setErrMsg] = useState("");
+
+  // Generate + Regenerate are the same call: POST overwrites the cached report.
+  const generate = async () => {
+    setPhase("working");
+    setErrMsg("");
+    try {
+      await Api.generateReport(run.id);
+      onGenerated(run.id);
+      setPhase("idle");
+    } catch (e) {
+      setErrMsg(formatApiError(e));
+      setPhase("error");
+    }
+  };
+
+  if (phase === "working") {
+    return (
+      <span
+        className="w-3.5 h-3.5 rounded-full border-2 border-ink-muted border-t-transparent animate-spin"
+        title="Generating report…"
+        aria-label="Generating report"
+      />
+    );
+  }
+
+  // Cache-bust the on-demand PDF so a regenerate never serves a stale cached file.
+  const pdfHref = `${Api.reportPdfUrl(run.id)}?t=${encodeURIComponent(run.report_generated_at ?? "")}`;
+
+  return (
+    <>
+      {phase === "error" && (
+        <span
+          className="text-accent-red flex items-center"
+          title={errMsg || "Report generation failed — click to retry"}
+        >
+          <IconWarning />
+        </span>
+      )}
+      {run.has_report ? (
+        <>
+          <a href={pdfHref} className="btn-ghost text-xs px-2" title="Download PDF report">
+            <IconDownload />
+          </a>
+          <button
+            type="button"
+            onClick={generate}
+            className="btn-ghost text-xs px-1.5 opacity-70 hover:opacity-100"
+            title="Regenerate report"
+            aria-label="Regenerate report"
+          >
+            <IconRefresh />
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          onClick={generate}
+          className="btn-ghost text-xs px-2"
+          title="Generate AI report"
+        >
+          <IconReport />
+          <span>Generate</span>
+        </button>
+      )}
+    </>
+  );
+}
+
+// ── Icons (match App.tsx convention: 24 viewBox, currentColor, strokeWidth 1.75) ──
+function IconReport() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+      <path d="M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+      <line x1="9" y1="13" x2="15" y2="13" />
+      <line x1="12" y1="10" x2="12" y2="16" />
+    </svg>
+  );
+}
+
+function IconDownload() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+function IconRefresh() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </svg>
+  );
+}
+
+function IconWarning() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
   );
 }
