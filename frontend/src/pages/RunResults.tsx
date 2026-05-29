@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
@@ -20,6 +20,7 @@ import { AIAnalystModal } from "@/components/AIAnalystModal";
 import { RollingSharpChart } from "@/components/RollingSharpChart";
 import { TradePnlChart } from "@/components/TradePnlChart";
 import { TradeList } from "@/components/TradeList";
+import { MarketLoadingScreen } from "@/components/MarketLoadingScreen";
 import { fmtBacktestDate } from "@/utils/datetime";
 
 type ChartTab = "equity" | "drawdown" | "heatmap" | "trade_pnl" | "rolling_sharpe";
@@ -30,6 +31,15 @@ const CHART_TABS: { id: ChartTab; label: string }[] = [
   { id: "heatmap",        label: "Monthly Returns"  },
   { id: "trade_pnl",      label: "Trade P&L"        },
   { id: "rolling_sharpe", label: "Rolling Sharpe"   },
+];
+
+// Results-specific cycling labels for the shared loading screen.
+const LOADING_MESSAGES = [
+  "Crunching backtest results…",
+  "Rendering performance charts…",
+  "Computing risk metrics…",
+  "Loading market data…",
+  "Almost ready…",
 ];
 
 // Per-benchmark fetch state. Loaded entries carry the data and are cached for
@@ -71,18 +81,34 @@ export function RunResults() {
   const [benchData, setBenchData] = useState<Partial<Record<BenchmarkKind, BenchEntry>>>({});
 
   useEffect(() => {
-    if (!Number.isFinite(id)) return;
+    if (!Number.isFinite(id)) { setError("Invalid run id."); return; }
     let active = true;
+    let pollTimer: number | undefined;
 
-    Promise.all([
-      Api.getMetrics(id),
-      Api.getChart(id, "equity"),
-      Api.getChart(id, "drawdown"),
-      Api.getEquity(id),
-      Api.getTrades(id),
-      Api.getBacktest(id),
-    ])
-      .then(([m, eq, dd, ev, ts, run]) => {
+    (async () => {
+      try {
+        // Wait until the backtest has finished computing on the backend, so the
+        // loader stays up for an in-progress run instead of erroring out.
+        let run = await Api.getBacktest(id);
+        while (active && (run.status === "pending" || run.status === "running")) {
+          await new Promise((r) => { pollTimer = window.setTimeout(r, 1200); });
+          if (!active) return;
+          run = await Api.getBacktest(id);
+        }
+        if (!active) return;
+        if (run.status === "failed") {
+          setError(run.error_message || "Backtest failed.");
+          return;
+        }
+
+        // Completed — fetch the metrics + chart/series payload.
+        const [m, eq, dd, ev, ts] = await Promise.all([
+          Api.getMetrics(id),
+          Api.getChart(id, "equity"),
+          Api.getChart(id, "drawdown"),
+          Api.getEquity(id),
+          Api.getTrades(id),
+        ]);
         if (!active) return;
         setMetrics(m);
         setEquityFig(eq.figure);
@@ -97,11 +123,32 @@ export function RunResults() {
           timeframe: run.timeframe,
           params: run.params,
         });
-      })
-      .catch((e) => { if (active) setError(String(e)); });
+      } catch (e) {
+        if (active) setError(String(e));
+      }
+    })();
 
-    return () => { active = false; };
+    return () => { active = false; if (pollTimer) clearTimeout(pollTimer); };
   }, [id]);
+
+  // ── Initial-load gate ──────────────────────────────────────────────────────
+  // Show the full-screen loader until the run has finished and all data is in,
+  // then fade out. Mirrors the Configure page so the handoff feels consistent.
+  const isReady =
+    (metrics !== null && equityFig !== null && drawdownFig !== null &&
+     equityData !== null && runInfo !== null) || error !== null;
+  const mountRef = useRef(performance.now());
+  const [loaderFading, setLoaderFading] = useState(false);
+  const [loaderDone, setLoaderDone]     = useState(false);
+  useEffect(() => {
+    if (!isReady || loaderDone) return;
+    const MIN_MS = 900;   // min on-screen time so a fast load doesn't just flash
+    const FADE_MS = 500;  // matches the loader's opacity transition
+    const wait = Math.max(0, MIN_MS - (performance.now() - mountRef.current));
+    const t1 = setTimeout(() => setLoaderFading(true), wait);
+    const t2 = setTimeout(() => setLoaderDone(true), wait + FADE_MS);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [isReady, loaderDone]);
 
   function toggleBenchmark(kind: BenchmarkKind) {
     // Turning OFF — keep the cache so re-enabling doesn't refetch.
@@ -200,6 +247,7 @@ export function RunResults() {
   }
 
   return (
+    <>
     <div className="px-10 py-8 pb-16 space-y-5">
 
       {/* ── Header ──────────────────────────────────────────────── */}
@@ -320,6 +368,10 @@ export function RunResults() {
         runInfo={runInfo}
       />
     </div>
+    {!loaderDone && (
+      <MarketLoadingScreen fadeOut={loaderFading} offsetLeft={180} messages={LOADING_MESSAGES} />
+    )}
+    </>
   );
 }
 
