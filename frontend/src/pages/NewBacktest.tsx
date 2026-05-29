@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { Api, type Asset, type Strategy, type Timeframe } from "@/api/client";
 import { DateField } from "@/components/DateField";
+import { MarketLoadingScreen } from "@/components/MarketLoadingScreen";
 import { StrategyConfigForm } from "@/components/StrategyConfigForm";
 import { clamp, formatApiError, formatRange } from "@/utils/apiError";
 
@@ -128,6 +129,23 @@ export function NewBacktest() {
       .catch((e) => setError(formatApiError(e)));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Initial-load gate ──────────────────────────────────────────────────────
+  // A full-screen loader covers the form until its data is ready, then fades
+  // out — so the user never sees the visible-but-frozen page during the fetch.
+  const isReady = (assets.length > 0 && strategies.length > 0) || error !== null;
+  const mountRef = useRef(performance.now());
+  const [loaderFading, setLoaderFading] = useState(false);
+  const [loaderDone, setLoaderDone]     = useState(false);
+  useEffect(() => {
+    if (!isReady || loaderDone) return;
+    const MIN_MS = 900;   // min on-screen time so a fast load doesn't just flash
+    const FADE_MS = 500;  // matches the loader's opacity transition
+    const wait = Math.max(0, MIN_MS - (performance.now() - mountRef.current));
+    const t1 = setTimeout(() => setLoaderFading(true), wait);
+    const t2 = setTimeout(() => setLoaderDone(true), wait + FADE_MS);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [isReady, loaderDone]);
+
   // When asset class changes, reset symbol to first in that class
   useEffect(() => {
     setSymbol(classAssets[0]?.symbol ?? null);
@@ -211,6 +229,7 @@ export function NewBacktest() {
   }
 
   return (
+    <>
     <div className="px-10 py-8 pb-16">
 
       {/* ── Header ──────────────────────────────────────────────────── */}
@@ -437,6 +456,8 @@ export function NewBacktest() {
         </div>
       </div>
     </div>
+    {!loaderDone && <MarketLoadingScreen fadeOut={loaderFading} />}
+    </>
   );
 }
 
