@@ -136,6 +136,7 @@ export function Strategies() {
           return (
             <div
               key={s.slug}
+              data-tour="strategy-card"
               onMouseEnter={() => setHovered(s.slug)}
               onMouseLeave={() => setHovered(null)}
               onClick={() => navigate(`/backtests/new?strategy=${s.slug}`)}

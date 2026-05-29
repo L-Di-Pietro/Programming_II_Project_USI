@@ -120,7 +120,7 @@ export function AIAnalystModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-[920px] max-w-[calc(100vw-2.5rem)] max-h-[85vh] flex flex-col
+      <div data-tour="ai-panel" className="w-[920px] max-w-[calc(100vw-2.5rem)] max-h-[85vh] flex flex-col
                       overflow-hidden rounded-xl border border-accent-cyan/40 bg-surface">
 
         {/* Header */}

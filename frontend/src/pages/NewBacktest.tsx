@@ -340,6 +340,7 @@ export function NewBacktest() {
               <div className="text-ink-muted text-sm">Loading assets...</div>
             ) : (
               <div
+                data-tour="instrument-grid"
                 className="grid gap-2"
                 style={{ gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))" }}
               >
@@ -392,7 +393,7 @@ export function NewBacktest() {
 
           {/* Backtest period */}
           <Section title="Backtest Period">
-            <div className="flex items-end gap-4 flex-wrap">
+            <div data-tour="period" className="flex items-end gap-4 flex-wrap">
               <DateField label="Start Date" value={start} min={dateMin} max={dateMax} ranges={bounds?.ranges} onCommit={setStart} />
               <DateField label="End Date"   value={end}   min={dateMin} max={dateMax} ranges={bounds?.ranges} onCommit={setEnd} />
               {years > 0 && (
@@ -485,6 +486,7 @@ export function NewBacktest() {
 
           {/* Run button */}
           <button
+            data-tour="run-backtest"
             className="w-full py-3.5 rounded-lg bg-accent-cyan text-[#0d1117] font-bold text-[15px]
                        hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
             onClick={submit}

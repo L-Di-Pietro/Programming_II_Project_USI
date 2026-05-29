@@ -69,7 +69,7 @@ export function MetricsPanel({
 }) {
   if (!metrics) {
     return (
-      <div className="border border-border rounded-lg overflow-hidden">
+      <div data-tour="metrics" className="border border-border rounded-lg overflow-hidden">
         <div className="grid bg-surface" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
           {METRICS.map((m) => (
             <MetricCard
@@ -89,7 +89,7 @@ export function MetricsPanel({
   const stacked = benchmarks.length > 0;
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
+    <div data-tour="metrics" className="border border-border rounded-lg overflow-hidden">
       {/* 2 rows of 5 columns, flush grid with dividers */}
       <div className="grid" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
         {METRICS.map((m, i) => {
