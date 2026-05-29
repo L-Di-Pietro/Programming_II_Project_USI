@@ -1,0 +1,41 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e7]: QUANTEDGE
+      - navigation [ref=e8]:
+        - link "Dashboard" [ref=e9] [cursor=pointer]:
+          - /url: /
+          - img [ref=e11]
+          - text: Dashboard
+        - link "Strategies" [ref=e16] [cursor=pointer]:
+          - /url: /strategies
+          - img [ref=e17]
+          - text: Strategies
+        - link "Configure" [ref=e18] [cursor=pointer]:
+          - /url: /backtests/new
+          - img [ref=e19]
+          - text: Configure
+        - link "Results" [ref=e81] [cursor=pointer]:
+          - /url: /backtests/11
+          - img [ref=e82]
+          - text: Results
+      - generic [ref=e21]:
+        - button "Replay tutorial" [ref=e22] [cursor=pointer]
+        - generic [ref=e23]: USI PROG II — 2.8
+    - generic [ref=e24]:
+      - banner [ref=e25]:
+        - generic [ref=e26]: Configure
+        - generic [ref=e27]: Live
+      - main [ref=e29]:
+        - generic [ref=e539]:
+          - generic [ref=e540]: Running Backtest
+          - generic [ref=e541]: Simulating order execution..._
+          - generic [ref=e544]: SMA Crossover · AAPL · 1980–2026
+  - dialog:
+    - generic [ref=e72]:
+      - generic [ref=e73]: Step 6 of 11
+      - generic [ref=e74]: Run it
+      - paragraph [ref=e75]: Loading the next step…
+      - generic [ref=e76]:
+        - button "← Back" [ref=e77] [cursor=pointer]
+        - button "Skip tutorial" [ref=e79] [cursor=pointer]

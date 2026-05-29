@@ -341,6 +341,7 @@ export function RunResults() {
 
         <div className="flex gap-2.5">
           <button
+            data-tour="ai-analysis"
             className="btn-secondary border-accent-cyan text-accent-cyan hover:bg-accent-cyan/10"
             onClick={() => setAiModalOpen(true)}
           >

@@ -1,0 +1,120 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e7]: QUANTEDGE
+      - navigation [ref=e8]:
+        - link "Dashboard" [ref=e9] [cursor=pointer]:
+          - /url: /
+          - img [ref=e11]
+          - text: Dashboard
+        - link "Strategies" [active] [ref=e16] [cursor=pointer]:
+          - /url: /strategies
+          - img [ref=e17]
+          - text: Strategies
+        - link "Configure" [ref=e18] [cursor=pointer]:
+          - /url: /backtests/new
+          - img [ref=e19]
+          - text: Configure
+        - link "Results" [ref=e81] [cursor=pointer]:
+          - /url: /backtests/11
+          - img [ref=e82]
+          - text: Results
+      - generic [ref=e21]:
+        - button "Replay tutorial" [ref=e22] [cursor=pointer]
+        - generic [ref=e23]: USI PROG II — 2.8
+    - generic [ref=e24]:
+      - banner [ref=e25]:
+        - generic [ref=e26]: Strategies
+        - generic [ref=e27]: Live
+      - main [ref=e29]:
+        - generic [ref=e266]:
+          - generic [ref=e267]:
+            - heading "Strategy Library" [level=2] [ref=e268]
+            - paragraph [ref=e269]: 10 institutional-grade quant strategies. Select one to configure and backtest.
+          - generic [ref=e270]:
+            - button "All" [ref=e271] [cursor=pointer]
+            - button "Trend Following" [ref=e272] [cursor=pointer]
+            - button "Momentum" [ref=e273] [cursor=pointer]
+            - button "Breakout" [ref=e274] [cursor=pointer]
+            - button "Mean Reversion" [ref=e275] [cursor=pointer]
+            - generic [ref=e276]: 10 strategies
+          - generic [ref=e277]:
+            - generic [ref=e278] [cursor=pointer]:
+              - generic [ref=e279]:
+                - generic [ref=e280]:
+                  - generic [ref=e281]: SMA-X
+                  - generic [ref=e282]: Classic
+                - generic [ref=e283]: Beginner
+              - heading "SMA Crossover" [level=3] [ref=e284]
+              - paragraph [ref=e285]: "Classic trend-following strategy: go long when a fast moving average crosses above a slow one, exit (or short) when it crosses back below. Performs best in markets with sustained directional moves; vulnerable to whipsaw in sideways markets."
+            - generic [ref=e286] [cursor=pointer]:
+              - generic [ref=e287]:
+                - generic [ref=e288]:
+                  - generic [ref=e289]: MACD
+                  - generic [ref=e290]: Popular
+                - generic [ref=e291]: Intermediate
+              - heading "MACD Crossover" [level=3] [ref=e292]
+              - paragraph [ref=e293]: Goes long when the MACD line crosses above its signal line and flat (or short) when it crosses below. Captures momentum shifts with a smoothing layer that dampens whipsaw versus a raw moving-average crossover.
+            - generic [ref=e294] [cursor=pointer]:
+              - generic [ref=e295]:
+                - generic [ref=e297]: ICH
+                - generic [ref=e298]: Advanced
+              - heading "Ichimoku Cloud" [level=3] [ref=e299]
+              - paragraph [ref=e300]: Goes long when price trades above the projected cloud with the Tenkan above the Kijun, and short when both conditions invert. Combines multi-horizon trend filters into a single 'cloud' that adapts to volatility.
+            - generic [ref=e301] [cursor=pointer]:
+              - generic [ref=e302]:
+                - generic [ref=e303]:
+                  - generic [ref=e304]: DON
+                  - generic [ref=e305]: Turtle
+                - generic [ref=e306]: Beginner
+              - heading "Donchian Channel Breakout" [level=3] [ref=e307]
+              - paragraph [ref=e308]: "Momentum strategy from the Turtle Traders: enter long when price breaks above its rolling N-bar high, exit when it breaks below its rolling M-bar low. Great in trending markets, gives back small false-breakout losses in ranges."
+            - generic [ref=e309] [cursor=pointer]:
+              - generic [ref=e310]:
+                - generic [ref=e312]: KC
+                - generic [ref=e313]: Intermediate
+              - heading "Keltner Channels" [level=3] [ref=e314]
+              - paragraph [ref=e315]: Builds ATR-scaled bands around an EMA. In breakout mode, goes long on an upper-band break and exits when price returns to the midline; mean-reversion mode inverts the logic. Adapts band width to recent volatility so the same parameters work across regimes.
+            - generic [ref=e316] [cursor=pointer]:
+              - generic [ref=e317]:
+                - generic [ref=e318]:
+                  - generic [ref=e319]: TSM
+                  - generic [ref=e320]: Academic
+                - generic [ref=e321]: Beginner
+              - heading "Time Series Momentum" [level=3] [ref=e322]
+              - paragraph [ref=e323]: Goes long if the trailing N-bar return is positive and short if it is negative. Implements the Moskowitz–Ooi–Pedersen finding that an asset's own past return predicts its future return over horizons of 1–12 months.
+            - generic [ref=e324] [cursor=pointer]:
+              - generic [ref=e325]:
+                - generic [ref=e326]:
+                  - generic [ref=e327]: RSI-MR
+                  - generic [ref=e328]: Popular
+                - generic [ref=e329]: Beginner
+              - heading "RSI Mean Reversion" [level=3] [ref=e330]
+              - paragraph [ref=e331]: Counter-trend strategy that buys oversold conditions (RSI below a low threshold) and exits when RSI returns to overbought territory. Profits in range-bound markets; struggles during sustained trends.
+            - generic [ref=e332] [cursor=pointer]:
+              - generic [ref=e333]:
+                - generic [ref=e335]: BB
+                - generic [ref=e336]: Intermediate
+              - heading "Bollinger Bands Mean Reversion" [level=3] [ref=e337]
+              - paragraph [ref=e338]: Mean-reversion strategy that buys when the close drops below the lower Bollinger band and exits when price returns toward the mean. Volatility-adjusted version of RSI mean reversion.
+            - generic [ref=e339] [cursor=pointer]:
+              - generic [ref=e340]:
+                - generic [ref=e342]: STO
+                - generic [ref=e343]: Beginner
+              - heading "Stochastic Oscillator" [level=3] [ref=e344]
+              - paragraph [ref=e345]: Uses Lane's %K to detect when an asset is exhausted at oversold or overbought extremes. Enters long when %K crosses up out of oversold and (optionally) shorts when it crosses down out of overbought.
+            - generic [ref=e346] [cursor=pointer]:
+              - generic [ref=e347]:
+                - generic [ref=e349]: CCI
+                - generic [ref=e350]: Intermediate
+              - heading "Commodity Channel Index" [level=3] [ref=e351]
+              - paragraph [ref=e352]: Buys when the CCI drops below an oversold threshold and (optionally) sells when it rises above an overbought threshold. Measures how far the typical price is from its rolling mean in units of mean absolute deviation, making the signal scale-invariant across assets.
+  - dialog:
+    - generic [ref=e72]:
+      - generic [ref=e73]: Step 3 of 11
+      - generic [ref=e74]: Choose a strategy
+      - paragraph [ref=e75]: Each card describes a trading strategy and its logic.
+      - generic [ref=e353]: 👆 Click any strategy to configure it
+      - generic [ref=e76]:
+        - button "← Back" [ref=e77] [cursor=pointer]
+        - button "Skip tutorial" [ref=e79] [cursor=pointer]

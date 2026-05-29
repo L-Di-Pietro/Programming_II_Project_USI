@@ -1,0 +1,232 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e7]: QUANTEDGE
+      - navigation [ref=e8]:
+        - link "Dashboard" [ref=e9] [cursor=pointer]:
+          - /url: /
+          - img [ref=e11]
+          - text: Dashboard
+        - link "Strategies" [ref=e16] [cursor=pointer]:
+          - /url: /strategies
+          - img [ref=e17]
+          - text: Strategies
+        - link "Configure" [ref=e18] [cursor=pointer]:
+          - /url: /backtests/new
+          - img [ref=e19]
+          - text: Configure
+        - link "Results" [ref=e81] [cursor=pointer]:
+          - /url: /backtests/11
+          - img [ref=e82]
+          - text: Results
+      - generic [ref=e21]:
+        - button "Replay tutorial" [ref=e22] [cursor=pointer]
+        - generic [ref=e23]: USI PROG II — 2.8
+    - generic [ref=e24]:
+      - banner [ref=e25]:
+        - generic [ref=e26]: Configure
+        - generic [ref=e27]: Live
+      - main [ref=e29]:
+        - generic [ref=e355]:
+          - generic [ref=e356]:
+            - link "← Back to Library" [ref=e357] [cursor=pointer]:
+              - /url: /strategies
+            - heading "Configure Backtest" [level=2] [ref=e358]
+            - paragraph [ref=e359]: Set parameters for SMA Crossover
+          - generic [ref=e360]:
+            - generic [ref=e361]:
+              - generic [ref=e362]:
+                - generic [ref=e363]: Strategy
+                - combobox [ref=e364]:
+                  - option "SMA Crossover" [selected]
+                  - option "MACD Crossover"
+                  - option "Ichimoku Cloud"
+                  - option "Donchian Channel Breakout"
+                  - option "Keltner Channels"
+                  - option "Time Series Momentum"
+                  - option "RSI Mean Reversion"
+                  - option "Bollinger Bands Mean Reversion"
+                  - option "Stochastic Oscillator"
+                  - option "Commodity Channel Index"
+                - paragraph [ref=e365]: "Classic trend-following strategy: go long when a fast moving average crosses above a slow one, exit (or short) when it crosses back below. Performs best in markets with sustained directional moves; vulnerable to whipsaw in sideways markets."
+              - generic [ref=e366]:
+                - generic [ref=e367]: Asset Class
+                - generic [ref=e368]:
+                  - button "Equity" [ref=e369] [cursor=pointer]
+                  - button "Etf" [ref=e370] [cursor=pointer]
+                  - button "Crypto" [ref=e371] [cursor=pointer]
+                  - button "Fx" [ref=e372] [cursor=pointer]
+              - generic [ref=e373]:
+                - generic [ref=e374]: Instrument
+                - generic [ref=e375]:
+                  - button "AAPL Apple Inc." [ref=e376] [cursor=pointer]:
+                    - generic [ref=e377]: AAPL
+                    - generic [ref=e378]: Apple Inc.
+                  - button "NVDA NVIDIA Corporation" [ref=e379] [cursor=pointer]:
+                    - generic [ref=e380]: NVDA
+                    - generic [ref=e381]: NVIDIA Corporation
+                  - button "MSFT Microsoft Corporation" [ref=e382] [cursor=pointer]:
+                    - generic [ref=e383]: MSFT
+                    - generic [ref=e384]: Microsoft Corporation
+                  - button "TSLA Tesla, Inc." [ref=e385] [cursor=pointer]:
+                    - generic [ref=e386]: TSLA
+                    - generic [ref=e387]: Tesla, Inc.
+                  - button "GOOGL Alphabet Inc." [ref=e388] [cursor=pointer]:
+                    - generic [ref=e389]: GOOGL
+                    - generic [ref=e390]: Alphabet Inc.
+                  - button "AMZN Amazon.com, Inc." [ref=e391] [cursor=pointer]:
+                    - generic [ref=e392]: AMZN
+                    - generic [ref=e393]: Amazon.com, Inc.
+                  - button "META Meta Platforms, Inc." [ref=e394] [cursor=pointer]:
+                    - generic [ref=e395]: META
+                    - generic [ref=e396]: Meta Platforms, Inc.
+                  - button "JPM JPMorgan Chase & Co." [ref=e397] [cursor=pointer]:
+                    - generic [ref=e398]: JPM
+                    - generic [ref=e399]: JPMorgan Chase & Co.
+                  - button "V Visa Inc." [ref=e400] [cursor=pointer]:
+                    - generic [ref=e401]: V
+                    - generic [ref=e402]: Visa Inc.
+                  - button "JNJ Johnson & Johnson" [ref=e403] [cursor=pointer]:
+                    - generic [ref=e404]: JNJ
+                    - generic [ref=e405]: Johnson & Johnson
+                  - button "UNH UnitedHealth Group Inc." [ref=e406] [cursor=pointer]:
+                    - generic [ref=e407]: UNH
+                    - generic [ref=e408]: UnitedHealth Group Inc.
+                  - button "LLY Eli Lilly and Company" [ref=e409] [cursor=pointer]:
+                    - generic [ref=e410]: LLY
+                    - generic [ref=e411]: Eli Lilly and Company
+                  - button "WMT Walmart Inc." [ref=e412] [cursor=pointer]:
+                    - generic [ref=e413]: WMT
+                    - generic [ref=e414]: Walmart Inc.
+                  - button "KO The Coca-Cola Company" [ref=e415] [cursor=pointer]:
+                    - generic [ref=e416]: KO
+                    - generic [ref=e417]: The Coca-Cola Company
+                  - button "PG The Procter & Gamble Company" [ref=e418] [cursor=pointer]:
+                    - generic [ref=e419]: PG
+                    - generic [ref=e420]: The Procter & Gamble Company
+                  - button "HD The Home Depot, Inc." [ref=e421] [cursor=pointer]:
+                    - generic [ref=e422]: HD
+                    - generic [ref=e423]: The Home Depot, Inc.
+                  - button "XOM Exxon Mobil Corporation" [ref=e424] [cursor=pointer]:
+                    - generic [ref=e425]: XOM
+                    - generic [ref=e426]: Exxon Mobil Corporation
+                  - button "CAT Caterpillar Inc." [ref=e427] [cursor=pointer]:
+                    - generic [ref=e428]: CAT
+                    - generic [ref=e429]: Caterpillar Inc.
+                  - button "BA The Boeing Company" [ref=e430] [cursor=pointer]:
+                    - generic [ref=e431]: BA
+                    - generic [ref=e432]: The Boeing Company
+                  - button "DIS The Walt Disney Company" [ref=e433] [cursor=pointer]:
+                    - generic [ref=e434]: DIS
+                    - generic [ref=e435]: The Walt Disney Company
+              - generic [ref=e436]:
+                - generic [ref=e437]: Timeframe
+                - generic [ref=e438]:
+                  - button "Daily" [ref=e439] [cursor=pointer]
+                  - button "Hourly" [ref=e440] [cursor=pointer]
+              - generic [ref=e441]:
+                - generic [ref=e442]: Backtest Period
+                - generic [ref=e443]:
+                  - generic [ref=e444]:
+                    - generic [ref=e445]: Start Date
+                    - generic [ref=e446]:
+                      - textbox "MM/DD/YYYY" [ref=e447]: 12/12/1980
+                      - button "Open calendar" [ref=e448] [cursor=pointer]:
+                        - img [ref=e449]
+                  - generic [ref=e452]:
+                    - generic [ref=e453]: End Date
+                    - generic [ref=e454]:
+                      - textbox "MM/DD/YYYY" [ref=e455]: 05/29/2026
+                      - button "Open calendar" [ref=e456] [cursor=pointer]:
+                        - img [ref=e457]
+                  - generic [ref=e460]: 45.5 yrs · ~11,456 bars
+                - paragraph [ref=e461]: "Available data: 1980-12-12 – 2026-05-29 · out-of-range dates snap to these bounds."
+              - generic [ref=e462]:
+                - generic [ref=e463]: Strategy Parameters
+                - generic [ref=e464]:
+                  - generic [ref=e465]:
+                    - generic [ref=e466]: Fast Window
+                    - spinbutton [ref=e467]: "20"
+                    - paragraph [ref=e468]:
+                      - text: Lookback (bars) for the fast SMA. ·
+                      - generic [ref=e469]: "Range: 2–200"
+                  - generic [ref=e470]:
+                    - generic [ref=e471]: Slow Window
+                    - spinbutton [ref=e472]: "50"
+                    - paragraph [ref=e473]:
+                      - text: Lookback (bars) for the slow SMA. Must exceed fast_window. ·
+                      - generic [ref=e474]: "Range: 5–500"
+                  - generic [ref=e475]:
+                    - generic [ref=e476]: Allow Short
+                    - checkbox [ref=e477]
+                    - paragraph [ref=e478]: If true, hold a short position when fast SMA is below slow SMA.
+            - generic [ref=e479]:
+              - generic [ref=e480]:
+                - generic [ref=e481]: Execution Settings
+                - generic [ref=e482]:
+                  - generic [ref=e483]:
+                    - generic [ref=e484]: Initial Capital ($)
+                    - generic [ref=e485]: $100,000
+                  - spinbutton [ref=e486]: "100000"
+                  - generic [ref=e487]:
+                    - text: Starting portfolio value ·
+                    - generic [ref=e488]: "Range: ≥ 1000"
+                - generic [ref=e489]:
+                  - generic [ref=e490]:
+                    - generic [ref=e491]: Commission (bps)
+                    - generic [ref=e492]: "5"
+                  - spinbutton [ref=e493]: "5"
+                  - generic [ref=e494]:
+                    - text: Per trade, per leg ·
+                    - generic [ref=e495]: "Range: 0–1000"
+                - generic [ref=e496]:
+                  - generic [ref=e497]:
+                    - generic [ref=e498]: Slippage (bps)
+                    - generic [ref=e499]: "5"
+                  - spinbutton [ref=e500]: "5"
+                  - generic [ref=e501]:
+                    - text: Market impact cost ·
+                    - generic [ref=e502]: "Range: 0–1000"
+                - generic [ref=e503]:
+                  - generic [ref=e504]:
+                    - generic [ref=e505]: Risk Fraction
+                    - generic [ref=e506]: "1"
+                  - spinbutton [ref=e507]: "1"
+                  - generic [ref=e508]:
+                    - text: Fraction of equity per position ·
+                    - generic [ref=e509]: "Range: 0.01–1"
+              - generic [ref=e510]:
+                - generic [ref=e511]: Summary
+                - generic [ref=e512]:
+                  - generic [ref=e513]:
+                    - generic [ref=e514]: Strategy
+                    - generic [ref=e515]: SMA Crossover
+                  - generic [ref=e516]:
+                    - generic [ref=e517]: Asset
+                    - generic [ref=e518]: AAPL
+                  - generic [ref=e519]:
+                    - generic [ref=e520]: Timeframe
+                    - generic [ref=e521]: Daily
+                  - generic [ref=e522]:
+                    - generic [ref=e523]: Period
+                    - generic [ref=e524]: 1980 – 2026
+                  - generic [ref=e525]:
+                    - generic [ref=e526]: Comm.
+                    - generic [ref=e527]: 5 bps
+                  - generic [ref=e528]:
+                    - generic [ref=e529]: Slippage
+                    - generic [ref=e530]: 5 bps
+                  - generic [ref=e531]:
+                    - generic [ref=e532]: Capital
+                    - generic [ref=e533]: $100,000
+              - button "Run Backtest" [ref=e534] [cursor=pointer]
+              - paragraph [ref=e535]: ~2s simulation time
+  - dialog:
+    - generic [ref=e72]:
+      - generic [ref=e73]: Step 4 of 11
+      - generic [ref=e74]: Choose an asset
+      - paragraph [ref=e75]: Pick what to backtest — stocks, crypto or FX.
+      - generic [ref=e536]: 👆 Click an instrument to select it
+      - generic [ref=e76]:
+        - button "← Back" [ref=e77] [cursor=pointer]
+        - button "Skip tutorial" [ref=e79] [cursor=pointer]
