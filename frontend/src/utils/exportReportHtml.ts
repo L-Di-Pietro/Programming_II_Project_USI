@@ -4,8 +4,10 @@
 // per-chart toggle buttons whose state is global (toggling a benchmark updates
 // every chart at once). Styled as a light, printed institutional research note.
 //
-// Sibling of exportReportPdf.ts (the jsPDF path used by the AI Analyst modal),
-// which is left untouched. This module powers the Dashboard "Download" button.
+// Sibling of exportReportPdf.ts (a standalone jsPDF generator, retained but no
+// longer wired to a live button). This module powers the "Download" action in
+// both the Dashboard runs table and the Results-page AI Analyst modal — same
+// generator, same args, so both entry points emit an identical file.
 
 import {
   Api,

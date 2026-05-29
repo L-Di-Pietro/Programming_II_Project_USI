@@ -19,7 +19,8 @@ interface RunInfo {
 /**
  * Centered modal that shows the AI Strategy Analyst report for a run. Opens
  * over a dark backdrop; loads the cached report (auto-generating one if none
- * exists yet) and offers PDF download + regeneration.
+ * exists yet) and offers interactive HTML report download + regeneration. The
+ * download produces the exact same file as the Dashboard runs table.
  */
 export function AIAnalystModal({
   open,
@@ -99,13 +100,16 @@ export function AIAnalystModal({
     }
   };
 
-  const downloadPdf = async () => {
+  // Same interactive HTML report the Dashboard serves: identical generator,
+  // identical (runId, report) args ⇒ identical file. The heavy export module
+  // (inlines Plotly + fonts) is imported lazily on click.
+  const downloadReport = async () => {
     if (!report) return;
     setError("");
     setDownloading(true);
     try {
-      const { exportReportPdf } = await import("@/utils/exportReportPdf");
-      await exportReportPdf(runId, report); // cover + 5 charts + AI analysis + footer
+      const { exportReportHtml } = await import("@/utils/exportReportHtml");
+      await exportReportHtml(runId, report); // cover + metrics + charts + benchmark toggles + AI analysis
     } catch (e) {
       setError(errMsg(e));
       setStatus("error");
@@ -227,10 +231,10 @@ export function AIAnalystModal({
             <button
               type="button"
               className="btn-primary text-xs py-1.5"
-              onClick={downloadPdf}
+              onClick={downloadReport}
               disabled={!report || status === "loading" || downloading}
             >
-              {downloading ? "Downloading…" : "Download PDF"}
+              {downloading ? "Generating…" : "Download Report"}
             </button>
           </div>
         </div>
