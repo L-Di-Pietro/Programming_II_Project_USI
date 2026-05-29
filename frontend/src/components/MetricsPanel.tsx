@@ -20,19 +20,43 @@ const alwaysRed   = () => "text-accent-red";
 const threshColor = (lo: number, hi: number) =>
   (v: number) => v >= hi ? "text-accent-green" : v >= lo ? "text-accent-amber" : "text-accent-red";
 
+// ── Canonical metric set ─────────────────────────────────────────────────────
+// THE single source of truth for the metrics shown wherever they appear: the
+// Results page (this component) and the AI Strategy Analyst panel (which renders
+// this same component). One list ⇒ identical metrics, order, and formatting in
+// both places — they can never drift.
+//
+// This is the pruned union of the legacy Results-page 10 and AI-panel 14,
+// arranged most-intuitive → most-technical across the 5×2 grid:
+//   Row 1 (headline, read first): Total Return · CAGR · Sharpe · Max Drawdown · Win Rate
+//   Row 2 (deeper):               Volatility · Sortino · Profit Factor · Total Trades · Avg Win/Loss
+//
+// Dropped from the union, with reasons:
+//   • Calmar Ratio           — it's CAGR ÷ |Max DD|; both inputs are already shown,
+//                              and it's less widely understood than Sharpe/Sortino.
+//   • Max DD Duration (days) — niche/technical; Max Drawdown % already conveys the risk.
+//   • Avg Win, Avg Loss      — raw per-trade $ amounts (scale-dependent, not comparable
+//                              across runs); the Avg Win/Loss *ratio* below captures the
+//                              same idea in normalized, dimensionless form.
+//
+// Formatting is uniform across every value: signed % where the sign carries
+// meaning (Total Return, CAGR), plain % for inherently-positive rates (Win Rate,
+// Volatility) and for Max Drawdown (already negative in the data), 2-dp for the
+// ratios (Sharpe/Sortino/Profit Factor), "×" for the payoff ratio, integer for
+// the trade count. `group` mirrors backend/analytics/metrics.py::_category.
 const METRICS: MetricDef[] = [
-  // Row 1
-  { key: "cagr_pct",         label: "CAGR",          group: "return", sub: "Ann. return",     format: pct,  color: signedColor },
-  { key: "max_drawdown_pct", label: "Max Drawdown",   group: "risk",   sub: "Peak to trough", format: pct,  color: alwaysRed },
-  { key: "sharpe_ratio",     label: "Sharpe Ratio",   group: "risk",   sub: "Risk-adj. return", format: n2, color: threshColor(0.5, 1) },
-  { key: "sortino_ratio",    label: "Sortino Ratio",  group: "risk",   sub: "Downside-adj.",  format: n2,   color: threshColor(0.8, 1.2) },
-  { key: "calmar_ratio",     label: "Calmar Ratio",   group: "risk",   sub: "CAGR / MaxDD",   format: n2,   color: threshColor(0.5, 1) },
-  // Row 2
-  { key: "total_return_pct", label: "Total Return",   group: "return", sub: "Full period",    format: pct,  color: signedColor },
-  { key: "win_rate_pct",     label: "Win Rate",       group: "trade",  sub: "Trades won",     format: pct,  color: threshColor(40, 55), benchmarkBlank: true },
-  { key: "profit_factor",    label: "Profit Factor",  group: "trade",  sub: "Gross P / Gross L", format: n2, color: threshColor(1, 1.5), benchmarkBlank: true },
-  { key: "win_loss_ratio",   label: "Avg Win/Loss",   group: "trade",  sub: "Payoff ratio",   format: (v) => `${n2(v)}x`, color: alwaysGreen, benchmarkBlank: true },
-  { key: "total_trades",     label: "Total Trades",   group: "trade",  sub: "Executions",     format: (v) => Math.round(v).toString(), color: neutral },
+  // Row 1 — headline metrics
+  { key: "total_return_pct",          label: "Total Return",  group: "return", sub: "Full period",       format: pctSigned, color: signedColor },
+  { key: "cagr_pct",                  label: "CAGR",          group: "return", sub: "Annualized",        format: pctSigned, color: signedColor },
+  { key: "sharpe_ratio",              label: "Sharpe Ratio",  group: "risk",   sub: "Risk-adj. return",  format: n2,        color: threshColor(0.5, 1) },
+  { key: "max_drawdown_pct",          label: "Max Drawdown",  group: "risk",   sub: "Peak to trough",    format: pct,       color: alwaysRed },
+  { key: "win_rate_pct",              label: "Win Rate",      group: "trade",  sub: "Trades won",        format: pct,       color: threshColor(40, 55), benchmarkBlank: true },
+  // Row 2 — deeper metrics
+  { key: "annualized_volatility_pct", label: "Volatility",    group: "return", sub: "Annualized",        format: pct,       color: neutral },
+  { key: "sortino_ratio",             label: "Sortino Ratio", group: "risk",   sub: "Downside-adj.",     format: n2,        color: threshColor(0.8, 1.2) },
+  { key: "profit_factor",             label: "Profit Factor", group: "trade",  sub: "Gross P / Gross L", format: n2,        color: threshColor(1, 1.5), benchmarkBlank: true },
+  { key: "total_trades",              label: "Total Trades",  group: "trade",  sub: "Executions",        format: (v) => Math.round(v).toString(), color: neutral },
+  { key: "win_loss_ratio",            label: "Avg Win/Loss",  group: "trade",  sub: "Payoff ratio",      format: (v) => `${n2(v)}x`, color: alwaysGreen, benchmarkBlank: true },
 ];
 
 /** One stacked value line inside a metric card. */
@@ -63,13 +87,18 @@ function cellFor(m: MetricDef, src: Metrics): { value: string; valueClass: strin
 export function MetricsPanel({
   metrics,
   benchmarks = [],
+  tourHook = true,
 }: {
   metrics: Metrics | null;
   benchmarks?: BenchmarkMetricSeries[];
+  /** Render the `data-tour="metrics"` anchor (Results page). The AI panel
+   *  reuses this component but passes false so the onboarding tour's metrics
+   *  step never resolves to the in-modal copy. */
+  tourHook?: boolean;
 }) {
   if (!metrics) {
     return (
-      <div data-tour="metrics" className="border border-border rounded-lg overflow-hidden">
+      <div data-tour={tourHook ? "metrics" : undefined} className="border border-border rounded-lg overflow-hidden">
         <div className="grid bg-surface" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
           {METRICS.map((m) => (
             <MetricCard
@@ -89,7 +118,7 @@ export function MetricsPanel({
   const stacked = benchmarks.length > 0;
 
   return (
-    <div data-tour="metrics" className="border border-border rounded-lg overflow-hidden">
+    <div data-tour={tourHook ? "metrics" : undefined} className="border border-border rounded-lg overflow-hidden">
       {/* 2 rows of 5 columns, flush grid with dividers */}
       <div className="grid" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
         {METRICS.map((m, i) => {
@@ -163,6 +192,9 @@ function MetricCard({
 }
 
 function pct(v: number) {
+  return `${v.toFixed(2)}%`;
+}
+function pctSigned(v: number) {
   return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
 }
 function n2(v: number) {

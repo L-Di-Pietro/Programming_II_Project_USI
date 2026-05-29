@@ -46,7 +46,8 @@ describe("MetricsPanel", () => {
   it("shows an em-dash for trade-only metrics on benchmark rows", () => {
     render(<MetricsPanel metrics={strategy} benchmarks={[bhSeries]} />);
     // Strategy keeps its real win rate; the benchmark's trade-only cells blank.
-    expect(screen.getByText("+60.00%")).toBeTruthy();
+    // Win Rate is unsigned (a rate is never negative) — only CAGR/Total Return carry a sign.
+    expect(screen.getByText("60.00%")).toBeTruthy();
     expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(3);
   });
 });

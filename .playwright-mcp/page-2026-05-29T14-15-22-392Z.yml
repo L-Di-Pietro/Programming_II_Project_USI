@@ -1,0 +1,27 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e7]: QUANTEDGE
+    - navigation [ref=e8]:
+      - link "Dashboard" [ref=e9] [cursor=pointer]:
+        - /url: /
+        - img [ref=e10]
+        - text: Dashboard
+      - link "Strategies" [ref=e15] [cursor=pointer]:
+        - /url: /strategies
+        - img [ref=e16]
+        - text: Strategies
+      - link "Configure" [ref=e17] [cursor=pointer]:
+        - /url: /backtests/new
+        - img [ref=e18]
+        - text: Configure
+    - generic [ref=e20]:
+      - button "Replay tutorial" [ref=e21] [cursor=pointer]
+      - generic [ref=e22]: USI PROG II — 2.8
+  - generic [ref=e23]:
+    - banner [ref=e24]:
+      - generic [ref=e25]: Results
+      - generic [ref=e26]: Live
+    - main [ref=e28]:
+      - generic [ref=e29]:
+        - generic [ref=e30]: Loading Results
+        - generic [ref=e31]: Loading backtest data..._

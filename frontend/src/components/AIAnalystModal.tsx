@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 
 import { Api, type Metrics, type Report } from "@/api/client";
 import { ConfigPopover } from "@/components/ConfigPopover";
+import { MetricsPanel } from "@/components/MetricsPanel";
 import { fmtBacktestDate } from "@/utils/datetime";
 
 interface RunInfo {
@@ -164,16 +165,17 @@ export function AIAnalystModal({
           )}
         </div>
 
-        {/* Body: metrics grid on the LEFT, AI report text (the PDF report) on the RIGHT */}
-        <div className="flex flex-1 min-h-0 overflow-hidden">
+        {/* Body: metrics strip on top, AI report text below. The metrics use the
+            shared MetricsPanel — the exact same 5×2 grid the Results page renders
+            (same canonical set, order, and formatting) so the two can't drift. */}
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
 
-          {/* Left — metrics grid (iterates the full backend payload: return +
-              risk + trade, so new metrics auto-appear) */}
-          <div className="shrink-0 w-[300px] overflow-hidden border-r border-border">
-            <MetricsGrid metrics={metrics} />
+          {/* Metrics — identical to the Results page by construction. */}
+          <div className="shrink-0 p-4 border-b border-border">
+            <MetricsPanel metrics={metrics} tourHook={false} />
           </div>
 
-          {/* Right — AI report text */}
+          {/* AI report text */}
           <div className="flex-1 overflow-y-auto px-5 py-5 min-h-[120px]">
             {status === "loading" && (
               <div className="flex flex-col items-center gap-4 py-10">
@@ -233,108 +235,6 @@ export function AIAnalystModal({
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function MetricCell({ label, value, tone }: { label: string; value: string; tone: string }) {
-  return (
-    <div className="px-4 py-2.5 flex flex-col justify-between gap-1 min-w-0">
-      <span className="font-mono text-[11px] uppercase tracking-wider text-ink-muted truncate">
-        {label}
-      </span>
-      <span className={`font-mono text-[16px] font-bold truncate ${tone}`}>{value}</span>
-    </div>
-  );
-}
-
-// ── Formatters and tone helpers ──────────────────────────────────────────────
-
-function pctFmt(v: number, signed = false): string {
-  return `${signed && v > 0 ? "+" : ""}${v.toFixed(2)}%`;
-}
-
-function n2(v: number): string {
-  return v.toFixed(2);
-}
-
-const neutralTone = () => "text-ink-primary";
-const greenTone   = () => "text-accent-green";
-const redTone     = () => "text-accent-red";
-const signedTone  = (v: number) => v >= 0 ? "text-accent-green" : "text-accent-red";
-const threshTone  = (lo: number, hi: number) => (v: number) =>
-  v >= hi ? "text-accent-green" : v >= lo ? "text-accent-amber" : "text-accent-red";
-
-// ── Metrics grid (iterates the full backend payload) ─────────────────────────
-
-type MetricMeta = {
-  label: string;
-  format: (v: number) => string;
-  tone:   (v: number) => string;
-};
-
-// Per-key formatting + colour. Unknown keys fall back to humanized label +
-// 2-decimal number + neutral colour, so new backend metrics auto-appear.
-const METRIC_META: Record<string, MetricMeta> = {
-  cagr_pct:                   { label: "CAGR",          format: (v) => pctFmt(v, true),           tone: signedTone },
-  total_return_pct:           { label: "Total Return",  format: (v) => pctFmt(v, true),           tone: signedTone },
-  annualized_volatility_pct:  { label: "Volatility",    format: (v) => pctFmt(v),                 tone: neutralTone },
-  sharpe_ratio:               { label: "Sharpe",        format: n2,                               tone: threshTone(0.5, 1) },
-  sortino_ratio:              { label: "Sortino",       format: n2,                               tone: threshTone(0.8, 1.2) },
-  calmar_ratio:               { label: "Calmar",        format: n2,                               tone: threshTone(0.5, 1) },
-  max_drawdown_pct:           { label: "Max DD",        format: (v) => pctFmt(v),                 tone: redTone },
-  max_drawdown_duration_days: { label: "DD Duration",   format: (v) => `${Math.round(v)}d`,       tone: neutralTone },
-  total_trades:               { label: "Trades",        format: (v) => Math.round(v).toString(),  tone: neutralTone },
-  win_rate_pct:               { label: "Win Rate",      format: (v) => pctFmt(v),                 tone: threshTone(40, 55) },
-  avg_win:                    { label: "Avg Win",       format: n2,                               tone: greenTone },
-  avg_loss:                   { label: "Avg Loss",      format: n2,                               tone: redTone },
-  win_loss_ratio:             { label: "Payoff",        format: (v) => `${n2(v)}x`,               tone: greenTone },
-  profit_factor:              { label: "Profit Factor", format: n2,                               tone: threshTone(1, 1.5) },
-};
-
-function getMeta(key: string): MetricMeta {
-  return METRIC_META[key] ?? {
-    label:  key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-    format: n2,
-    tone:   neutralTone,
-  };
-}
-
-function MetricsGrid({ metrics }: { metrics: Metrics | null }) {
-  const entries: [string, number][] = metrics
-    ? [
-        ...Object.entries(metrics.return),
-        ...Object.entries(metrics.risk),
-        ...Object.entries(metrics.trade),
-      ]
-    : [];
-  if (entries.length === 0) {
-    // No metrics yet — render a placeholder row so the strip keeps its
-    // visual weight while data loads.
-    return (
-      <div className="grid grid-cols-2 h-full auto-rows-fr divide-x divide-y divide-border">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <MetricCell key={i} label="—" value="—" tone="text-ink-muted" />
-        ))}
-      </div>
-    );
-  }
-  return (
-    <div className="grid grid-cols-2 h-full auto-rows-fr divide-x divide-y divide-border">
-      {entries.map(([key, value]) => {
-        const meta = getMeta(key);
-        // "—" only when the metric is mathematically undefined (Pydantic emits
-        // null for inf/NaN); finite 0 still renders as 0 / 0%.
-        const isUndef = value == null || !Number.isFinite(value);
-        return (
-          <MetricCell
-            key={key}
-            label={meta.label}
-            value={isUndef ? "—" : meta.format(value)}
-            tone={isUndef ? "text-ink-muted" : meta.tone(value)}
-          />
-        );
-      })}
     </div>
   );
 }

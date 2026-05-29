@@ -1,0 +1,313 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e7]: QUANTEDGE
+      - navigation [ref=e8]:
+        - link "Dashboard" [ref=e9] [cursor=pointer]:
+          - /url: /
+          - img [ref=e10]
+          - text: Dashboard
+        - link "Strategies" [ref=e15] [cursor=pointer]:
+          - /url: /strategies
+          - img [ref=e16]
+          - text: Strategies
+        - link "Configure" [ref=e17] [cursor=pointer]:
+          - /url: /backtests/new
+          - img [ref=e18]
+          - text: Configure
+        - link "Results" [ref=e33] [cursor=pointer]:
+          - /url: /backtests/18
+          - img [ref=e35]
+          - text: Results
+      - generic [ref=e20]:
+        - button "Replay tutorial" [ref=e21] [cursor=pointer]
+        - generic [ref=e22]: USI PROG II — 2.8
+    - generic [ref=e23]:
+      - banner [ref=e24]:
+        - generic [ref=e25]: Results
+        - generic [ref=e26]: Live
+      - main [ref=e28]:
+        - generic [ref=e40]:
+          - generic [ref=e41]:
+            - generic [ref=e42]:
+              - generic [ref=e43]:
+                - link "Backtest" [ref=e44] [cursor=pointer]:
+                  - /url: /
+                - generic [ref=e45]: /
+                - link "SMA Crossover" [ref=e46] [cursor=pointer]:
+                  - /url: /strategies
+                - generic [ref=e47]: ·
+                - generic [ref=e48]: AAPL
+                - generic [ref=e49]: ·
+                - generic [ref=e50]: Dec 12, 1980 – May 29, 2026
+                - button "Show backtest parameters" [ref=e51] [cursor=pointer]:
+                  - img [ref=e52]
+              - heading "Backtest Results" [level=2] [ref=e55]
+            - generic [ref=e56]:
+              - button "AI Analysis" [active] [ref=e57] [cursor=pointer]
+              - link "Run New Backtest" [ref=e58] [cursor=pointer]:
+                - /url: /backtests/new
+          - generic [ref=e59]:
+            - button "Buy & Hold Same asset, no trading" [ref=e60] [cursor=pointer]:
+              - generic [ref=e63]:
+                - generic [ref=e64]: Buy & Hold
+                - generic [ref=e65]: Same asset, no trading
+            - button "S&P 500 Equity benchmark" [ref=e66] [cursor=pointer]:
+              - generic [ref=e69]:
+                - generic [ref=e70]: S&P 500
+                - generic [ref=e71]: Equity benchmark
+          - generic [ref=e73]:
+            - generic [ref=e74]:
+              - generic [ref=e75]: Total Return
+              - generic [ref=e76]: +71910.39%
+              - generic [ref=e77]: Full period
+            - generic [ref=e78]:
+              - generic [ref=e79]: CAGR
+              - generic [ref=e80]: +15.57%
+              - generic [ref=e81]: Annualized
+            - generic [ref=e82]:
+              - generic [ref=e83]: Sharpe Ratio
+              - generic [ref=e84]: "0.62"
+              - generic [ref=e85]: Risk-adj. return
+            - generic [ref=e86]:
+              - generic [ref=e87]: Max Drawdown
+              - generic [ref=e88]: "-78.93%"
+              - generic [ref=e89]: Peak to trough
+            - generic [ref=e90]:
+              - generic [ref=e91]: Win Rate
+              - generic [ref=e92]: 28.15%
+              - generic [ref=e93]: Trades won
+            - generic [ref=e94]:
+              - generic [ref=e95]: Volatility
+              - generic [ref=e96]: 31.52%
+              - generic [ref=e97]: Annualized
+            - generic [ref=e98]:
+              - generic [ref=e99]: Sortino Ratio
+              - generic [ref=e100]: "0.97"
+              - generic [ref=e101]: Downside-adj.
+            - generic [ref=e102]:
+              - generic [ref=e103]: Profit Factor
+              - generic [ref=e104]: "2.22"
+              - generic [ref=e105]: Gross P / Gross L
+            - generic [ref=e106]:
+              - generic [ref=e107]: Total Trades
+              - generic [ref=e108]: "540"
+              - generic [ref=e109]: Executions
+            - generic [ref=e110]:
+              - generic [ref=e111]: Avg Win/Loss
+              - generic [ref=e112]: 5.67x
+              - generic [ref=e113]: Payoff ratio
+          - generic [ref=e114]:
+            - generic [ref=e115]:
+              - generic [ref=e116]:
+                - button "Equity Curve" [ref=e117] [cursor=pointer]
+                - button "Drawdown" [ref=e118] [cursor=pointer]
+                - button "Monthly Returns" [ref=e119] [cursor=pointer]
+                - button "Trade P&L" [ref=e120] [cursor=pointer]
+                - button "Rolling Sharpe" [ref=e121] [cursor=pointer]
+              - generic [ref=e123]:
+                - generic [ref=e124]: STR
+                - generic [ref=e125]: Strategy
+            - generic [ref=e129]:
+              - img:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic: "1990"
+                      - generic:
+                        - generic: "2000"
+                      - generic:
+                        - generic: "2010"
+                      - generic:
+                        - generic: "2020"
+                    - generic:
+                      - generic:
+                        - generic: "0"
+                      - generic:
+                        - generic: 20M
+                      - generic:
+                        - generic: 40M
+                      - generic:
+                        - generic: 60M
+              - img
+              - img
+          - generic [ref=e143]:
+            - generic [ref=e144]:
+              - generic [ref=e145]: Trade Log
+              - generic [ref=e146]: 540 trades · page 1/45
+            - generic [ref=e147]:
+              - button "# ↑" [ref=e148] [cursor=pointer]
+              - button "Date" [ref=e149] [cursor=pointer]
+              - button "Side" [ref=e150] [cursor=pointer]
+              - button "Qty" [ref=e151] [cursor=pointer]
+              - button "Price" [ref=e152] [cursor=pointer]
+              - button "Comm." [ref=e153] [cursor=pointer]
+              - button "Net PnL" [ref=e154] [cursor=pointer]
+            - generic [ref=e155]:
+              - generic [ref=e156]: "5807"
+              - generic [ref=e157]: 1981-04-14
+              - generic [ref=e158]: BUY
+              - generic [ref=e159]: "1050218.0000"
+              - generic [ref=e160]: $0.10
+              - generic [ref=e161]: $50.02
+              - generic [ref=e162]: $-50.02
+            - generic [ref=e163]:
+              - generic [ref=e164]: "5808"
+              - generic [ref=e165]: 1981-04-15
+              - generic [ref=e166]: SELL
+              - generic [ref=e167]: "1051.0000"
+              - generic [ref=e168]: $0.09
+              - generic [ref=e169]: $0.05
+              - generic [ref=e170]: $-4.63
+            - generic [ref=e171]:
+              - generic [ref=e172]: "5809"
+              - generic [ref=e173]: 1981-04-16
+              - generic [ref=e174]: SELL
+              - generic [ref=e175]: "50.0000"
+              - generic [ref=e176]: $0.09
+              - generic [ref=e177]: $0.00
+              - generic [ref=e178]: $-0.48
+            - generic [ref=e179]:
+              - generic [ref=e180]: "5810"
+              - generic [ref=e181]: 1981-04-20
+              - generic [ref=e182]: SELL
+              - generic [ref=e183]: "3.0000"
+              - generic [ref=e184]: $0.09
+              - generic [ref=e185]: $0.00
+              - generic [ref=e186]: $-0.02
+            - generic [ref=e187]:
+              - generic [ref=e188]: "5811"
+              - generic [ref=e189]: 1981-07-08
+              - generic [ref=e190]: SELL
+              - generic [ref=e191]: "1049114.0000"
+              - generic [ref=e192]: $0.09
+              - generic [ref=e193]: $46.79
+              - generic [ref=e194]: $-6415.34
+            - generic [ref=e195]:
+              - generic [ref=e196]: "5812"
+              - generic [ref=e197]: 1981-10-30
+              - generic [ref=e198]: BUY
+              - generic [ref=e199]: "1386355.0000"
+              - generic [ref=e200]: $0.07
+              - generic [ref=e201]: $47.38
+              - generic [ref=e202]: $-47.38
+            - generic [ref=e203]:
+              - generic [ref=e204]: "5813"
+              - generic [ref=e205]: 1981-11-02
+              - generic [ref=e206]: SELL
+              - generic [ref=e207]: "18716.0000"
+              - generic [ref=e208]: $0.07
+              - generic [ref=e209]: $0.64
+              - generic [ref=e210]: $-1.92
+            - generic [ref=e211]:
+              - generic [ref=e212]: "5814"
+              - generic [ref=e213]: 1981-11-03
+              - generic [ref=e214]: SELL
+              - generic [ref=e215]: "19.0000"
+              - generic [ref=e216]: $0.07
+              - generic [ref=e217]: $0.00
+              - generic [ref=e218]: $-0.01
+            - generic [ref=e219]:
+              - generic [ref=e220]: "5815"
+              - generic [ref=e221]: 1981-12-14
+              - generic [ref=e222]: SELL
+              - generic [ref=e223]: "1367620.0000"
+              - generic [ref=e224]: $0.06
+              - generic [ref=e225]: $42.90
+              - generic [ref=e226]: $-7724.65
+            - generic [ref=e227]:
+              - generic [ref=e228]: "5816"
+              - generic [ref=e229]: 1981-12-21
+              - generic [ref=e230]: BUY
+              - generic [ref=e231]: "1097472.0000"
+              - generic [ref=e232]: $0.08
+              - generic [ref=e233]: $41.26
+              - generic [ref=e234]: $-41.26
+            - generic [ref=e235]:
+              - generic [ref=e236]: "5817"
+              - generic [ref=e237]: 1981-12-22
+              - generic [ref=e238]: BUY
+              - generic [ref=e239]: "42804.0000"
+              - generic [ref=e240]: $0.08
+              - generic [ref=e241]: $1.63
+              - generic [ref=e242]: $-1.63
+            - generic [ref=e243]:
+              - generic [ref=e244]: "5818"
+              - generic [ref=e245]: 1981-12-23
+              - generic [ref=e246]: SELL
+              - generic [ref=e247]: "764.0000"
+              - generic [ref=e248]: $0.07
+              - generic [ref=e249]: $0.03
+              - generic [ref=e250]: $-0.44
+            - generic [ref=e251]:
+              - button "< Prev" [disabled] [ref=e252]
+              - generic [ref=e253]: 1 / 45
+              - button "Next >" [ref=e254] [cursor=pointer]
+          - generic [ref=e258]:
+            - generic [ref=e259]:
+              - generic [ref=e262]: AI Strategy Analyst
+              - button "Close" [ref=e263] [cursor=pointer]: ✕
+            - generic [ref=e264]:
+              - generic [ref=e265]: Analyzing
+              - generic [ref=e266]: SMA Crossover
+              - generic [ref=e267]: "on"
+              - generic [ref=e268]: AAPL
+              - generic [ref=e269]: ·
+              - generic [ref=e270]: Dec 12, 1980 – May 29, 2026
+              - button "Show backtest parameters" [ref=e271] [cursor=pointer]:
+                - img [ref=e272]
+            - generic [ref=e275]:
+              - generic [ref=e278]:
+                - generic [ref=e279]:
+                  - generic [ref=e280]: Total Return
+                  - generic [ref=e281]: +71910.39%
+                  - generic [ref=e282]: Full period
+                - generic [ref=e283]:
+                  - generic [ref=e284]: CAGR
+                  - generic [ref=e285]: +15.57%
+                  - generic [ref=e286]: Annualized
+                - generic [ref=e287]:
+                  - generic [ref=e288]: Sharpe Ratio
+                  - generic [ref=e289]: "0.62"
+                  - generic [ref=e290]: Risk-adj. return
+                - generic [ref=e291]:
+                  - generic [ref=e292]: Max Drawdown
+                  - generic [ref=e293]: "-78.93%"
+                  - generic [ref=e294]: Peak to trough
+                - generic [ref=e295]:
+                  - generic [ref=e296]: Win Rate
+                  - generic [ref=e297]: 28.15%
+                  - generic [ref=e298]: Trades won
+                - generic [ref=e299]:
+                  - generic [ref=e300]: Volatility
+                  - generic [ref=e301]: 31.52%
+                  - generic [ref=e302]: Annualized
+                - generic [ref=e303]:
+                  - generic [ref=e304]: Sortino Ratio
+                  - generic [ref=e305]: "0.97"
+                  - generic [ref=e306]: Downside-adj.
+                - generic [ref=e307]:
+                  - generic [ref=e308]: Profit Factor
+                  - generic [ref=e309]: "2.22"
+                  - generic [ref=e310]: Gross P / Gross L
+                - generic [ref=e311]:
+                  - generic [ref=e312]: Total Trades
+                  - generic [ref=e313]: "540"
+                  - generic [ref=e314]: Executions
+                - generic [ref=e315]:
+                  - generic [ref=e316]: Avg Win/Loss
+                  - generic [ref=e317]: 5.67x
+                  - generic [ref=e318]: Payoff ratio
+              - generic [ref=e319]:
+                - generic [ref=e320]: Demo mode (NullProvider) — set a real LLM provider for live analysis.
+                - generic [ref=e321]:
+                  - paragraph [ref=e322]: "[DEMO MODE — LLM is disabled]"
+                  - paragraph [ref=e323]: "This is a placeholder response from NullProvider. To get real natural-language explanations of your backtest, set the following in .env (then restart the backend — env isn't hot-reloaded): LLM_ENABLED=true LLM_PROVIDER=gemini GEMINI_API_KEY=<your key>"
+                  - paragraph [ref=e324]: "Echo of your prompt (first 200 chars): Write a thorough, in-depth post-backtest report for a retail quantitative trader. Output Markdown only. The report MUST be comprehensive — short, vague, or one-sentence summaries are unacceptable. Aim Stable signature: 9eb76573"
+            - generic [ref=e325]:
+              - generic [ref=e326]: AI analysis is not financial advice. Past performance does not guarantee future results.
+              - generic [ref=e327]:
+                - button "Regenerate" [ref=e328] [cursor=pointer]
+                - button "Download PDF" [ref=e329] [cursor=pointer]
+  - img [ref=e255]
