@@ -97,9 +97,13 @@ function makeFloaters(n: number): Floater[] {
 export function MarketLoadingScreen({
   fadeOut = false,
   messages = DEFAULT_MESSAGES,
+  offsetLeft = 0,
 }: {
   fadeOut?: boolean;
   messages?: string[];
+  /** Left inset in px — e.g. a sidebar width — so the screen covers only the
+   *  content area to its right. Defaults to 0 (full viewport). */
+  offsetLeft?: number;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -246,9 +250,10 @@ export function MarketLoadingScreen({
   return (
     <div
       ref={rootRef}
-      className={`mls-root fixed inset-0 z-50 overflow-hidden bg-base transition-opacity duration-500 ${
+      className={`mls-root fixed top-0 right-0 bottom-0 z-50 overflow-hidden bg-base transition-opacity duration-500 ${
         fadeOut ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
+      style={{ left: offsetLeft }}
       role="status"
       aria-live="polite"
       aria-label="Loading"

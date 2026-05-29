@@ -456,7 +456,9 @@ export function NewBacktest() {
         </div>
       </div>
     </div>
-    {!loaderDone && <MarketLoadingScreen fadeOut={loaderFading} />}
+    {/* offsetLeft matches the App sidebar width (App.tsx aside w-[180px]) so the
+        loader covers only the content area and the nav stays visible. */}
+    {!loaderDone && <MarketLoadingScreen fadeOut={loaderFading} offsetLeft={180} />}
     </>
   );
 }
