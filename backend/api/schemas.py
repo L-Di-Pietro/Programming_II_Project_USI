@@ -9,11 +9,28 @@ Don't add backend logic here — schemas are pure data carriers.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer
+
+
+def _serialize_utc(dt: datetime) -> str:
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt = dt.astimezone(timezone.utc)
+    iso = dt.isoformat()
+    return iso[:-6] + "Z" if iso.endswith("+00:00") else iso
+
+
+# DB columns are stored as naive UTC (see CLAUDE.md). This annotation makes
+# JSON serialization explicit so browsers parse the timestamp as UTC and
+# convert to local time, instead of guessing the wall-clock zone.
+UtcDatetime = Annotated[
+    datetime, PlainSerializer(_serialize_utc, return_type=str, when_used="json")
+]
 
 
 class Timeframe(str, Enum):
@@ -43,6 +60,19 @@ class HealthResponse(BaseModel):
 # -----------------------------------------------------------------------------
 # Assets
 # -----------------------------------------------------------------------------
+class DateBounds(BaseModel):
+    """Data coverage for one timeframe.
+
+    `first`/`last` are the overall bounds; `ranges` is the run-length-encoded
+    set of present days as inclusive [start, end] ISO pairs (consecutive
+    calendar days fold into one range) — lets the calendar mark in-range days
+    that have no bar (weekends, holidays, gaps).
+    """
+    first: str
+    last: str
+    ranges: list[tuple[str, str]] = Field(default_factory=list)
+
+
 class AssetOut(ORMBase):
     id: int
     symbol: str
@@ -51,12 +81,14 @@ class AssetOut(ORMBase):
     exchange: str
     currency: str
     is_active: bool
+    # Per-timeframe data coverage ("1d"/"1h"); absent key = no bars for that tf.
+    coverage: dict[str, DateBounds] = Field(default_factory=dict)
 
 
 class RefreshResponse(BaseModel):
     symbol: str
     rows_written: int
-    last_ts: datetime | None
+    last_ts: UtcDatetime | None
 
 
 # -----------------------------------------------------------------------------
@@ -99,17 +131,24 @@ class BacktestSummary(ORMBase):
     asset_id: int
     asset_symbol: str
     timeframe: str
-    start_date: datetime
-    end_date: datetime
+    start_date: UtcDatetime
+    end_date: UtcDatetime
     status: str
     error_message: str | None = None
-    created_at: datetime
-    completed_at: datetime | None = None
+    created_at: UtcDatetime
+    completed_at: UtcDatetime | None = None
+    has_report: bool = False
+    report_generated_at: UtcDatetime | None = None
+
+
+class BacktestDetail(BacktestSummary):
+    """Single-run payload — summary plus the strategy params the user chose."""
+    params: dict[str, Any] = Field(default_factory=dict)
 
 
 class TradeOut(ORMBase):
     id: int
-    ts: datetime
+    ts: UtcDatetime
     side: str
     qty: float
     price: float
@@ -120,7 +159,7 @@ class TradeOut(ORMBase):
 
 
 class EquityPointOut(ORMBase):
-    ts: datetime
+    ts: UtcDatetime
     equity: float
     cash: float
     position_value: float
@@ -171,7 +210,7 @@ class ReportResponse(BaseModel):
     text: str
     model: str
     demo_mode: bool
-    generated_at: datetime
+    generated_at: UtcDatetime
     cached: bool
     prompt_tokens: int = 0
     completion_tokens: int = 0

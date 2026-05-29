@@ -228,14 +228,26 @@ def prompt_for_api_key(reset: bool = False) -> None:
     print(f"{C_DIM}The AI-generated report uses Google Gemini.{C_RESET}")
     if has_key:
         print(
-            f"{C_DIM}A Gemini API key is already saved in .env — press Enter to keep it.{C_RESET}")
-        question = "Do you want to replace the saved key with a new one? [y/N]: "
+            f"{C_DIM}A Gemini API key is already saved in .env — type 'n' to keep it.{C_RESET}")
+        question = "Do you want to replace the saved key with a new one? [y/n]: "
     else:
-        question = "Do you want to set a Google Gemini API key now? [y/N]: "
-    try:
-        answer = input(question).strip().lower()
-    except (EOFError, KeyboardInterrupt):
-        answer = ""
+        question = "Do you want to set a Google Gemini API key now? [y/n]: "
+    # No default: re-prompt on empty Enter or any unrecognized input until the
+    # user explicitly types y/yes or n/no (case-insensitive). EOF / Ctrl-C fall
+    # back to "n" so a piped or interrupted stdin can't loop forever.
+    answer = "n"
+    while True:
+        try:
+            raw = input(question).strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            break
+        if raw in ("y", "yes"):
+            answer = "y"
+            break
+        if raw in ("n", "no"):
+            answer = "n"
+            break
+        print(f"{C_DIM}Please type 'y' or 'n'.{C_RESET}")
     if answer not in ("y", "yes"):
         if not has_key:
             update_env(ENV_FILE, {"LLM_ENABLED": "false"})
@@ -243,7 +255,7 @@ def prompt_for_api_key(reset: bool = False) -> None:
                 "AI report disabled. Backtests, charts, and metrics still work.\n"
                 "         Run `python run.py --reset-key` to enable it later."
             )
-        # If key was already there and user pressed Enter, keep it as-is.
+        # If a key was already saved and the user answered 'n', keep it as-is.
         return
     try:
         import getpass

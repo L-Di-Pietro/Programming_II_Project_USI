@@ -18,6 +18,14 @@ const REPORT_GEN_TIMEOUT_MS = 180_000;
 // -----------------------------------------------------------------------------
 export type Timeframe = "1d" | "1h";
 
+/** Data coverage for one timeframe: overall bounds + RLE present-day ranges. */
+export interface DateBounds {
+  first: string;
+  last: string;
+  /** Inclusive [start, end] ISO runs of consecutive days that have a bar. */
+  ranges: [string, string][];
+}
+
 export interface Asset {
   id: number;
   symbol: string;
@@ -26,6 +34,8 @@ export interface Asset {
   exchange: string;
   currency: string;
   is_active: boolean;
+  /** Per-timeframe data coverage ("1d"/"1h"); absent key = no bars for that tf. */
+  coverage?: Record<string, DateBounds>;
 }
 
 export interface Strategy {
@@ -49,6 +59,13 @@ export interface BacktestSummary {
   error_message: string | null;
   created_at: string;
   completed_at: string | null;
+  has_report: boolean;
+  report_generated_at: string | null;
+}
+
+/** Single-run detail — summary plus the strategy params the user chose. */
+export interface BacktestDetail extends BacktestSummary {
+  params: Record<string, unknown>;
 }
 
 export interface BacktestRequest {
@@ -171,7 +188,7 @@ export const Api = {
     return data;
   },
   async getBacktest(runId: number) {
-    const { data } = await api.get<BacktestSummary>(`/backtests/${runId}`);
+    const { data } = await api.get<BacktestDetail>(`/backtests/${runId}`);
     return data;
   },
   async getMetrics(runId: number) {

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 import { Api, type Report } from "@/api/client";
+import { timeAgo } from "@/utils/datetime";
 
 export function ReportCard({ runId }: { runId: number }) {
   const [report, setReport] = useState<Report | null>(null);
@@ -171,12 +172,3 @@ function fmt(e: unknown): string {
   return String(e);
 }
 
-function timeAgo(iso: string): string {
-  const seconds = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
-  if (seconds < 60) return "just now";
-  const m = Math.floor(seconds / 60);
-  if (m < 60) return `${m} min ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h} h ago`;
-  return `${Math.floor(h / 24)} d ago`;
-}

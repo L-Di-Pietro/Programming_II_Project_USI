@@ -1,8 +1,19 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { Api, type Asset, type Strategy, type Timeframe } from "@/api/client";
+import { DateField } from "@/components/DateField";
+import { PipelineLoadingScreen } from "@/components/PipelineLoadingScreen";
 import { StrategyConfigForm } from "@/components/StrategyConfigForm";
+import { clamp, formatApiError, formatRange } from "@/utils/apiError";
+
+// Engine-parameter bounds. Mirrors backend/api/schemas.py:BacktestRequest;
+// keep these in sync if the Pydantic constraints change.
+const RISK_FRACTION_MIN = 0.01;
+const RISK_FRACTION_MAX = 1.0;
+const INITIAL_CASH_MIN = 1000;
+const BPS_MIN = 0;
+const BPS_MAX = 1000;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function groupByClass(assets: Asset[]): Record<string, Asset[]> {
@@ -29,11 +40,14 @@ const BARS_PER_YEAR: Record<string, Record<Timeframe, number>> = {
 const HOURLY_HISTORY_DAYS = 730;
 const YFINANCE_HOURLY_CLASSES = new Set(["equity", "etf", "fx"]);
 
-function daysAgoISO(days: number): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - days);
-  return d.toISOString().slice(0, 10);
-}
+// Cosmetic status lines cycled through while the Configure page fetches its
+// initial data (strategies, assets, parameter schemas) — purely UI feedback.
+const CONFIG_LOADING_STEPS = [
+  "Loading available strategies...",
+  "Loading asset catalogue...",
+  "Fetching parameter schemas...",
+  "Preparing configuration form...",
+];
 
 // Cosmetic pipeline steps cycled through on the loading screen while the
 // backtest API call is in flight — purely UI, not tied to real progress.
@@ -58,8 +72,7 @@ export function NewBacktest() {
   const [error, setError]           = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Loading-screen animation state.
-  const [stepIndex, setStepIndex]   = useState(0);
+  // Submit-loading progress (message cycling lives in PipelineLoadingScreen).
   const [progress, setProgress]     = useState(0);
 
   // Form state
@@ -82,21 +95,24 @@ export function NewBacktest() {
 
   const selectedStrategy = strategies.find((s) => s.slug === strategySlug) ?? null;
 
-  const hourlyMinDate    = useMemo(() => daysAgoISO(HOURLY_HISTORY_DAYS), []);
   const isHourlyCapped   = timeframe === "1h" && YFINANCE_HOURLY_CLASSES.has(assetClass);
-  const dateMin          = isHourlyCapped ? hourlyMinDate : undefined;
+
+  // Real dataset coverage for the selected (asset, timeframe) — bounds the pickers.
+  const bounds  = assets.find((a) => a.symbol === symbol)?.coverage?.[timeframe];
+  const dateMin = bounds?.first;
+  const dateMax = bounds?.last;
 
   const years        = yearsBetween(start, end);
   const barsPerYear  = BARS_PER_YEAR[assetClass]?.[timeframe] ?? 252;
   const barCount     = Math.round(years * barsPerYear);
 
-  // When user switches into a capped (timeframe, asset_class), clamp start
-  // up so submitting doesn't trip the backend's pre-flight rejection.
+  // Default the period to the asset's full available range; updates reactively
+  // whenever the selected asset (and thus its data bounds) changes.
   useEffect(() => {
-    if (isHourlyCapped && start < hourlyMinDate) {
-      setStart(hourlyMinDate);
-    }
-  }, [isHourlyCapped, hourlyMinDate]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!bounds) return;
+    setStart(bounds.first);
+    setEnd(bounds.last);
+  }, [bounds?.first, bounds?.last]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load assets + strategies on mount
   useEffect(() => {
@@ -118,34 +134,50 @@ export function NewBacktest() {
         setAssetClass(firstClass);
         setSymbol(groups[firstClass]?.[0]?.symbol ?? null);
       })
-      .catch((e) => setError(String(e)));
+      .catch((e) => setError(formatApiError(e)));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Initial-load gate ──────────────────────────────────────────────────────
+  // A loader replaces the form until its data is ready — so the user never sees
+  // the visible-but-frozen page during the fetch. Progress eases toward ~80%
+  // while loading, then snaps to 100% once the data lands.
+  const isReady = (assets.length > 0 && strategies.length > 0) || error !== null;
+  const mountRef = useRef(performance.now());
+  const [loadProgress, setLoadProgress] = useState(0);
+  const [loaderDone, setLoaderDone]     = useState(false);
+  useEffect(() => {
+    if (loaderDone) return;
+    if (isReady) {
+      setLoadProgress(100);
+      const MIN_MS = 900; // min on-screen time so a fast load doesn't just flash
+      const wait = Math.max(0, MIN_MS - (performance.now() - mountRef.current));
+      const t = setTimeout(() => setLoaderDone(true), wait);
+      return () => clearTimeout(t);
+    }
+    const progressTimer = setInterval(() => {
+      setLoadProgress((p) => (p >= 80 ? p : p + (80 - p) * 0.08));
+    }, 100);
+    return () => clearInterval(progressTimer);
+  }, [isReady, loaderDone]);
 
   // When asset class changes, reset symbol to first in that class
   useEffect(() => {
     setSymbol(classAssets[0]?.symbol ?? null);
   }, [assetClass]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // While submitting: cycle the status message and ease the progress bar
-  // toward ~80% (it jumps to 100% when the response lands, in submit()).
+  // While submitting: ease the progress bar toward ~80% (it jumps to 100% when
+  // the response lands, in submit()).
   useEffect(() => {
     if (!submitting) return;
-    const stepTimer = setInterval(() => {
-      setStepIndex((i) => (i + 1) % PIPELINE_STEPS.length);
-    }, 350);
     const progressTimer = setInterval(() => {
       setProgress((p) => (p >= 80 ? p : p + (80 - p) * 0.08));
     }, 100);
-    return () => {
-      clearInterval(stepTimer);
-      clearInterval(progressTimer);
-    };
+    return () => clearInterval(progressTimer);
   }, [submitting]);
 
   // Submit
   const submit = async () => {
     if (!symbol || !strategySlug) return;
-    setStepIndex(0);
     setProgress(0);
     setSubmitting(true);
     setError(null);
@@ -156,51 +188,46 @@ export function NewBacktest() {
         start_date:    new Date(start).toISOString(),
         end_date:      new Date(end).toISOString(),
         params,
-        initial_cash:    initialCash,
-        commission_bps:  commissionBps,
-        slippage_bps:    slippageBps,
-        risk_fraction:   riskFraction,
+        initial_cash:    clamp(initialCash, INITIAL_CASH_MIN),
+        commission_bps:  clamp(commissionBps, BPS_MIN, BPS_MAX),
+        slippage_bps:    clamp(slippageBps, BPS_MIN, BPS_MAX),
+        risk_fraction:   clamp(riskFraction, RISK_FRACTION_MIN, RISK_FRACTION_MAX),
         timeframe,
       });
       // Snap the bar to 100%, let it render briefly, then go to results.
       setProgress(100);
       setTimeout(() => navigate(`/backtests/${result.id}`), 250);
     } catch (e: unknown) {
-      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setError(detail ?? String(e));
+      setError(formatApiError(e));
       setSubmitting(false);
     }
   };
 
-  // ── Loading screen while submitting ───────────────────────────────────────
+  // ── Loading screen while submitting (redirects to Results) ────────────────
   if (submitting) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[78vh] bg-base px-6">
-        {/* 1. Header */}
-        <div className="font-mono text-[11px] uppercase tracking-[2px] text-ink-muted">
-          Running Backtest
-        </div>
+      <PipelineLoadingScreen
+        title="Running Backtest"
+        messages={PIPELINE_STEPS}
+        progress={progress}
+        contextLine={
+          <>
+            {selectedStrategy?.name ?? "—"} &middot; {symbol} &middot;{" "}
+            {start.slice(0, 4)}&ndash;{end.slice(0, 4)}
+          </>
+        }
+      />
+    );
+  }
 
-        {/* 2. Cycling status message with blinking cursor */}
-        <div className="font-mono text-accent-cyan text-base mt-4">
-          {PIPELINE_STEPS[stepIndex]}
-          <span className="animate-blink">_</span>
-        </div>
-
-        {/* 3. Progress bar — eases to ~80%, snaps to 100% on response */}
-        <div className="w-72 h-[3px] rounded-full overflow-hidden mt-5 bg-border">
-          <div
-            className="h-full bg-accent-cyan transition-[width] duration-200 ease-out"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-
-        {/* 4. Context line */}
-        <div className="font-mono text-xs text-ink-muted mt-4">
-          {selectedStrategy?.name ?? "—"} &middot; {symbol} &middot;{" "}
-          {start.slice(0, 4)}&ndash;{end.slice(0, 4)}
-        </div>
-      </div>
+  // ── Initial-load gate (Configure page redirect) ───────────────────────────
+  if (!loaderDone) {
+    return (
+      <PipelineLoadingScreen
+        title="Loading Configuration"
+        messages={CONFIG_LOADING_STEPS}
+        progress={loadProgress}
+      />
     );
   }
 
@@ -326,32 +353,20 @@ export function NewBacktest() {
           {/* Backtest period */}
           <Section title="Backtest Period">
             <div className="flex items-end gap-4 flex-wrap">
-              <div className="flex-1 min-w-[140px]">
-                <label className="label-base">Start Date</label>
-                <input
-                  type="date"
-                  className="input-base"
-                  value={start}
-                  min={dateMin}
-                  onChange={(e) => setStart(e.target.value)}
-                />
-              </div>
-              <div className="flex-1 min-w-[140px]">
-                <label className="label-base">End Date</label>
-                <input
-                  type="date"
-                  className="input-base"
-                  value={end}
-                  min={dateMin}
-                  onChange={(e) => setEnd(e.target.value)}
-                />
-              </div>
+              <DateField label="Start Date" value={start} min={dateMin} max={dateMax} ranges={bounds?.ranges} onCommit={setStart} />
+              <DateField label="End Date"   value={end}   min={dateMin} max={dateMax} ranges={bounds?.ranges} onCommit={setEnd} />
               {years > 0 && (
                 <div className="font-mono text-[12px] text-ink-muted pb-2 whitespace-nowrap">
                   {years.toFixed(1)} yrs &middot; ~{barCount.toLocaleString()} bars
                 </div>
               )}
             </div>
+            {bounds && (
+              <p className="text-[11px] text-ink-muted mt-2">
+                Available data: <span className="font-mono">{bounds.first}</span> &ndash;{" "}
+                <span className="font-mono">{bounds.last}</span> &middot; out-of-range dates snap to these bounds.
+              </p>
+            )}
           </Section>
 
           {/* Strategy parameters */}
@@ -375,7 +390,7 @@ export function NewBacktest() {
               value={initialCash}
               onChange={setInitialCash}
               step={10000}
-              min={1000}
+              min={INITIAL_CASH_MIN}
               hint="Starting portfolio value"
             />
             <NumField
@@ -383,7 +398,8 @@ export function NewBacktest() {
               value={commissionBps}
               onChange={setCommBps}
               step={0.5}
-              min={0}
+              min={BPS_MIN}
+              max={BPS_MAX}
               hint="Per trade, per leg"
             />
             <NumField
@@ -391,7 +407,8 @@ export function NewBacktest() {
               value={slippageBps}
               onChange={setSlipBps}
               step={0.5}
-              min={0}
+              min={BPS_MIN}
+              max={BPS_MAX}
               hint="Market impact cost"
             />
             <NumField
@@ -399,8 +416,8 @@ export function NewBacktest() {
               value={riskFraction}
               onChange={setRiskFraction}
               step={0.05}
-              min={0}
-              max={1}
+              min={RISK_FRACTION_MIN}
+              max={RISK_FRACTION_MAX}
               hint="Fraction of equity per position"
             />
           </div>
@@ -466,26 +483,38 @@ function NumField({
   max?: number;
   hint?: string;
 }) {
+  const range = formatRange(min, max);
+  const display = Number.isFinite(value)
+    ? (label.includes("$") || label.includes("Capital") ? `$${value.toLocaleString()}` : value)
+    : "—";
   return (
     <div>
       <div className="flex justify-between items-center mb-1.5">
         <label className="label-base mb-0">{label}</label>
-        <span className="font-mono text-[12px] text-accent-cyan">
-          {label.includes("$") || label.includes("Capital")
-            ? `$${Number(value).toLocaleString()}`
-            : value}
-        </span>
+        <span className="font-mono text-[12px] text-accent-cyan">{display}</span>
       </div>
       <input
         type="number"
         className="input-base"
-        value={value}
+        value={Number.isFinite(value) ? value : ""}
         step={step}
         min={min}
         max={max}
-        onChange={(e) => onChange(parseFloat(e.target.value))}
+        onChange={(e) => {
+          if (e.target.value === "") { onChange(NaN); return; }
+          const n = parseFloat(e.target.value);
+          if (Number.isFinite(n)) onChange(n);
+        }}
+        onBlur={() => {
+          const c = clamp(value, min, max);
+          if (c !== value) onChange(c);
+        }}
       />
-      {hint && <div className="text-[11px] text-ink-muted mt-1">{hint}</div>}
+      <div className="text-[11px] text-ink-muted mt-1">
+        {hint}
+        {hint && range && " · "}
+        {range && <span>Range: {range}</span>}
+      </div>
     </div>
   );
 }

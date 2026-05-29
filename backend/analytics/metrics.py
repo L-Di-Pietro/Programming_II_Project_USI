@@ -166,9 +166,14 @@ def _annualized_vol(
     periods_per_year: float = float(TRADING_DAYS_PER_YEAR),
 ) -> float:
     """Annualised standard deviation of per-bar returns."""
-    if returns.empty:
+    # ddof=1 on a 1-element series yields NaN — clamp to 0 so the JSON wire
+    # carries a real number instead of a non-finite that becomes null downstream.
+    if returns.size < 2:
         return 0.0
-    return float(returns.std(ddof=1) * math.sqrt(periods_per_year))
+    std = returns.std(ddof=1)
+    if math.isnan(std):
+        return 0.0
+    return float(std * math.sqrt(periods_per_year))
 
 
 def _sharpe(

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/api/client";
 import { BENCHMARKS, STRATEGY, type BenchmarkSeries } from "@/components/benchmarks";
 import { BenchmarkToggleBar, type BenchmarkState } from "@/components/BenchmarkToggleBar";
+import { ConfigPopover } from "@/components/ConfigPopover";
 import { DrawdownChart } from "@/components/DrawdownChart";
 import { EquityCurve, type ChartLegendItem } from "@/components/EquityCurve";
 import { MetricsPanel, type BenchmarkMetricSeries } from "@/components/MetricsPanel";
@@ -19,6 +20,8 @@ import { AIAnalystModal } from "@/components/AIAnalystModal";
 import { RollingSharpChart } from "@/components/RollingSharpChart";
 import { TradePnlChart } from "@/components/TradePnlChart";
 import { TradeList } from "@/components/TradeList";
+import { PipelineLoadingScreen } from "@/components/PipelineLoadingScreen";
+import { fmtBacktestDate } from "@/utils/datetime";
 
 type ChartTab = "equity" | "drawdown" | "heatmap" | "trade_pnl" | "rolling_sharpe";
 
@@ -28,6 +31,16 @@ const CHART_TABS: { id: ChartTab; label: string }[] = [
   { id: "heatmap",        label: "Monthly Returns"  },
   { id: "trade_pnl",      label: "Trade P&L"        },
   { id: "rolling_sharpe", label: "Rolling Sharpe"   },
+];
+
+// Results-specific cycling labels for the shared loading screen.
+const LOADING_MESSAGES = [
+  "Loading backtest data...",
+  "Fetching equity curve...",
+  "Loading trade log...",
+  "Computing benchmark overlays...",
+  "Preparing performance metrics...",
+  "Rendering charts...",
 ];
 
 // Per-benchmark fetch state. Loaded entries carry the data and are cached for
@@ -55,8 +68,10 @@ export function RunResults() {
   const [runInfo,     setRunInfo]     = useState<{
     strategyName: string;
     asset: string;
-    startYear: string;
-    endYear: string;
+    startDate: string;
+    endDate: string;
+    timeframe: string;
+    params: Record<string, unknown>;
   } | null>(null);
   const [error,       setError]       = useState<string | null>(null);
   const [activeChart, setActiveChart] = useState<ChartTab>("equity");
@@ -67,35 +82,83 @@ export function RunResults() {
   const [benchData, setBenchData] = useState<Partial<Record<BenchmarkKind, BenchEntry>>>({});
 
   useEffect(() => {
-    if (!Number.isFinite(id)) return;
+    if (!Number.isFinite(id)) { setError("Invalid run id."); return; }
     let active = true;
+    let pollTimer: number | undefined;
 
-    Promise.all([
-      Api.getMetrics(id),
-      Api.getChart(id, "equity"),
-      Api.getChart(id, "drawdown"),
-      Api.getEquity(id),
-      Api.getTrades(id),
-      Api.getBacktest(id),
-    ])
-      .then(([m, eq, dd, ev, ts, run]) => {
+    (async () => {
+      try {
+        // Wait until the backtest has finished computing on the backend, so the
+        // loader stays up for an in-progress run instead of erroring out.
+        let run = await Api.getBacktest(id);
+        while (active && (run.status === "pending" || run.status === "running")) {
+          await new Promise((r) => { pollTimer = window.setTimeout(r, 1200); });
+          if (!active) return;
+          run = await Api.getBacktest(id);
+        }
+        if (!active) return;
+        if (run.status === "failed") {
+          setError(run.error_message || "Backtest failed.");
+          return;
+        }
+
+        // Run details are known now — set them early so the loading screen's
+        // context line (strategy · asset · period) shows while charts fetch.
+        setRunInfo({
+          strategyName: run.strategy_name,
+          asset: run.asset_symbol,
+          startDate: run.start_date,
+          endDate: run.end_date,
+          timeframe: run.timeframe,
+          params: run.params,
+        });
+
+        // Completed — fetch the metrics + chart/series payload.
+        const [m, eq, dd, ev, ts] = await Promise.all([
+          Api.getMetrics(id),
+          Api.getChart(id, "equity"),
+          Api.getChart(id, "drawdown"),
+          Api.getEquity(id),
+          Api.getTrades(id),
+        ]);
         if (!active) return;
         setMetrics(m);
         setEquityFig(eq.figure);
         setDrawdownFig(dd.figure);
         setEquityData(ev);
         setTrades(ts);
-        setRunInfo({
-          strategyName: run.strategy_name,
-          asset: run.asset_symbol,
-          startYear: run.start_date.slice(0, 4),
-          endYear: run.end_date.slice(0, 4),
-        });
-      })
-      .catch((e) => { if (active) setError(String(e)); });
+      } catch (e) {
+        if (active) setError(String(e));
+      }
+    })();
 
-    return () => { active = false; };
+    return () => { active = false; if (pollTimer) clearTimeout(pollTimer); };
   }, [id]);
+
+  // ── Initial-load gate ──────────────────────────────────────────────────────
+  // The loader replaces the page until the run has finished and all data is in.
+  // Progress eases toward ~80% while loading, then snaps to 100% once ready.
+  // Mirrors the Configure page so the handoff feels consistent.
+  const isReady =
+    (metrics !== null && equityFig !== null && drawdownFig !== null &&
+     equityData !== null && runInfo !== null) || error !== null;
+  const mountRef = useRef(performance.now());
+  const [loadProgress, setLoadProgress] = useState(0);
+  const [loaderDone, setLoaderDone]     = useState(false);
+  useEffect(() => {
+    if (loaderDone) return;
+    if (isReady) {
+      setLoadProgress(100);
+      const MIN_MS = 900; // min on-screen time so a fast load doesn't just flash
+      const wait = Math.max(0, MIN_MS - (performance.now() - mountRef.current));
+      const t = setTimeout(() => setLoaderDone(true), wait);
+      return () => clearTimeout(t);
+    }
+    const progressTimer = setInterval(() => {
+      setLoadProgress((p) => (p >= 80 ? p : p + (80 - p) * 0.08));
+    }, 100);
+    return () => clearInterval(progressTimer);
+  }, [isReady, loaderDone]);
 
   function toggleBenchmark(kind: BenchmarkKind) {
     // Turning OFF — keep the cache so re-enabling doesn't refetch.
@@ -184,8 +247,32 @@ export function RunResults() {
     sp500: pillState(benchData.sp500),
   };
 
+  // The S&P 500 benchmark is SPY buy-and-hold, so comparing SPY against itself
+  // is meaningless (and the backend never persists it). Hide the pill entirely.
+  const hiddenBenchmarks = new Set<BenchmarkKind>();
+  if (runInfo?.asset?.toUpperCase() === "SPY") hiddenBenchmarks.add("sp500");
+
   if (!Number.isFinite(id)) {
     return <div className="m-10 card border-accent-red text-accent-red">Invalid run ID.</div>;
+  }
+
+  // ── Loading screen while the Results page data loads ──────────────────────
+  if (!loaderDone) {
+    return (
+      <PipelineLoadingScreen
+        title="Loading Results"
+        messages={LOADING_MESSAGES}
+        progress={loadProgress}
+        contextLine={
+          runInfo ? (
+            <>
+              {runInfo.strategyName} &middot; {runInfo.asset} &middot;{" "}
+              {runInfo.startDate.slice(0, 4)}&ndash;{runInfo.endDate.slice(0, 4)}
+            </>
+          ) : undefined
+        }
+      />
+    );
   }
 
   return (
@@ -194,7 +281,7 @@ export function RunResults() {
       {/* ── Header ──────────────────────────────────────────────── */}
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <div className="flex items-center gap-2 text-[13px] mb-2 flex-wrap">
+          <div className="flex items-center gap-2.5 text-[17px] mb-2.5 flex-wrap">
             <Link to="/" className="text-ink-muted hover:text-ink-primary transition-colors">
               Backtest
             </Link>
@@ -208,13 +295,14 @@ export function RunResults() {
                   {runInfo.strategyName}
                 </Link>
                 <span className="text-border-subtle">&middot;</span>
-                <span className="font-mono text-[12px] text-ink-muted">
+                <span className="font-mono text-[15px] text-ink-muted">
                   {runInfo.asset}
                 </span>
                 <span className="text-border-subtle">&middot;</span>
-                <span className="font-mono text-[12px] text-ink-muted">
-                  {runInfo.startYear}&ndash;{runInfo.endYear}
+                <span className="font-mono text-[15px] text-ink-muted">
+                  {fmtBacktestDate(runInfo.startDate)} &ndash; {fmtBacktestDate(runInfo.endDate)}
                 </span>
+                <ConfigPopover run={runInfo} forceClosed={aiModalOpen} />
               </>
             )}
           </div>
@@ -239,6 +327,7 @@ export function RunResults() {
         active={activeBenchmarks}
         state={benchState}
         onToggle={toggleBenchmark}
+        exclude={hiddenBenchmarks}
       />
 
       {error && (
@@ -309,3 +398,4 @@ export function RunResults() {
     </div>
   );
 }
+

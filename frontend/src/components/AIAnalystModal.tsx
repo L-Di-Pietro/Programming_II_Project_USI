@@ -3,10 +3,16 @@ import { AxiosError } from "axios";
 import ReactMarkdown from "react-markdown";
 
 import { Api, type Metrics, type Report } from "@/api/client";
+import { ConfigPopover } from "@/components/ConfigPopover";
+import { fmtBacktestDate } from "@/utils/datetime";
 
 interface RunInfo {
   strategyName: string;
   asset: string;
+  startDate: string;
+  endDate: string;
+  timeframe: string;
+  params: Record<string, unknown>;
 }
 
 /**
@@ -114,7 +120,7 @@ export function AIAnalystModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-[600px] max-w-[calc(100vw-2.5rem)] max-h-[85vh] flex flex-col
+      <div className="w-[920px] max-w-[calc(100vw-2.5rem)] max-h-[85vh] flex flex-col
                       overflow-hidden rounded-xl border border-accent-cyan/40 bg-surface">
 
         {/* Header */}
@@ -123,9 +129,6 @@ export function AIAnalystModal({
             <span className="w-2 h-2 rounded-full bg-accent-cyan" />
             <span className="text-[15px] font-semibold text-ink-primary">
               AI Strategy Analyst
-            </span>
-            <span className="tag-mono border-accent-cyan text-accent-cyan text-[9px] tracking-widest">
-              Claude
             </span>
           </div>
           <button
@@ -138,7 +141,9 @@ export function AIAnalystModal({
           </button>
         </div>
 
-        {/* Subheader */}
+        {/* Subheader — title line + parameters badge.
+            Date range comes from the same runInfo state the Results page header
+            uses, so the two displays can never drift. */}
         <div className="flex items-center gap-2 flex-wrap px-5 py-2.5 border-b border-border">
           <span className="text-[12px] text-ink-muted">Analyzing</span>
           <span className="font-mono text-[12px] text-accent-cyan">
@@ -148,52 +153,59 @@ export function AIAnalystModal({
           <span className="font-mono text-[12px] text-ink-primary">
             {runInfo?.asset ?? "—"}
           </span>
-        </div>
-
-        {/* Metrics strip */}
-        <div className="flex border-b border-border divide-x divide-border">
-          <MetricCell label="CAGR" value={pct(metrics?.return?.cagr_pct, true)}
-            tone={tone(metrics?.return?.cagr_pct, (v) => v > 10)} />
-          <MetricCell label="Sharpe" value={num(metrics?.risk?.sharpe_ratio)}
-            tone={tone(metrics?.risk?.sharpe_ratio, (v) => v > 1)} />
-          <MetricCell label="Max DD" value={pct(metrics?.risk?.max_drawdown_pct)}
-            tone="text-accent-red" />
-          <MetricCell label="Win Rate" value={pct(metrics?.trade?.win_rate_pct)}
-            tone={tone(metrics?.trade?.win_rate_pct, (v) => v > 50)} />
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-5 min-h-[120px]">
-          {status === "loading" && (
-            <div className="flex flex-col items-center gap-4 py-10">
-              <span className="w-7 h-7 rounded-full border-2 border-border-subtle
-                               border-t-accent-cyan animate-spin" />
-              <span className="font-mono text-[13px] text-ink-muted">
-                Analysing backtest results
-                <span className="animate-blink">_</span>
-              </span>
-            </div>
-          )}
-
-          {status === "error" && (
-            <div className="text-accent-red font-mono text-sm border border-accent-red/30
-                            bg-accent-red/10 rounded px-3 py-2">
-              {error}
-            </div>
-          )}
-
-          {status === "idle" && report && (
+          {runInfo && (
             <>
-              {report.demo_mode && (
-                <div className="mb-3 text-accent-amber font-mono text-[11px]">
-                  Demo mode (NullProvider) — set a real LLM provider for live analysis.
-                </div>
-              )}
-              <div className="report-prose">
-                <ReactMarkdown>{report.text}</ReactMarkdown>
-              </div>
+              <span className="text-border-subtle">&middot;</span>
+              <span className="font-mono text-[12px] text-ink-muted">
+                {fmtBacktestDate(runInfo.startDate)} &ndash; {fmtBacktestDate(runInfo.endDate)}
+              </span>
+              <ConfigPopover run={runInfo} />
             </>
           )}
+        </div>
+
+        {/* Body: metrics grid on the LEFT, AI report text (the PDF report) on the RIGHT */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
+
+          {/* Left — metrics grid (iterates the full backend payload: return +
+              risk + trade, so new metrics auto-appear) */}
+          <div className="shrink-0 w-[300px] overflow-hidden border-r border-border">
+            <MetricsGrid metrics={metrics} />
+          </div>
+
+          {/* Right — AI report text */}
+          <div className="flex-1 overflow-y-auto px-5 py-5 min-h-[120px]">
+            {status === "loading" && (
+              <div className="flex flex-col items-center gap-4 py-10">
+                <span className="w-7 h-7 rounded-full border-2 border-border-subtle
+                                 border-t-accent-cyan animate-spin" />
+                <span className="font-mono text-[13px] text-ink-muted">
+                  Analysing backtest results
+                  <span className="animate-blink">_</span>
+                </span>
+              </div>
+            )}
+
+            {status === "error" && (
+              <div className="text-accent-red font-mono text-sm border border-accent-red/30
+                              bg-accent-red/10 rounded px-3 py-2">
+                {error}
+              </div>
+            )}
+
+            {status === "idle" && report && (
+              <>
+                {report.demo_mode && (
+                  <div className="mb-3 text-accent-amber font-mono text-[11px]">
+                    Demo mode (NullProvider) — set a real LLM provider for live analysis.
+                  </div>
+                )}
+                <div className="report-prose">
+                  <ReactMarkdown>{report.text}</ReactMarkdown>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
@@ -227,29 +239,104 @@ export function AIAnalystModal({
 
 function MetricCell({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <div className="flex-1 px-4 py-2.5 flex flex-col gap-0.5">
-      <span className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+    <div className="px-4 py-2.5 flex flex-col justify-between gap-1 min-w-0">
+      <span className="font-mono text-[11px] uppercase tracking-wider text-ink-muted truncate">
         {label}
       </span>
-      <span className={`font-mono text-[15px] font-bold ${tone}`}>{value}</span>
+      <span className={`font-mono text-[16px] font-bold truncate ${tone}`}>{value}</span>
     </div>
   );
 }
 
-function pct(v: number | undefined, signed = false): string {
-  if (v == null) return "—";
+// ── Formatters and tone helpers ──────────────────────────────────────────────
+
+function pctFmt(v: number, signed = false): string {
   return `${signed && v > 0 ? "+" : ""}${v.toFixed(2)}%`;
 }
 
-function num(v: number | undefined): string {
-  if (v == null) return "—";
+function n2(v: number): string {
   return v.toFixed(2);
 }
 
-/** Green when `good(v)` holds, otherwise neutral; em-dash values stay neutral. */
-function tone(v: number | undefined, good: (v: number) => boolean): string {
-  if (v == null) return "text-ink-primary";
-  return good(v) ? "text-accent-green" : "text-ink-primary";
+const neutralTone = () => "text-ink-primary";
+const greenTone   = () => "text-accent-green";
+const redTone     = () => "text-accent-red";
+const signedTone  = (v: number) => v >= 0 ? "text-accent-green" : "text-accent-red";
+const threshTone  = (lo: number, hi: number) => (v: number) =>
+  v >= hi ? "text-accent-green" : v >= lo ? "text-accent-amber" : "text-accent-red";
+
+// ── Metrics grid (iterates the full backend payload) ─────────────────────────
+
+type MetricMeta = {
+  label: string;
+  format: (v: number) => string;
+  tone:   (v: number) => string;
+};
+
+// Per-key formatting + colour. Unknown keys fall back to humanized label +
+// 2-decimal number + neutral colour, so new backend metrics auto-appear.
+const METRIC_META: Record<string, MetricMeta> = {
+  cagr_pct:                   { label: "CAGR",          format: (v) => pctFmt(v, true),           tone: signedTone },
+  total_return_pct:           { label: "Total Return",  format: (v) => pctFmt(v, true),           tone: signedTone },
+  annualized_volatility_pct:  { label: "Volatility",    format: (v) => pctFmt(v),                 tone: neutralTone },
+  sharpe_ratio:               { label: "Sharpe",        format: n2,                               tone: threshTone(0.5, 1) },
+  sortino_ratio:              { label: "Sortino",       format: n2,                               tone: threshTone(0.8, 1.2) },
+  calmar_ratio:               { label: "Calmar",        format: n2,                               tone: threshTone(0.5, 1) },
+  max_drawdown_pct:           { label: "Max DD",        format: (v) => pctFmt(v),                 tone: redTone },
+  max_drawdown_duration_days: { label: "DD Duration",   format: (v) => `${Math.round(v)}d`,       tone: neutralTone },
+  total_trades:               { label: "Trades",        format: (v) => Math.round(v).toString(),  tone: neutralTone },
+  win_rate_pct:               { label: "Win Rate",      format: (v) => pctFmt(v),                 tone: threshTone(40, 55) },
+  avg_win:                    { label: "Avg Win",       format: n2,                               tone: greenTone },
+  avg_loss:                   { label: "Avg Loss",      format: n2,                               tone: redTone },
+  win_loss_ratio:             { label: "Payoff",        format: (v) => `${n2(v)}x`,               tone: greenTone },
+  profit_factor:              { label: "Profit Factor", format: n2,                               tone: threshTone(1, 1.5) },
+};
+
+function getMeta(key: string): MetricMeta {
+  return METRIC_META[key] ?? {
+    label:  key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    format: n2,
+    tone:   neutralTone,
+  };
+}
+
+function MetricsGrid({ metrics }: { metrics: Metrics | null }) {
+  const entries: [string, number][] = metrics
+    ? [
+        ...Object.entries(metrics.return),
+        ...Object.entries(metrics.risk),
+        ...Object.entries(metrics.trade),
+      ]
+    : [];
+  if (entries.length === 0) {
+    // No metrics yet — render a placeholder row so the strip keeps its
+    // visual weight while data loads.
+    return (
+      <div className="grid grid-cols-2 h-full auto-rows-fr divide-x divide-y divide-border">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <MetricCell key={i} label="—" value="—" tone="text-ink-muted" />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="grid grid-cols-2 h-full auto-rows-fr divide-x divide-y divide-border">
+      {entries.map(([key, value]) => {
+        const meta = getMeta(key);
+        // "—" only when the metric is mathematically undefined (Pydantic emits
+        // null for inf/NaN); finite 0 still renders as 0 / 0%.
+        const isUndef = value == null || !Number.isFinite(value);
+        return (
+          <MetricCell
+            key={key}
+            label={meta.label}
+            value={isUndef ? "—" : meta.format(value)}
+            tone={isUndef ? "text-ink-muted" : meta.tone(value)}
+          />
+        );
+      })}
+    </div>
+  );
 }
 
 function errMsg(e: unknown): string {

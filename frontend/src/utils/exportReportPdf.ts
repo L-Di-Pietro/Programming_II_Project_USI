@@ -1,15 +1,15 @@
 import jsPDF from "jspdf";
 import Plotly from "plotly.js-dist-min";
 
-import { Api, type Report } from "@/api/client";
-
-const CHART_KINDS = [
-  { kind: "equity",         label: "Equity Curve"    },
-  { kind: "drawdown",       label: "Drawdown"        },
-  { kind: "heatmap",        label: "Monthly Returns" },
-  { kind: "trade_pnl",      label: "Trade P&L"       },
-  { kind: "rolling_sharpe", label: "Rolling Sharpe"  },
-] as const;
+import {
+  Api,
+  type BenchmarkKind,
+  type EquityPoint,
+  type Metrics,
+  type Report,
+  type Trade,
+} from "@/api/client";
+import { formatLocal } from "@/utils/datetime";
 
 const PAGE_W = 595.28;   // A4 portrait, in pt
 const PAGE_H = 841.89;
@@ -21,20 +21,91 @@ const COLOR_INK = "#1f2937";
 const COLOR_MUTED = "#6b7280";
 const COLOR_ACCENT = "#0891b2";
 
+// Benchmark line colours for the equity overlay. Solid lines; the strategy line
+// (cyan #22d3ee) already comes from the server figure. Buy & Hold uses blue
+// rather than the app's amber, and S&P 500 keeps the app's violet-pink — so the
+// trio reads as cyan / blue / pink, per request.
+const PDF_BENCHMARKS: { kind: BenchmarkKind; label: string; color: string }[] = [
+  { kind: "buy_and_hold", label: "Buy & Hold", color: "#60a5fa" },
+  { kind: "sp500", label: "S&P 500", color: "#c084fc" },
+];
+
+const CHART_W = 1000;
+const CHART_H = 520;
+
 export async function exportReportPdf(runId: number, report: Report): Promise<void> {
-  const [run, assets, ...figures] = await Promise.all([
+  const [
+    run,
+    assets,
+    metrics,
+    trades,
+    equityFig,
+    drawdownFig,
+    heatmapFig,
+    rollingFig,
+    benchEquitySettled,
+    benchMetricsSettled,
+  ] = await Promise.all([
     Api.getBacktest(runId),
     Api.listAssets(),
-    ...CHART_KINDS.map((c) => Api.getChart(runId, c.kind)),
+    Api.getMetrics(runId),
+    Api.getTrades(runId),
+    Api.getChart(runId, "equity"),
+    Api.getChart(runId, "drawdown"),
+    Api.getChart(runId, "heatmap"),
+    Api.getChart(runId, "rolling_sharpe"),
+    // Benchmarks may not exist for every run (e.g. a run already on SPY has no
+    // S&P 500 curve) — tolerate per-kind failures so the export still succeeds.
+    Promise.allSettled([
+      Api.getBenchmarkEquity(runId, "buy_and_hold"),
+      Api.getBenchmarkEquity(runId, "sp500"),
+    ]),
+    Promise.allSettled([
+      Api.getBenchmarkMetrics(runId, "buy_and_hold"),
+      Api.getBenchmarkMetrics(runId, "sp500"),
+    ]),
   ]);
 
   const asset = assets.find((a) => a.id === run.asset_id);
 
+  // Which benchmarks actually have data, in PDF_BENCHMARKS order.
+  const benchEquities: { kind: BenchmarkKind; label: string; color: string; equity: EquityPoint[] }[] = [];
+  const benchMetrics: Partial<Record<BenchmarkKind, Metrics>> = {};
+  PDF_BENCHMARKS.forEach((b, i) => {
+    const eq = benchEquitySettled[i];
+    if (eq.status === "fulfilled" && eq.value.length > 0) {
+      benchEquities.push({ ...b, equity: eq.value });
+    }
+    const mt = benchMetricsSettled[i];
+    if (mt.status === "fulfilled") benchMetrics[b.kind] = mt.value;
+  });
+
+  // Build the figures we customise; keep the rest as the server returned them.
+  const chartFigures: { label: string; data: Plotly.Data[]; layout: Partial<Plotly.Layout> }[] = [
+    { label: "Equity Curve", ...buildEquityFigure(equityFig.figure, benchEquities) },
+    {
+      label: "Drawdown",
+      data: drawdownFig.figure.data as Plotly.Data[],
+      layout: drawdownFig.figure.layout as Partial<Plotly.Layout>,
+    },
+    {
+      label: "Monthly Returns",
+      data: heatmapFig.figure.data as Plotly.Data[],
+      layout: heatmapFig.figure.layout as Partial<Plotly.Layout>,
+    },
+    { label: "Trade P&L", ...buildTradePnlFigure(trades) },
+    {
+      label: "Rolling Sharpe",
+      data: rollingFig.figure.data as Plotly.Data[],
+      layout: rollingFig.figure.layout as Partial<Plotly.Layout>,
+    },
+  ];
+
   const images = await Promise.all(
-    figures.map((f) =>
+    chartFigures.map((f) =>
       Plotly.toImage(
-        { data: f.figure.data as Plotly.Data[], layout: f.figure.layout as Partial<Plotly.Layout> },
-        { format: "png", width: 1000, height: 520, scale: 2 },
+        { data: f.data, layout: f.layout },
+        { format: "png", width: CHART_W, height: CHART_H, scale: 2 },
       ),
     ),
   );
@@ -54,7 +125,12 @@ export async function exportReportPdf(runId: number, report: Report): Promise<vo
     demoMode: report.demo_mode,
   });
 
-  CHART_KINDS.forEach((c, i) => {
+  y = drawHeading(doc, y, "Performance Summary", 14);
+  y = drawMetricsTable(doc, y, metrics);
+
+  y = drawComparison(doc, y, metrics, benchMetrics);
+
+  chartFigures.forEach((c, i) => {
     y = drawChart(doc, y, c.label, images[i]);
   });
 
@@ -65,6 +141,180 @@ export async function exportReportPdf(runId: number, report: Report): Promise<vo
   drawDisclaimerFooterOnAllPages(doc);
 
   doc.save(`backtest-run-${runId}.pdf`);
+}
+
+// -----------------------------------------------------------------------------
+// Figure builders (match the on-screen charts; light background to blend in)
+// -----------------------------------------------------------------------------
+
+/** Server equity figure (strategy only) + solid benchmark overlays, legend on top. */
+function buildEquityFigure(
+  fig: { data: unknown[]; layout: Record<string, unknown> },
+  benchmarks: { kind: BenchmarkKind; label: string; color: string; equity: EquityPoint[] }[],
+): { data: Plotly.Data[]; layout: Partial<Plotly.Layout> } {
+  const data: Plotly.Data[] = [...(fig.data as Plotly.Data[])];
+  for (const b of benchmarks) {
+    data.push({
+      type: "scatter",
+      mode: "lines",
+      x: b.equity.map((p) => p.ts),
+      y: b.equity.map((p) => p.equity),
+      name: b.label,
+      line: { color: b.color, width: 1.5 },
+    } as Plotly.Data);
+  }
+  const layout: Partial<Plotly.Layout> = {
+    ...(fig.layout as Partial<Plotly.Layout>),
+    paper_bgcolor: "white",
+    plot_bgcolor: "white",
+    showlegend: true,
+    legend: { orientation: "h", x: 0, y: 1.12, xanchor: "left", yanchor: "bottom" },
+    margin: { t: 54, r: 16, b: 40, l: 60 },
+  };
+  return { data, layout };
+}
+
+/** Trade P&L as the on-screen green/red BAR chart (TradePnlChart.tsx), light themed. */
+function buildTradePnlFigure(
+  trades: Trade[],
+): { data: Plotly.Data[]; layout: Partial<Plotly.Layout> } {
+  const wins = trades.map((t, i) => ({ i, v: t.net_pnl })).filter((x) => x.v > 0);
+  const losses = trades.map((t, i) => ({ i, v: t.net_pnl })).filter((x) => x.v <= 0);
+
+  const data: Plotly.Data[] = [
+    {
+      type: "bar",
+      x: wins.map((x) => x.i),
+      y: wins.map((x) => x.v),
+      name: "Win",
+      marker: { color: "#3fb950" },
+    },
+    {
+      type: "bar",
+      x: losses.map((x) => x.i),
+      y: losses.map((x) => x.v),
+      name: "Loss",
+      marker: { color: "#f85149" },
+    },
+  ];
+
+  const layout: Partial<Plotly.Layout> = {
+    paper_bgcolor: "white",
+    plot_bgcolor: "white",
+    showlegend: false,
+    margin: { t: 16, r: 16, b: 40, l: 70 },
+    yaxis: { tickprefix: "$" },
+    shapes: [
+      {
+        type: "line",
+        xref: "paper",
+        yref: "y",
+        x0: 0,
+        x1: 1,
+        y0: 0,
+        y1: 0,
+        line: { color: "#9ca3af", width: 1, dash: "dot" },
+      },
+    ],
+  };
+
+  return { data, layout };
+}
+
+// -----------------------------------------------------------------------------
+// Metric formatting + tables
+// -----------------------------------------------------------------------------
+
+function fmtPct(v: number | undefined, signed: boolean): string {
+  if (v == null || !Number.isFinite(v)) return "—";
+  const s = v.toFixed(2);
+  return signed && v >= 0 ? `+${s}%` : `${s}%`;
+}
+
+function fmtRatio(v: number | undefined): string {
+  if (v == null || !Number.isFinite(v)) return "—";
+  return v.toFixed(2);
+}
+
+function fmtInt(v: number | undefined): string {
+  if (v == null || !Number.isFinite(v)) return "—";
+  return `${Math.round(v)}`;
+}
+
+/** 5×2 KPI grid mirroring backend/analytics/report_pdf.py::_metrics_table. */
+function drawMetricsTable(doc: jsPDF, y: number, m: Metrics): number {
+  const ret = m["return"] ?? {};
+  const risk = m.risk ?? {};
+  const trade = m.trade ?? {};
+
+  const rows: [string, string, string, string][] = [
+    ["CAGR", fmtPct(ret.cagr_pct, true), "Sharpe Ratio", fmtRatio(risk.sharpe_ratio)],
+    ["Total Return", fmtPct(ret.total_return_pct, true), "Sortino Ratio", fmtRatio(risk.sortino_ratio)],
+    ["Max Drawdown", fmtPct(risk.max_drawdown_pct, false), "Calmar Ratio", fmtRatio(risk.calmar_ratio)],
+    ["Win Rate", fmtPct(trade.win_rate_pct, false), "Profit Factor", fmtRatio(trade.profit_factor)],
+    ["Total Trades", fmtInt(trade.total_trades), "Avg Win/Loss", fmtRatio(trade.win_loss_ratio)],
+  ];
+
+  const col2X = MARGIN + CONTENT_W / 2;
+  const valueOffset = 96;
+  doc.setFontSize(11);
+  for (const [k1, v1, k2, v2] of rows) {
+    y = ensureSpace(doc, y, 16);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(COLOR_MUTED);
+    doc.text(k1, MARGIN, y + 11);
+    doc.text(k2, col2X, y + 11);
+    doc.setTextColor(COLOR_INK);
+    doc.text(v1, MARGIN + valueOffset, y + 11);
+    doc.text(v2, col2X + valueOffset, y + 11);
+    y += 16;
+  }
+  return y + 8;
+}
+
+/** Compact Strategy-vs-Benchmarks table. Skipped when no benchmarks are available. */
+function drawComparison(
+  doc: jsPDF,
+  y: number,
+  strat: Metrics,
+  benchMetrics: Partial<Record<BenchmarkKind, Metrics>>,
+): number {
+  const cols: { label: string; m: Metrics }[] = [{ label: "Strategy", m: strat }];
+  for (const b of PDF_BENCHMARKS) {
+    const bm = benchMetrics[b.kind];
+    if (bm) cols.push({ label: b.label, m: bm });
+  }
+  if (cols.length < 2) return y; // nothing to compare against
+
+  y = drawHeading(doc, y, "Strategy vs Benchmarks", 14);
+
+  const metricRows: { label: string; get: (m: Metrics) => string }[] = [
+    { label: "CAGR", get: (m) => fmtPct(m["return"]?.cagr_pct, true) },
+    { label: "Total Return", get: (m) => fmtPct(m["return"]?.total_return_pct, true) },
+    { label: "Max Drawdown", get: (m) => fmtPct(m.risk?.max_drawdown_pct, false) },
+    { label: "Sharpe", get: (m) => fmtRatio(m.risk?.sharpe_ratio) },
+  ];
+
+  const labelW = 120;
+  const colW = (CONTENT_W - labelW) / cols.length;
+
+  // Header row — series names.
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(COLOR_MUTED);
+  cols.forEach((c, i) => doc.text(c.label, MARGIN + labelW + i * colW, y + 11));
+  y += 18;
+
+  doc.setFont("helvetica", "normal");
+  for (const r of metricRows) {
+    y = ensureSpace(doc, y, 16);
+    doc.setTextColor(COLOR_MUTED);
+    doc.text(r.label, MARGIN, y + 11);
+    doc.setTextColor(COLOR_INK);
+    cols.forEach((c, i) => doc.text(r.get(c.m), MARGIN + labelW + i * colW, y + 11));
+    y += 16;
+  }
+  return y + 10;
 }
 
 // -----------------------------------------------------------------------------
@@ -99,9 +349,9 @@ function drawCover(doc: jsPDF, y: number, c: CoverData): number {
   const rows: [string, string][] = [
     ["Asset",     c.assetName ? `${c.asset} — ${c.assetName}` : c.asset],
     ["Timeframe", c.timeframe === "1h" ? "Hourly" : "Daily"],
-    ["Range",     `${c.startDate.slice(0, 10)} → ${c.endDate.slice(0, 10)}`],
+    ["Range",     `${c.startDate.slice(0, 10)} – ${c.endDate.slice(0, 10)}`],
     ["Model",     `${c.model}${c.demoMode ? "  (demo mode)" : ""}`],
-    ["Generated", new Date(c.generatedAt).toLocaleString()],
+    ["Generated", formatLocal(c.generatedAt)],
   ];
 
   doc.setFontSize(11);
@@ -129,7 +379,7 @@ function drawCover(doc: jsPDF, y: number, c: CoverData): number {
 }
 
 function drawChart(doc: jsPDF, y: number, label: string, pngDataUrl: string): number {
-  const imgH = CONTENT_W * (520 / 1000); // preserve 1000x520 aspect
+  const imgH = CONTENT_W * (CHART_H / CHART_W); // preserve 1000x520 aspect
   const blockH = 18 + 4 + imgH;
   y = ensureSpace(doc, y, blockH);
 
