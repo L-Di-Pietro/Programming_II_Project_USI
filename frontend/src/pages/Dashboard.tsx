@@ -99,7 +99,7 @@ export function Dashboard() {
 
         {/* Stat box. Width tracks the ~20% content scale-up so the widest
             value ("1D / 1H") keeps its room; structure/columns/colors unchanged. */}
-        <div className="flex-shrink-0 w-[548px] border border-border-subtle rounded-lg overflow-hidden">
+        <div className="flex-shrink-0 w-[588px] border border-border-subtle rounded-lg overflow-hidden">
           {/* Top row — three small stat cells. Fixed-height value area keeps
               labels aligned across boxes even when one value is smaller. */}
           <div className="grid grid-cols-3">

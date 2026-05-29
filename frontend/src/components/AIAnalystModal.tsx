@@ -120,7 +120,7 @@ export function AIAnalystModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-[600px] max-w-[calc(100vw-2.5rem)] max-h-[85vh] flex flex-col
+      <div className="w-[920px] max-w-[calc(100vw-2.5rem)] max-h-[85vh] flex flex-col
                       overflow-hidden rounded-xl border border-accent-cyan/40 bg-surface">
 
         {/* Header */}
@@ -164,43 +164,48 @@ export function AIAnalystModal({
           )}
         </div>
 
-        {/* Metrics grid — iterates the full backend payload (return + risk +
-            trade) so new metrics auto-appear. The four originals (CAGR, Sharpe,
-            Max DD, Win Rate) are still present as part of that natural order. */}
-        <MetricsGrid metrics={metrics} />
+        {/* Body: metrics grid on the LEFT, AI report text (the PDF report) on the RIGHT */}
+        <div className="flex flex-1 min-h-0 overflow-hidden">
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-5 min-h-[120px]">
-          {status === "loading" && (
-            <div className="flex flex-col items-center gap-4 py-10">
-              <span className="w-7 h-7 rounded-full border-2 border-border-subtle
-                               border-t-accent-cyan animate-spin" />
-              <span className="font-mono text-[13px] text-ink-muted">
-                Analysing backtest results
-                <span className="animate-blink">_</span>
-              </span>
-            </div>
-          )}
+          {/* Left — metrics grid (iterates the full backend payload: return +
+              risk + trade, so new metrics auto-appear) */}
+          <div className="shrink-0 w-[300px] overflow-hidden border-r border-border">
+            <MetricsGrid metrics={metrics} />
+          </div>
 
-          {status === "error" && (
-            <div className="text-accent-red font-mono text-sm border border-accent-red/30
-                            bg-accent-red/10 rounded px-3 py-2">
-              {error}
-            </div>
-          )}
-
-          {status === "idle" && report && (
-            <>
-              {report.demo_mode && (
-                <div className="mb-3 text-accent-amber font-mono text-[11px]">
-                  Demo mode (NullProvider) — set a real LLM provider for live analysis.
-                </div>
-              )}
-              <div className="report-prose">
-                <ReactMarkdown>{report.text}</ReactMarkdown>
+          {/* Right — AI report text */}
+          <div className="flex-1 overflow-y-auto px-5 py-5 min-h-[120px]">
+            {status === "loading" && (
+              <div className="flex flex-col items-center gap-4 py-10">
+                <span className="w-7 h-7 rounded-full border-2 border-border-subtle
+                                 border-t-accent-cyan animate-spin" />
+                <span className="font-mono text-[13px] text-ink-muted">
+                  Analysing backtest results
+                  <span className="animate-blink">_</span>
+                </span>
               </div>
-            </>
-          )}
+            )}
+
+            {status === "error" && (
+              <div className="text-accent-red font-mono text-sm border border-accent-red/30
+                              bg-accent-red/10 rounded px-3 py-2">
+                {error}
+              </div>
+            )}
+
+            {status === "idle" && report && (
+              <>
+                {report.demo_mode && (
+                  <div className="mb-3 text-accent-amber font-mono text-[11px]">
+                    Demo mode (NullProvider) — set a real LLM provider for live analysis.
+                  </div>
+                )}
+                <div className="report-prose">
+                  <ReactMarkdown>{report.text}</ReactMarkdown>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Footer */}
@@ -234,11 +239,11 @@ export function AIAnalystModal({
 
 function MetricCell({ label, value, tone }: { label: string; value: string; tone: string }) {
   return (
-    <div className="px-4 py-2.5 flex flex-col gap-0.5">
-      <span className="font-mono text-[10px] uppercase tracking-wider text-ink-muted">
+    <div className="px-4 py-2.5 flex flex-col justify-between gap-1 min-w-0">
+      <span className="font-mono text-[11px] uppercase tracking-wider text-ink-muted truncate">
         {label}
       </span>
-      <span className={`font-mono text-[15px] font-bold ${tone}`}>{value}</span>
+      <span className={`font-mono text-[16px] font-bold truncate ${tone}`}>{value}</span>
     </div>
   );
 }
@@ -307,7 +312,7 @@ function MetricsGrid({ metrics }: { metrics: Metrics | null }) {
     // No metrics yet — render a placeholder row so the strip keeps its
     // visual weight while data loads.
     return (
-      <div className="grid grid-cols-3 sm:grid-cols-4 border-b border-border divide-x divide-y divide-border">
+      <div className="grid grid-cols-2 h-full auto-rows-fr divide-x divide-y divide-border">
         {Array.from({ length: 4 }).map((_, i) => (
           <MetricCell key={i} label="—" value="—" tone="text-ink-muted" />
         ))}
@@ -315,7 +320,7 @@ function MetricsGrid({ metrics }: { metrics: Metrics | null }) {
     );
   }
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 border-b border-border divide-x divide-y divide-border">
+    <div className="grid grid-cols-2 h-full auto-rows-fr divide-x divide-y divide-border">
       {entries.map(([key, value]) => {
         const meta = getMeta(key);
         // "—" only when the metric is mathematically undefined (Pydantic emits
