@@ -35,7 +35,7 @@ class GeminiProvider(LLMProvider):
 
     name = "gemini"
 
-    def __init__(self, api_key: str, model: str = "gemini-2.5-flash-lite") -> None:
+    def __init__(self, api_key: str, model: str = "gemini-3.5-flash") -> None:
         if not api_key:
             raise ValueError("GeminiProvider requires a non-empty api_key")
         self._api_key = api_key

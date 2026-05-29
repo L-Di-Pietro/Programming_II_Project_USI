@@ -247,7 +247,7 @@ To get a real LLM-generated report:
    LLM_ENABLED=true
    LLM_PROVIDER=gemini
    GEMINI_API_KEY=AIza...your-key-here
-   LLM_MODEL=gemini-3-flash-preview        # or another Gemini model you have access to
+   LLM_MODEL=gemini-3.5-flash        # or another Gemini model you have access to
    ```
 3. Restart the backend (`uvicorn` will pick up the new env vars).
 4. On the Results page, click **"Generate report"** on the AI Report card. The "demo mode" badge disappears and a real Gemini-generated report appears, grounded on the run's metrics, trades, and equity curve.
