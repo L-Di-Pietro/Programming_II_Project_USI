@@ -146,6 +146,30 @@ added the ``Node~24 Actions upgrade'' subsection to this diary. The workflow
 produced no code changes, confirming that its read-only Bash allowlist and
 documentation-only write scope are functioning as intended.
 
+\subsection*{Launcher hardening and production Docker setup (2026-05-28)}
+
+The commits merged as PR~\#16 (\texttt{ed31a92}, \texttt{b8c9332}, \texttt{533dedb})
+substantially hardened \texttt{run.py}. The script now detects whether
+\texttt{stdin} is a TTY before prompting for the Gemini API key, so it does not
+block in CI or other non-interactive contexts. A new \texttt{check\_ports\_free}
+step runs before any server is started and reports which process is holding the
+conflicting port together with a \texttt{kill} hint, replacing a previously silent
+bind failure. Env-file parsing was also improved to strip surrounding quotes and
+inline comments, making \texttt{.env} files written by hand or by other tools
+parse correctly.
+
+\texttt{e1dd918} (``Normalize DB URL and add frontend Dockerfile'') addressed the
+two missing pieces for Railway deployment. \texttt{frontend/Dockerfile.prod}
+provides a multi-stage build that compiles the Vite app with \texttt{VITE\_API\_URL}
+baked in and serves the resulting \texttt{dist/} with an SPA-fallback static server.
+The backend \texttt{Dockerfile} CMD was switched to exec form so Railway's injected
+\texttt{\$PORT} is expanded by the shell rather than passed as a literal string.
+\texttt{psycopg[binary]} was added to \texttt{requirements.txt} for production
+Postgres connectivity, and \texttt{backend/database/connection.py} now normalises
+both the old \texttt{postgresql://} and the new \texttt{postgresql+psycopg://}
+dialect strings at engine-creation time, so existing \texttt{DATABASE\_URL}
+environment variables continue to work without change.
+
 \subsection*{Things we tried and abandoned}
 
 A few decisions did not survive the four weeks:

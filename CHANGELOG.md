@@ -10,6 +10,27 @@ Hash references use the short SHA (e.g. `abcdef1`); resolve them with `git show 
 
 ## [Unreleased]
 
+### Added
+
+- **Production Dockerfiles** — `Dockerfile` (backend, Railway-compatible `exec`-form
+  CMD so `$PORT` expands at runtime) and `frontend/Dockerfile.prod` (multi-stage Vite
+  build served with SPA fallback; `VITE_API_URL` baked at build time).
+  `frontend/.dockerignore` added (`e1dd918`).
+- **`psycopg[binary]`** added to `requirements.txt` for production Postgres
+  connectivity (`e1dd918`).
+
+### Changed
+
+- **DB URL normalised to psycopg v3 dialect** (`postgresql+psycopg://`) in
+  `backend/database/connection.py`; `DATABASE_URL` is accepted in either dialect and
+  normalised at engine-creation time (`e1dd918`).
+- **`run.py` launcher hardened** — port-conflict pre-checks with kill hints
+  (`check_ports_free`), unbuffered backend output, increased health-wait timeout, TTY
+  detection to skip the Gemini-key prompt in non-interactive contexts (CI), smarter
+  env parsing (strips surrounding quotes and inline comments), and interactive y/N
+  prompts (`ed31a92`, `b8c9332`, `533dedb`, merged as PR \#16).
+- **Railway Claude plugin** enabled in `.claude/settings.json` (`b1a9b07`).
+
 ### CI
 
 - **Nightly documentation-refresh workflow** (`nightly-docs.yml`) — Claude Code runs
@@ -22,6 +43,8 @@ Hash references use the short SHA (e.g. `abcdef1`); resolve them with `git show 
   across all four workflows, ahead of GitHub's 2026-06-02 Node 20 deprecation.
   Permissions comment in `nightly-docs.yml` clarified to explain why
   `id-token: write` is required regardless of the model-auth method.
+- **Nightly-docs `--max-turns` raised from 30 to 60**; prompt reorganised to put the
+  two mandatory updates first and add turn-budget guidance (`5dbfc10`).
 
 ---
 
@@ -140,6 +163,15 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 - `2026-05-22 d1efa3f` Improve local setup and quick-start docs (Luca Di Pietro).
 - `2026-05-22 4a9e6ae` Bump yfinance and httpx; add curl_cffi (Luca Di Pietro).
 
+### Week of 2026-05-28 — *Launcher hardening + Docker production setup*
+
+- `2026-05-28 5dbfc10` Nightly docs: increase max turns and clarify prompt (Luca Di Pietro).
+- `2026-05-28 ed31a92` Refine launcher env parsing, deps, and ports — port-conflict checks with kill hints, TTY detection, interactive key prompts, unbuffered backend output (Filippo Selmi).
+- `2026-05-28 b8c9332` Skip Gemini API prompt in non-tty & refine logic (Filippo Selmi).
+- `2026-05-28 533dedb` Reformat run.py and tidy .env.example (Filippo Selmi; merged via PR \#16).
+- `2026-05-28 b1a9b07` Enable Railway plugin in Claude settings (Luca Di Pietro).
+- `2026-05-28 e1dd918` Normalize DB URL and add frontend Dockerfile — `frontend/Dockerfile.prod`, psycopg v3 support, Railway-compatible backend CMD (Filippo Selmi).
+
 ### Week of 2026-05-25 — *Documentation pass*
 
 - `2026-05-24 399f763` Update `.gitignore` (Stefano Angelo Galdini).
@@ -167,4 +199,4 @@ GitHub Copilot's bot account (`copilot-swe-agent[bot]`) appears in a single merg
 
 ---
 
-_Last verified against code: 2026-05-26._
+_Last verified against code: 2026-05-29._
