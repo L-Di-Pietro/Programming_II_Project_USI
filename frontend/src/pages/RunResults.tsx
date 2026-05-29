@@ -20,7 +20,7 @@ import { AIAnalystModal } from "@/components/AIAnalystModal";
 import { RollingSharpChart } from "@/components/RollingSharpChart";
 import { TradePnlChart } from "@/components/TradePnlChart";
 import { TradeList } from "@/components/TradeList";
-import { MarketLoadingScreen } from "@/components/MarketLoadingScreen";
+import { PipelineLoadingScreen } from "@/components/PipelineLoadingScreen";
 import { fmtBacktestDate } from "@/utils/datetime";
 
 type ChartTab = "equity" | "drawdown" | "heatmap" | "trade_pnl" | "rolling_sharpe";
@@ -35,11 +35,12 @@ const CHART_TABS: { id: ChartTab; label: string }[] = [
 
 // Results-specific cycling labels for the shared loading screen.
 const LOADING_MESSAGES = [
-  "Crunching backtest results…",
-  "Rendering performance charts…",
-  "Computing risk metrics…",
-  "Loading market data…",
-  "Almost ready…",
+  "Loading backtest data...",
+  "Fetching equity curve...",
+  "Loading trade log...",
+  "Computing benchmark overlays...",
+  "Preparing performance metrics...",
+  "Rendering charts...",
 ];
 
 // Per-benchmark fetch state. Loaded entries carry the data and are cached for
@@ -101,6 +102,17 @@ export function RunResults() {
           return;
         }
 
+        // Run details are known now — set them early so the loading screen's
+        // context line (strategy · asset · period) shows while charts fetch.
+        setRunInfo({
+          strategyName: run.strategy_name,
+          asset: run.asset_symbol,
+          startDate: run.start_date,
+          endDate: run.end_date,
+          timeframe: run.timeframe,
+          params: run.params,
+        });
+
         // Completed — fetch the metrics + chart/series payload.
         const [m, eq, dd, ev, ts] = await Promise.all([
           Api.getMetrics(id),
@@ -115,14 +127,6 @@ export function RunResults() {
         setDrawdownFig(dd.figure);
         setEquityData(ev);
         setTrades(ts);
-        setRunInfo({
-          strategyName: run.strategy_name,
-          asset: run.asset_symbol,
-          startDate: run.start_date,
-          endDate: run.end_date,
-          timeframe: run.timeframe,
-          params: run.params,
-        });
       } catch (e) {
         if (active) setError(String(e));
       }
@@ -132,22 +136,28 @@ export function RunResults() {
   }, [id]);
 
   // ── Initial-load gate ──────────────────────────────────────────────────────
-  // Show the full-screen loader until the run has finished and all data is in,
-  // then fade out. Mirrors the Configure page so the handoff feels consistent.
+  // The loader replaces the page until the run has finished and all data is in.
+  // Progress eases toward ~80% while loading, then snaps to 100% once ready.
+  // Mirrors the Configure page so the handoff feels consistent.
   const isReady =
     (metrics !== null && equityFig !== null && drawdownFig !== null &&
      equityData !== null && runInfo !== null) || error !== null;
   const mountRef = useRef(performance.now());
-  const [loaderFading, setLoaderFading] = useState(false);
+  const [loadProgress, setLoadProgress] = useState(0);
   const [loaderDone, setLoaderDone]     = useState(false);
   useEffect(() => {
-    if (!isReady || loaderDone) return;
-    const MIN_MS = 900;   // min on-screen time so a fast load doesn't just flash
-    const FADE_MS = 500;  // matches the loader's opacity transition
-    const wait = Math.max(0, MIN_MS - (performance.now() - mountRef.current));
-    const t1 = setTimeout(() => setLoaderFading(true), wait);
-    const t2 = setTimeout(() => setLoaderDone(true), wait + FADE_MS);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    if (loaderDone) return;
+    if (isReady) {
+      setLoadProgress(100);
+      const MIN_MS = 900; // min on-screen time so a fast load doesn't just flash
+      const wait = Math.max(0, MIN_MS - (performance.now() - mountRef.current));
+      const t = setTimeout(() => setLoaderDone(true), wait);
+      return () => clearTimeout(t);
+    }
+    const progressTimer = setInterval(() => {
+      setLoadProgress((p) => (p >= 80 ? p : p + (80 - p) * 0.08));
+    }, 100);
+    return () => clearInterval(progressTimer);
   }, [isReady, loaderDone]);
 
   function toggleBenchmark(kind: BenchmarkKind) {
@@ -246,8 +256,26 @@ export function RunResults() {
     return <div className="m-10 card border-accent-red text-accent-red">Invalid run ID.</div>;
   }
 
+  // ── Loading screen while the Results page data loads ──────────────────────
+  if (!loaderDone) {
+    return (
+      <PipelineLoadingScreen
+        title="Loading Results"
+        messages={LOADING_MESSAGES}
+        progress={loadProgress}
+        contextLine={
+          runInfo ? (
+            <>
+              {runInfo.strategyName} &middot; {runInfo.asset} &middot;{" "}
+              {runInfo.startDate.slice(0, 4)}&ndash;{runInfo.endDate.slice(0, 4)}
+            </>
+          ) : undefined
+        }
+      />
+    );
+  }
+
   return (
-    <>
     <div className="px-10 py-8 pb-16 space-y-5">
 
       {/* ── Header ──────────────────────────────────────────────── */}
@@ -368,10 +396,6 @@ export function RunResults() {
         runInfo={runInfo}
       />
     </div>
-    {!loaderDone && (
-      <MarketLoadingScreen fadeOut={loaderFading} offsetLeft={180} messages={LOADING_MESSAGES} />
-    )}
-    </>
   );
 }
 

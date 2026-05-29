@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { Api, type Strategy } from "@/api/client";
+import { PipelineLoadingScreen } from "@/components/PipelineLoadingScreen";
 
 // ── Static metadata (mirrors data-engine.jsx + backend/strategies/) ───────────
 interface StrategyMeta {
@@ -32,6 +33,14 @@ const COMPLEXITY_BADGE: Record<number, string> = {
 
 const CATEGORIES = ["All", "Trend Following", "Momentum", "Breakout", "Mean Reversion"];
 
+// Cosmetic status lines cycled through while the strategy library loads.
+const LOADING_MESSAGES = [
+  "Fetching strategy library...",
+  "Loading parameter schemas...",
+  "Organizing by category...",
+  "Preparing strategy cards...",
+];
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export function Strategies() {
   const navigate = useNavigate();
@@ -44,10 +53,44 @@ export function Strategies() {
     Api.listStrategies().then(setStrategies).catch((e) => setError(String(e)));
   }, []);
 
+  // ── Initial-load gate ──────────────────────────────────────────────────────
+  // The loader replaces the page until the strategy list is in. Progress eases
+  // toward ~80% while loading, then snaps to 100% once ready. Mirrors the
+  // Configure and Results pages so the handoff feels consistent.
+  const isReady = strategies.length > 0 || error !== null;
+  const mountRef = useRef(performance.now());
+  const [loadProgress, setLoadProgress] = useState(0);
+  const [loaderDone, setLoaderDone]     = useState(false);
+  useEffect(() => {
+    if (loaderDone) return;
+    if (isReady) {
+      setLoadProgress(100);
+      const MIN_MS = 900; // min on-screen time so a fast load doesn't just flash
+      const wait = Math.max(0, MIN_MS - (performance.now() - mountRef.current));
+      const t = setTimeout(() => setLoaderDone(true), wait);
+      return () => clearTimeout(t);
+    }
+    const progressTimer = setInterval(() => {
+      setLoadProgress((p) => (p >= 80 ? p : p + (80 - p) * 0.08));
+    }, 100);
+    return () => clearInterval(progressTimer);
+  }, [isReady, loaderDone]);
+
   const filtered =
     filter === "All"
       ? strategies
       : strategies.filter((s) => s.category === filter);
+
+  // ── Loading screen while the strategy library loads ──────────────────────
+  if (!loaderDone) {
+    return (
+      <PipelineLoadingScreen
+        title="Loading Strategies"
+        messages={LOADING_MESSAGES}
+        progress={loadProgress}
+      />
+    );
+  }
 
   return (
     <div className="px-10 py-10 pb-16">

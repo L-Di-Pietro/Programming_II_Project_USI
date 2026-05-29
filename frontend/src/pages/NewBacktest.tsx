@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { Api, type Asset, type Strategy, type Timeframe } from "@/api/client";
 import { DateField } from "@/components/DateField";
-import { MarketLoadingScreen } from "@/components/MarketLoadingScreen";
+import { PipelineLoadingScreen } from "@/components/PipelineLoadingScreen";
 import { StrategyConfigForm } from "@/components/StrategyConfigForm";
 import { clamp, formatApiError, formatRange } from "@/utils/apiError";
 
@@ -40,6 +40,15 @@ const BARS_PER_YEAR: Record<string, Record<Timeframe, number>> = {
 const HOURLY_HISTORY_DAYS = 730;
 const YFINANCE_HOURLY_CLASSES = new Set(["equity", "etf", "fx"]);
 
+// Cosmetic status lines cycled through while the Configure page fetches its
+// initial data (strategies, assets, parameter schemas) — purely UI feedback.
+const CONFIG_LOADING_STEPS = [
+  "Loading available strategies...",
+  "Loading asset catalogue...",
+  "Fetching parameter schemas...",
+  "Preparing configuration form...",
+];
+
 // Cosmetic pipeline steps cycled through on the loading screen while the
 // backtest API call is in flight — purely UI, not tied to real progress.
 const PIPELINE_STEPS = [
@@ -63,8 +72,7 @@ export function NewBacktest() {
   const [error, setError]           = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Loading-screen animation state.
-  const [stepIndex, setStepIndex]   = useState(0);
+  // Submit-loading progress (message cycling lives in PipelineLoadingScreen).
   const [progress, setProgress]     = useState(0);
 
   // Form state
@@ -130,20 +138,26 @@ export function NewBacktest() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Initial-load gate ──────────────────────────────────────────────────────
-  // A full-screen loader covers the form until its data is ready, then fades
-  // out — so the user never sees the visible-but-frozen page during the fetch.
+  // A loader replaces the form until its data is ready — so the user never sees
+  // the visible-but-frozen page during the fetch. Progress eases toward ~80%
+  // while loading, then snaps to 100% once the data lands.
   const isReady = (assets.length > 0 && strategies.length > 0) || error !== null;
   const mountRef = useRef(performance.now());
-  const [loaderFading, setLoaderFading] = useState(false);
+  const [loadProgress, setLoadProgress] = useState(0);
   const [loaderDone, setLoaderDone]     = useState(false);
   useEffect(() => {
-    if (!isReady || loaderDone) return;
-    const MIN_MS = 900;   // min on-screen time so a fast load doesn't just flash
-    const FADE_MS = 500;  // matches the loader's opacity transition
-    const wait = Math.max(0, MIN_MS - (performance.now() - mountRef.current));
-    const t1 = setTimeout(() => setLoaderFading(true), wait);
-    const t2 = setTimeout(() => setLoaderDone(true), wait + FADE_MS);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
+    if (loaderDone) return;
+    if (isReady) {
+      setLoadProgress(100);
+      const MIN_MS = 900; // min on-screen time so a fast load doesn't just flash
+      const wait = Math.max(0, MIN_MS - (performance.now() - mountRef.current));
+      const t = setTimeout(() => setLoaderDone(true), wait);
+      return () => clearTimeout(t);
+    }
+    const progressTimer = setInterval(() => {
+      setLoadProgress((p) => (p >= 80 ? p : p + (80 - p) * 0.08));
+    }, 100);
+    return () => clearInterval(progressTimer);
   }, [isReady, loaderDone]);
 
   // When asset class changes, reset symbol to first in that class
@@ -151,26 +165,19 @@ export function NewBacktest() {
     setSymbol(classAssets[0]?.symbol ?? null);
   }, [assetClass]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // While submitting: cycle the status message and ease the progress bar
-  // toward ~80% (it jumps to 100% when the response lands, in submit()).
+  // While submitting: ease the progress bar toward ~80% (it jumps to 100% when
+  // the response lands, in submit()).
   useEffect(() => {
     if (!submitting) return;
-    const stepTimer = setInterval(() => {
-      setStepIndex((i) => (i + 1) % PIPELINE_STEPS.length);
-    }, 350);
     const progressTimer = setInterval(() => {
       setProgress((p) => (p >= 80 ? p : p + (80 - p) * 0.08));
     }, 100);
-    return () => {
-      clearInterval(stepTimer);
-      clearInterval(progressTimer);
-    };
+    return () => clearInterval(progressTimer);
   }, [submitting]);
 
   // Submit
   const submit = async () => {
     if (!symbol || !strategySlug) return;
-    setStepIndex(0);
     setProgress(0);
     setSubmitting(true);
     setError(null);
@@ -196,40 +203,35 @@ export function NewBacktest() {
     }
   };
 
-  // ── Loading screen while submitting ───────────────────────────────────────
+  // ── Loading screen while submitting (redirects to Results) ────────────────
   if (submitting) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[78vh] bg-base px-6">
-        {/* 1. Header */}
-        <div className="font-mono text-[11px] uppercase tracking-[2px] text-ink-muted">
-          Running Backtest
-        </div>
+      <PipelineLoadingScreen
+        title="Running Backtest"
+        messages={PIPELINE_STEPS}
+        progress={progress}
+        contextLine={
+          <>
+            {selectedStrategy?.name ?? "—"} &middot; {symbol} &middot;{" "}
+            {start.slice(0, 4)}&ndash;{end.slice(0, 4)}
+          </>
+        }
+      />
+    );
+  }
 
-        {/* 2. Cycling status message with blinking cursor */}
-        <div className="font-mono text-accent-cyan text-base mt-4">
-          {PIPELINE_STEPS[stepIndex]}
-          <span className="animate-blink">_</span>
-        </div>
-
-        {/* 3. Progress bar — eases to ~80%, snaps to 100% on response */}
-        <div className="w-72 h-[3px] rounded-full overflow-hidden mt-5 bg-border">
-          <div
-            className="h-full bg-accent-cyan transition-[width] duration-200 ease-out"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-
-        {/* 4. Context line */}
-        <div className="font-mono text-xs text-ink-muted mt-4">
-          {selectedStrategy?.name ?? "—"} &middot; {symbol} &middot;{" "}
-          {start.slice(0, 4)}&ndash;{end.slice(0, 4)}
-        </div>
-      </div>
+  // ── Initial-load gate (Configure page redirect) ───────────────────────────
+  if (!loaderDone) {
+    return (
+      <PipelineLoadingScreen
+        title="Loading Configuration"
+        messages={CONFIG_LOADING_STEPS}
+        progress={loadProgress}
+      />
     );
   }
 
   return (
-    <>
     <div className="px-10 py-8 pb-16">
 
       {/* ── Header ──────────────────────────────────────────────────── */}
@@ -456,10 +458,6 @@ export function NewBacktest() {
         </div>
       </div>
     </div>
-    {/* offsetLeft matches the App sidebar width (App.tsx aside w-[180px]) so the
-        loader covers only the content area and the nav stays visible. */}
-    {!loaderDone && <MarketLoadingScreen fadeOut={loaderFading} offsetLeft={180} />}
-    </>
   );
 }
 
