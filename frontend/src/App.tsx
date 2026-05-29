@@ -3,6 +3,7 @@ import { Link, Route, Routes, useLocation } from "react-router-dom";
 
 import { Api } from "./api/client";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { OnboardingTour } from "./components/OnboardingTour";
 import { Dashboard } from "./pages/Dashboard";
 import { NewBacktest } from "./pages/NewBacktest";
 import { RunResults } from "./pages/RunResults";
@@ -138,8 +139,15 @@ export default function App() {
           )}
         </nav>
 
-        <div className="px-5 py-4 text-[10px] font-mono text-ink-muted border-t border-border">
-          USI PROG II &mdash; 2.8
+        <div className="px-5 py-4 text-[10px] font-mono text-ink-muted border-t border-border space-y-2">
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent("onboarding:replay"))}
+            className="block text-left text-ink-muted hover:text-accent-cyan transition-colors"
+          >
+            Replay tutorial
+          </button>
+          <div>USI PROG II &mdash; 2.8</div>
         </div>
       </aside>
 
@@ -169,6 +177,8 @@ export default function App() {
           </ErrorBoundary>
         </main>
       </div>
+
+      <OnboardingTour />
     </div>
   );
 }
