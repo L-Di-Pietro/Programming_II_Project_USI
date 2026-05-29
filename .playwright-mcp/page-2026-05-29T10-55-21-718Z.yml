@@ -1,0 +1,224 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - generic [ref=e7]: QUANTEDGE
+      - navigation [ref=e8]:
+        - link "Dashboard" [ref=e9] [cursor=pointer]:
+          - /url: /
+          - img [ref=e11]
+          - text: Dashboard
+        - link "Strategies" [ref=e16] [cursor=pointer]:
+          - /url: /strategies
+          - img [ref=e17]
+          - text: Strategies
+        - link "Configure" [ref=e18] [cursor=pointer]:
+          - /url: /backtests/new
+          - img [ref=e19]
+          - text: Configure
+        - link "Results" [ref=e81] [cursor=pointer]:
+          - /url: /backtests/12
+          - img [ref=e82]
+          - text: Results
+      - generic [ref=e21]:
+        - button "Replay tutorial" [ref=e22] [cursor=pointer]
+        - generic [ref=e23]: USI PROG II — 2.8
+    - generic [ref=e24]:
+      - banner [ref=e25]:
+        - generic [ref=e26]: Dashboard
+        - generic [ref=e27]: Live
+      - main [ref=e29]:
+        - generic [ref=e30]:
+          - generic [ref=e31]:
+            - generic [ref=e32]:
+              - generic [ref=e33]: QUANTEDGE PLATFORM v2.1
+              - heading "Backtest Before You Risk Capital." [level=1] [ref=e34]:
+                - text: Backtest Before
+                - text: You Risk Capital.
+              - paragraph [ref=e35]: A professional-grade backtesting engine for retail quant traders. Test strategies across equities, FX and crypto — stress-test with commissions, slippage, and AI-powered insights.
+              - generic [ref=e36]:
+                - link "Select Strategy" [ref=e37] [cursor=pointer]:
+                  - /url: /strategies
+                - link "Configure Run" [ref=e38] [cursor=pointer]:
+                  - /url: /backtests/new
+            - generic [ref=e39]:
+              - generic [ref=e40]:
+                - generic [ref=e41]:
+                  - generic [ref=e43]: "10"
+                  - generic [ref=e44]: Strategies Available
+                - generic [ref=e45]:
+                  - generic [ref=e47]: "4"
+                  - generic [ref=e48]: Asset Classes
+                - generic [ref=e49]:
+                  - generic [ref=e51]: 1D / 1H
+                  - generic [ref=e52]: Data Interval
+              - generic [ref=e53]:
+                - generic [ref=e54]: Max Lookback
+                - generic [ref=e55]:
+                  - generic [ref=e56]:
+                    - generic [ref=e57]: "Daily:"
+                    - text: Max yfinance Limit (Full History)
+                  - generic [ref=e58]:
+                    - generic [ref=e59]: "Hourly:"
+                    - text: Max yfinance Limit (729 Days)
+          - generic [ref=e60]: RECENT BACKTESTS
+          - generic [ref=e61]:
+            - generic [ref=e62]:
+              - generic [ref=e63]: Strategy
+              - generic [ref=e64]: Asset
+              - generic [ref=e65]: Period
+              - generic [ref=e66]: Status
+              - generic [ref=e67]: Created
+              - generic [ref=e68]: AI Report
+            - generic [ref=e87]:
+              - generic [ref=e88]: SMA Crossover
+              - generic [ref=e89]: AAPL
+              - generic [ref=e90]: 1980-12-12 – 2026-05-29
+              - generic [ref=e92]: completed
+              - generic [ref=e93]: 5/29/2026, 12:51:23 PM
+              - generic [ref=e94]:
+                - link "Download PDF report" [ref=e95] [cursor=pointer]:
+                  - /url: /api/backtests/12/report.pdf?t=2026-05-29T10%3A52%3A01.590307Z
+                  - img [ref=e96]
+                - button "Regenerate report" [ref=e99] [cursor=pointer]:
+                  - img [ref=e100]
+              - link "View" [ref=e105] [cursor=pointer]:
+                - /url: /backtests/12
+            - generic [ref=e106]:
+              - generic [ref=e107]: SMA Crossover
+              - generic [ref=e108]: JPM
+              - generic [ref=e109]: 1980-03-17 – 2026-05-29
+              - generic [ref=e111]: completed
+              - generic [ref=e112]: 5/29/2026, 12:26:03 PM
+              - button "Generate" [ref=e114] [cursor=pointer]:
+                - img [ref=e115]
+                - generic [ref=e118]: Generate
+              - link "View" [ref=e120] [cursor=pointer]:
+                - /url: /backtests/11
+            - generic [ref=e121]:
+              - generic [ref=e122]: SMA Crossover
+              - generic [ref=e123]: AAPL
+              - generic [ref=e124]: 1980-12-12 – 2026-05-29
+              - generic [ref=e126]: completed
+              - generic [ref=e127]: 5/29/2026, 12:25:43 PM
+              - button "Generate" [ref=e129] [cursor=pointer]:
+                - img [ref=e130]
+                - generic [ref=e133]: Generate
+              - link "View" [ref=e135] [cursor=pointer]:
+                - /url: /backtests/10
+            - generic [ref=e136]:
+              - generic [ref=e137]: SMA Crossover
+              - generic [ref=e138]: AAPL
+              - generic [ref=e139]: 1980-12-12 – 2026-05-29
+              - generic [ref=e141]: completed
+              - generic [ref=e142]: 5/29/2026, 12:20:26 PM
+              - button "Generate" [ref=e144] [cursor=pointer]:
+                - img [ref=e145]
+                - generic [ref=e148]: Generate
+              - link "View" [ref=e150] [cursor=pointer]:
+                - /url: /backtests/9
+            - generic [ref=e151]:
+              - generic [ref=e152]: SMA Crossover
+              - generic [ref=e153]: AAPL
+              - generic [ref=e154]: 1980-12-12 – 2026-05-29
+              - generic [ref=e156]: completed
+              - generic [ref=e157]: 5/29/2026, 12:18:04 PM
+              - button "Generate" [ref=e159] [cursor=pointer]:
+                - img [ref=e160]
+                - generic [ref=e163]: Generate
+              - link "View" [ref=e165] [cursor=pointer]:
+                - /url: /backtests/8
+            - generic [ref=e166]:
+              - generic [ref=e167]: SMA Crossover
+              - generic [ref=e168]: AAPL
+              - generic [ref=e169]: 1980-12-12 – 2026-05-29
+              - generic [ref=e171]: completed
+              - generic [ref=e172]: 5/29/2026, 12:17:30 PM
+              - button "Generate" [ref=e174] [cursor=pointer]:
+                - img [ref=e175]
+                - generic [ref=e178]: Generate
+              - link "View" [ref=e180] [cursor=pointer]:
+                - /url: /backtests/7
+            - generic [ref=e181]:
+              - generic [ref=e182]: SMA Crossover
+              - generic [ref=e183]: AAPL
+              - generic [ref=e184]: 1980-12-12 – 2026-05-29
+              - generic [ref=e186]: completed
+              - generic [ref=e187]: 5/29/2026, 12:16:45 PM
+              - button "Generate" [ref=e189] [cursor=pointer]:
+                - img [ref=e190]
+                - generic [ref=e193]: Generate
+              - link "View" [ref=e195] [cursor=pointer]:
+                - /url: /backtests/6
+            - generic [ref=e196]:
+              - generic [ref=e197]: SMA Crossover
+              - generic [ref=e198]: KO
+              - generic [ref=e199]: 1971-01-04 – 2026-05-29
+              - generic [ref=e201]: completed
+              - generic [ref=e202]: 5/29/2026, 12:16:14 PM
+              - button "Generate" [ref=e204] [cursor=pointer]:
+                - img [ref=e205]
+                - generic [ref=e208]: Generate
+              - link "View" [ref=e210] [cursor=pointer]:
+                - /url: /backtests/5
+            - generic [ref=e211]:
+              - generic [ref=e212]: SMA Crossover
+              - generic [ref=e213]: AAPL
+              - generic [ref=e214]: 1980-12-12 – 2026-05-29
+              - generic [ref=e216]: completed
+              - generic [ref=e217]: 5/29/2026, 12:06:06 PM
+              - generic [ref=e218]:
+                - link "Download PDF report" [ref=e219] [cursor=pointer]:
+                  - /url: /api/backtests/4/report.pdf?t=2026-05-29T10%3A06%3A16.420695Z
+                  - img [ref=e220]
+                - button "Regenerate report" [ref=e223] [cursor=pointer]:
+                  - img [ref=e224]
+              - link "View" [ref=e229] [cursor=pointer]:
+                - /url: /backtests/4
+            - generic [ref=e230]:
+              - generic [ref=e231]: SMA Crossover
+              - generic [ref=e232]: AAPL
+              - generic [ref=e233]: 1980-12-12 – 2026-05-29
+              - generic [ref=e235]: completed
+              - generic [ref=e236]: 5/29/2026, 12:02:43 PM
+              - generic [ref=e237]:
+                - link "Download PDF report" [ref=e238] [cursor=pointer]:
+                  - /url: /api/backtests/3/report.pdf?t=2026-05-29T10%3A02%3A52.183916Z
+                  - img [ref=e239]
+                - button "Regenerate report" [ref=e242] [cursor=pointer]:
+                  - img [ref=e243]
+              - link "View" [ref=e248] [cursor=pointer]:
+                - /url: /backtests/3
+            - generic [ref=e249]:
+              - generic [ref=e250]: SMA Crossover
+              - generic [ref=e251]: AAPL
+              - generic [ref=e252]: 1980-12-12 – 2026-05-29
+              - generic [ref=e254]: completed
+              - generic [ref=e255]: 5/29/2026, 11:56:19 AM
+              - button "Generate" [ref=e257] [cursor=pointer]:
+                - img [ref=e258]
+                - generic [ref=e261]: Generate
+              - link "View" [ref=e263] [cursor=pointer]:
+                - /url: /backtests/2
+            - generic [ref=e264]:
+              - generic [ref=e265]: SMA Crossover
+              - generic [ref=e266]: AAPL
+              - generic [ref=e267]: 1980-12-12 – 2026-05-29
+              - generic [ref=e269]: completed
+              - generic [ref=e270]: 5/29/2026, 11:49:04 AM
+              - generic [ref=e271]:
+                - link "Download PDF report" [ref=e272] [cursor=pointer]:
+                  - /url: /api/backtests/1/report.pdf?t=2026-05-29T09%3A49%3A18.171793Z
+                  - img [ref=e273]
+                - button "Regenerate report" [ref=e276] [cursor=pointer]:
+                  - img [ref=e277]
+              - link "View" [ref=e282] [cursor=pointer]:
+                - /url: /backtests/1
+  - dialog:
+    - generic [ref=e72]:
+      - generic [ref=e73]: Step 2 of 11
+      - generic [ref=e74]: Browse strategies
+      - paragraph [ref=e75]: Let's start by picking a strategy to test.
+      - generic [ref=e76]: 👆 Click Strategies in the sidebar
+      - generic [ref=e77]:
+        - button "← Back" [ref=e78] [cursor=pointer]
+        - button "Skip tutorial" [ref=e80] [cursor=pointer]

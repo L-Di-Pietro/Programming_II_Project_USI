@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 
 import {
   Api,
@@ -43,6 +43,32 @@ const LOADING_MESSAGES = [
   "Rendering charts...",
 ];
 
+/** Run header info shown above the charts. */
+interface RunInfo {
+  strategyName: string;
+  asset: string;
+  startDate: string;
+  endDate: string;
+  timeframe: string;
+  params: Record<string, unknown>;
+}
+
+/**
+ * Results payload handed over via router state when a run is launched from the
+ * Configure page — lets the Results page render immediately, fully populated,
+ * with no second "Loading Results" screen. Absent for every other entry point
+ * (Dashboard row, sidebar, direct URL), which fall back to fetching on mount.
+ */
+export interface PreloadedResults {
+  runId: number;
+  runInfo: RunInfo;
+  metrics: Metrics;
+  equityFigure: PlotlyFigure["figure"];
+  drawdownFigure: PlotlyFigure["figure"];
+  equityData: EquityPoint[];
+  trades: Trade[];
+}
+
 // Per-benchmark fetch state. Loaded entries carry the data and are cached for
 // the lifetime of the page — toggling off keeps the cache (no refetch).
 type BenchEntry =
@@ -59,20 +85,22 @@ function pillState(entry?: BenchEntry): BenchmarkState {
 export function RunResults() {
   const { runId } = useParams();
   const id = Number(runId);
+  const location = useLocation();
 
-  const [metrics,     setMetrics]     = useState<Metrics | null>(null);
-  const [equityFig,   setEquityFig]   = useState<PlotlyFigure["figure"] | null>(null);
-  const [drawdownFig, setDrawdownFig] = useState<PlotlyFigure["figure"] | null>(null);
-  const [equityData,  setEquityData]  = useState<EquityPoint[] | null>(null);
-  const [trades,      setTrades]      = useState<Trade[]>([]);
-  const [runInfo,     setRunInfo]     = useState<{
-    strategyName: string;
-    asset: string;
-    startDate: string;
-    endDate: string;
-    timeframe: string;
-    params: Record<string, unknown>;
-  } | null>(null);
+  // Data handed over from the Configure page after a run — present only for the
+  // run→view flow. Validated against the URL id so stale history state for a
+  // different run is ignored.
+  const preloaded = useMemo<PreloadedResults | undefined>(() => {
+    const p = (location.state as { preloaded?: PreloadedResults } | null)?.preloaded;
+    return p && p.runId === id ? p : undefined;
+  }, [location.state, id]);
+
+  const [metrics,     setMetrics]     = useState<Metrics | null>(preloaded?.metrics ?? null);
+  const [equityFig,   setEquityFig]   = useState<PlotlyFigure["figure"] | null>(preloaded?.equityFigure ?? null);
+  const [drawdownFig, setDrawdownFig] = useState<PlotlyFigure["figure"] | null>(preloaded?.drawdownFigure ?? null);
+  const [equityData,  setEquityData]  = useState<EquityPoint[] | null>(preloaded?.equityData ?? null);
+  const [trades,      setTrades]      = useState<Trade[]>(preloaded?.trades ?? []);
+  const [runInfo,     setRunInfo]     = useState<RunInfo | null>(preloaded?.runInfo ?? null);
   const [error,       setError]       = useState<string | null>(null);
   const [activeChart, setActiveChart] = useState<ChartTab>("equity");
   const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -83,6 +111,8 @@ export function RunResults() {
 
   useEffect(() => {
     if (!Number.isFinite(id)) { setError("Invalid run id."); return; }
+    // Data already supplied by the Configure handoff — nothing to fetch.
+    if (preloaded) return;
     let active = true;
     let pollTimer: number | undefined;
 
@@ -133,7 +163,7 @@ export function RunResults() {
     })();
 
     return () => { active = false; if (pollTimer) clearTimeout(pollTimer); };
-  }, [id]);
+  }, [id, preloaded]);
 
   // ── Initial-load gate ──────────────────────────────────────────────────────
   // The loader replaces the page until the run has finished and all data is in.
@@ -143,8 +173,8 @@ export function RunResults() {
     (metrics !== null && equityFig !== null && drawdownFig !== null &&
      equityData !== null && runInfo !== null) || error !== null;
   const mountRef = useRef(performance.now());
-  const [loadProgress, setLoadProgress] = useState(0);
-  const [loaderDone, setLoaderDone]     = useState(false);
+  const [loadProgress, setLoadProgress] = useState(preloaded ? 100 : 0);
+  const [loaderDone, setLoaderDone]     = useState(!!preloaded);
   useEffect(() => {
     if (loaderDone) return;
     if (isReady) {
@@ -311,6 +341,7 @@ export function RunResults() {
 
         <div className="flex gap-2.5">
           <button
+            data-tour="ai-analysis"
             className="btn-secondary border-accent-cyan text-accent-cyan hover:bg-accent-cyan/10"
             onClick={() => setAiModalOpen(true)}
           >

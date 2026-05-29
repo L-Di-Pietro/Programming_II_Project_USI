@@ -5,6 +5,7 @@ import { Api, type Asset, type Strategy, type Timeframe } from "@/api/client";
 import { DateField } from "@/components/DateField";
 import { PipelineLoadingScreen } from "@/components/PipelineLoadingScreen";
 import { StrategyConfigForm } from "@/components/StrategyConfigForm";
+import type { PreloadedResults } from "@/pages/RunResults";
 import { clamp, formatApiError, formatRange } from "@/utils/apiError";
 
 // Engine-parameter bounds. Mirrors backend/api/schemas.py:BacktestRequest;
@@ -194,9 +195,48 @@ export function NewBacktest() {
         risk_fraction:   clamp(riskFraction, RISK_FRACTION_MIN, RISK_FRACTION_MAX),
         timeframe,
       });
+
+      // The run executes synchronously, so its results are ready now. Prefetch
+      // the Results payload *behind this same loader* and hand it to the Results
+      // page via router state — so the run→view flow shows only one continuous
+      // loading screen and lands on a fully-populated page (no "Loading
+      // Results" flash). If prefetch fails, fall back to a plain navigation and
+      // let the Results page fetch on its own.
+      const runId = result.id;
+      let state: { preloaded: PreloadedResults } | undefined;
+      try {
+        const [m, eq, dd, ev, ts] = await Promise.all([
+          Api.getMetrics(runId),
+          Api.getChart(runId, "equity"),
+          Api.getChart(runId, "drawdown"),
+          Api.getEquity(runId),
+          Api.getTrades(runId),
+        ]);
+        state = {
+          preloaded: {
+            runId,
+            runInfo: {
+              strategyName: result.strategy_name,
+              asset:        result.asset_symbol,
+              startDate:    result.start_date,
+              endDate:      result.end_date,
+              timeframe:    result.timeframe,
+              params,
+            },
+            metrics:        m,
+            equityFigure:   eq.figure,
+            drawdownFigure: dd.figure,
+            equityData:     ev,
+            trades:         ts,
+          },
+        };
+      } catch {
+        state = undefined;
+      }
+
       // Snap the bar to 100%, let it render briefly, then go to results.
       setProgress(100);
-      setTimeout(() => navigate(`/backtests/${result.id}`), 250);
+      setTimeout(() => navigate(`/backtests/${runId}`, state ? { state } : undefined), 250);
     } catch (e: unknown) {
       setError(formatApiError(e));
       setSubmitting(false);
@@ -300,6 +340,7 @@ export function NewBacktest() {
               <div className="text-ink-muted text-sm">Loading assets...</div>
             ) : (
               <div
+                data-tour="instrument-grid"
                 className="grid gap-2"
                 style={{ gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))" }}
               >
@@ -352,7 +393,7 @@ export function NewBacktest() {
 
           {/* Backtest period */}
           <Section title="Backtest Period">
-            <div className="flex items-end gap-4 flex-wrap">
+            <div data-tour="period" className="flex items-end gap-4 flex-wrap">
               <DateField label="Start Date" value={start} min={dateMin} max={dateMax} ranges={bounds?.ranges} onCommit={setStart} />
               <DateField label="End Date"   value={end}   min={dateMin} max={dateMax} ranges={bounds?.ranges} onCommit={setEnd} />
               {years > 0 && (
@@ -445,6 +486,7 @@ export function NewBacktest() {
 
           {/* Run button */}
           <button
+            data-tour="run-backtest"
             className="w-full py-3.5 rounded-lg bg-accent-cyan text-[#0d1117] font-bold text-[15px]
                        hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed transition"
             onClick={submit}

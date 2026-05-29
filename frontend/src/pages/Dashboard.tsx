@@ -243,6 +243,7 @@ function AiReportCell({
   onGenerated: (id: number) => void;
 }) {
   const [phase, setPhase] = useState<ReportPhase>("idle");
+  const [downloading, setDownloading] = useState(false);
   const [errMsg, setErrMsg] = useState("");
 
   // Generate + Regenerate are the same call: POST overwrites the cached report.
@@ -259,34 +260,57 @@ function AiReportCell({
     }
   };
 
-  if (phase === "working") {
+  // Build the interactive HTML report on demand from the latest cached report +
+  // live run data, so a download always reflects the newest regeneration. The
+  // heavy export module (inlines Plotly + fonts) is imported lazily on click.
+  const download = async () => {
+    setDownloading(true);
+    setErrMsg("");
+    setPhase("idle");
+    try {
+      const report = await Api.getReport(run.id);
+      if (!report) throw new Error("No report found — regenerate it first.");
+      const { exportReportHtml } = await import("@/utils/exportReportHtml");
+      await exportReportHtml(run.id, report);
+    } catch (e) {
+      setErrMsg(formatApiError(e));
+      setPhase("error");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  if (phase === "working" || downloading) {
     return (
       <span
         className="w-3.5 h-3.5 rounded-full border-2 border-ink-muted border-t-transparent animate-spin"
-        title="Generating report…"
-        aria-label="Generating report"
+        title={downloading ? "Building report…" : "Generating report…"}
+        aria-label={downloading ? "Building report" : "Generating report"}
       />
     );
   }
-
-  // Cache-bust the on-demand PDF so a regenerate never serves a stale cached file.
-  const pdfHref = `${Api.reportPdfUrl(run.id)}?t=${encodeURIComponent(run.report_generated_at ?? "")}`;
 
   return (
     <>
       {phase === "error" && (
         <span
           className="text-accent-red flex items-center"
-          title={errMsg || "Report generation failed — click to retry"}
+          title={errMsg || "Report action failed — click to retry"}
         >
           <IconWarning />
         </span>
       )}
       {run.has_report ? (
         <>
-          <a href={pdfHref} className="btn-ghost text-xs px-2" title="Download PDF report">
+          <button
+            type="button"
+            onClick={download}
+            className="btn-ghost text-xs px-2"
+            title="Download interactive HTML report"
+            aria-label="Download interactive report"
+          >
             <IconDownload />
-          </a>
+          </button>
           <button
             type="button"
             onClick={generate}
