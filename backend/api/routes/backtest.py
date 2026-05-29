@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
@@ -35,6 +35,11 @@ from backend.database.models import (
 )
 
 router = APIRouter(prefix="/backtests", tags=["backtests"])
+
+
+def get_client_id(x_client_id: str | None = Header(default=None)) -> str | None:
+    """Anonymous per-browser owner id, read from the ``X-Client-Id`` request header."""
+    return x_client_id
 
 
 def _to_summary(
@@ -71,6 +76,7 @@ def submit_backtest(
     request: BacktestRequest,
     background: BackgroundTasks,
     db: Session = Depends(get_session),
+    client_id: str | None = Depends(get_client_id),
 ) -> BacktestRun:
     """Submit a backtest run.
 
@@ -91,7 +97,7 @@ def submit_backtest(
         raise HTTPException(400, str(e)) from e
 
     try:
-        agent.run(
+        output = agent.run(
             BacktestAgentInput(
                 asset_id=asset.id,
                 strategy_slug=request.strategy_slug,
@@ -105,17 +111,18 @@ def submit_backtest(
                 sizing_mode=sizing,
                 max_dd_pct=request.max_dd_pct,
                 timeframe=request.timeframe.value,
+                client_id=client_id,
             )
         )
     except (ValueError, RuntimeError) as e:
         raise HTTPException(400, str(e)) from e
 
-    # Return the latest run (just inserted by the agent) for this user/strategy combo.
+    # Fetch the exact run the agent just created. (Not "latest by id" — under
+    # concurrent users that could return a different user's run.)
     run = db.execute(
         select(BacktestRun)
         .options(joinedload(BacktestRun.strategy), joinedload(BacktestRun.asset))
-        .order_by(BacktestRun.id.desc())
-        .limit(1)
+        .where(BacktestRun.id == output.run_id)
     ).scalar_one()
     return _to_summary(run)
 
@@ -127,12 +134,21 @@ def submit_backtest(
 def list_backtests(
     limit: int = 50,
     db: Session = Depends(get_session),
+    client_id: str | None = Depends(get_client_id),
 ) -> list[BacktestSummary]:
-    """List runs newest-first."""
+    """List the caller's runs newest-first.
+
+    Scoped to the ``X-Client-Id`` owner. A missing id returns an empty list (a
+    fresh browser has no runs); legacy rows with NULL ``client_id`` are never
+    returned to anyone.
+    """
+    if client_id is None:
+        return []
     runs = (
         db.execute(
             select(BacktestRun)
             .options(joinedload(BacktestRun.strategy), joinedload(BacktestRun.asset))
+            .where(BacktestRun.client_id == client_id)
             .order_by(BacktestRun.id.desc())
             .limit(limit)
         )

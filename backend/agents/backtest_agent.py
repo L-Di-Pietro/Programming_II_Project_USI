@@ -68,6 +68,7 @@ class BacktestAgentInput:
     risk_fraction: float = 1.0
     timeframe: str = Timeframe.DAILY
     max_dd_pct: float | None = None
+    client_id: str | None = None
 
 
 @dataclass(slots=True)
@@ -171,6 +172,7 @@ class BacktestAgent(BaseAgent[BacktestAgentInput, BacktestAgentOutput]):
         run = BacktestRun(
             strategy_id=strategy_row.id,
             asset_id=payload.asset_id,
+            client_id=payload.client_id,
             timeframe=payload.timeframe,
             start_date=payload.start_date,
             end_date=payload.end_date,

@@ -189,6 +189,9 @@ class BacktestRun(Base):
     __tablename__ = "backtest_runs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    # Anonymous per-browser owner (``X-Client-Id`` header). NULL = legacy/global
+    # runs, which are invisible to the filtered dashboard.
+    client_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     strategy_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("strategies.id"), nullable=False
     )

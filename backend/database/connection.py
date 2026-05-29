@@ -9,11 +9,14 @@ from __future__ import annotations
 
 from collections.abc import Generator
 
+import structlog
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from backend.config import settings
+
+log = structlog.get_logger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -87,3 +90,24 @@ def init_db() -> None:
     from backend.database import models  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _ensure_client_id_column()
+
+
+def _ensure_client_id_column() -> None:
+    """Add ``backtest_runs.client_id`` on pre-existing DBs (no Alembic). Idempotent."""
+    from sqlalchemy import inspect, text
+
+    insp = inspect(engine)
+    if "backtest_runs" not in insp.get_table_names():
+        return
+    if "client_id" in {c["name"] for c in insp.get_columns("backtest_runs")}:
+        return
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE backtest_runs ADD COLUMN client_id VARCHAR(64)"))
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_backtest_runs_client_id "
+                "ON backtest_runs (client_id)"
+            )
+        )
+    log.info("db.migrate.client_id_added")

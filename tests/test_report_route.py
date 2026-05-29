@@ -34,7 +34,7 @@ from backend.timeutils import utcnow
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------
-def _seed_run(db) -> int:
+def _seed_run(db, client_id: str = "owner-1") -> int:
     """Seed an asset, strategy, run, and a few metrics. Returns run_id."""
     asset = Asset(symbol="AAPL", asset_class="equity", name="Apple Inc.")
     strategy = Strategy(
@@ -48,6 +48,7 @@ def _seed_run(db) -> int:
     run = BacktestRun(
         strategy_id=strategy.id,
         asset_id=asset.id,
+        client_id=client_id,
         start_date=datetime(2020, 1, 1),
         end_date=datetime(2024, 1, 1),
         params={"fast": 10, "slow": 30},
@@ -159,13 +160,13 @@ def test_list_backtests_reports_status_before_and_after_generation(db):
     run_id = _seed_run(db)
 
     # Before any report: has_report is False, no timestamp.
-    [summary] = [s for s in list_backtests(db=db) if s.id == run_id]
+    [summary] = [s for s in list_backtests(client_id="owner-1", db=db) if s.id == run_id]
     assert summary.has_report is False
     assert summary.report_generated_at is None
 
     # After generation: has_report flips True and the timestamp matches the cache.
     gen = generate_report(run_id=run_id, db=db)
-    [summary] = [s for s in list_backtests(db=db) if s.id == run_id]
+    [summary] = [s for s in list_backtests(client_id="owner-1", db=db) if s.id == run_id]
     assert summary.has_report is True
     assert summary.report_generated_at == gen.generated_at
 

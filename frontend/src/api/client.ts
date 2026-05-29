@@ -4,9 +4,18 @@
 
 import axios, { AxiosError } from "axios";
 
+import { getClientId } from "./clientId";
+
 // In dev, vite proxies /api/* → backend. In prod, set VITE_API_URL.
 const baseURL = import.meta.env.VITE_API_URL ?? "/api";
 export const api = axios.create({ baseURL, timeout: 60_000 });
+
+// Tag every request with the anonymous per-browser id so the backend can scope
+// backtests to this browser. One interceptor ⇒ all calls carry it.
+api.interceptors.request.use((config) => {
+  config.headers.set("X-Client-Id", getClientId());
+  return config;
+});
 
 // Report generation makes a live LLM call (slow, plus retries on model overload),
 // so it needs a far longer ceiling than the 60 s default applied to every other call.
