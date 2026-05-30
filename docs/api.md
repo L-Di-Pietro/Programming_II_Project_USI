@@ -270,6 +270,12 @@ Router: [`backend/api/routes/backtest.py`](../backend/api/routes/backtest.py). T
 | `max_dd_pct` | `float` ([0, 1]) \| `null` | no | `null` | Optional circuit-breaker: halt the run if equity draws down more than this fraction. |
 | `timeframe` | `str` (enum `Timeframe`) | no | `"1d"` | `"1d"` or `"1h"`. |
 
+**Request headers.**
+
+| Header | Required | Description |
+|---|---|---|
+| `X-Client-Id` | no | Anonymous per-browser UUID. Persisted as `BacktestRun.client_id` so that `GET /backtests` can scope history to the originating browser. The frontend generates and forwards this automatically; omit only from server-to-server calls where per-browser scoping is not needed. |
+
 **Response — `201 Created`** (`BacktestSummary`):
 
 | Field | Type | Description |
@@ -315,13 +321,19 @@ curl -s -X POST http://127.0.0.1:8000/backtests \
 
 [`backend/api/routes/backtest.py:116`](../backend/api/routes/backtest.py).
 
-**Purpose.** List runs newest-first.
+**Purpose.** List runs newest-first, scoped to the caller's `client_id`.
 
 **Query parameters.**
 
 | Name | Type | Default | Description |
 |---|---|---|---|
 | `limit` | `int` | `50` | Maximum number of runs to return. |
+
+**Request headers.**
+
+| Header | Required | Description |
+|---|---|---|
+| `X-Client-Id` | no | Filter results to runs submitted with this value. Returns an empty list when absent. Legacy rows with a `NULL` `client_id` are never surfaced. |
 
 **Response — `200 OK`** — `list[BacktestSummary]` (same shape as `POST /backtests`).
 
