@@ -15,7 +15,7 @@ The walkthrough assumes you have run the [Quick Start in `README.md`](../README.
 5. [Picking an asset and a timeframe](#5-picking-an-asset-and-a-timeframe)
 6. [Reading the charts](#6-reading-the-charts)
 7. [Reading the KPI panel](#7-reading-the-kpi-panel)
-8. [AI report and PDF export](#8-ai-report-and-pdf-export)
+8. [AI report and report download](#8-ai-report-and-report-download)
 9. [Troubleshooting](#9-troubleshooting)
 
 ---
@@ -36,7 +36,7 @@ Goal: run **SMA Crossover on SPY (S&P 500 ETF) from 2020-01-01 to 2024-12-31, da
    # → Local: http://localhost:5173
    ```
 
-2. **Open the app.** Browse to <http://localhost:5173>. You will land on the **Dashboard**.
+2. **Open the app.** Browse to <http://localhost:5173>. You will land on the **Dashboard**. On your first visit the app starts an **onboarding tour** that walks you through the core workflow step-by-step. You can replay it at any time via the "Replay tour" link in the app footer.
 
 3. **Click "New Backtest"** in the sidebar.
 
@@ -60,7 +60,7 @@ Goal: run **SMA Crossover on SPY (S&P 500 ETF) from 2020-01-01 to 2024-12-31, da
     - A **monthly returns heatmap**.
     - A **trade-P&L scatter** and a **rolling Sharpe** chart in the secondary panel.
     - A **metrics grid** on the right with three categories: return, risk, trade.
-    - An **AI report card** at the bottom (in demo mode by default — see [§8](#8-ai-report-and-pdf-export)).
+    - An **AI report card** at the bottom (in demo mode by default — see [§8](#8-ai-report-and-report-download)).
 
 You have just executed a real event-driven backtest with realistic frictions. The rest of this guide is about getting more out of subsequent runs.
 
@@ -229,7 +229,7 @@ For the **benchmark overlays**, the same KPI panel is computed against the bench
 
 ---
 
-## 8. AI report and PDF export
+## 8. AI report and report download
 
 ### Demo mode (the default)
 
@@ -254,9 +254,12 @@ To get a real LLM-generated report:
 
 The report is **cached per run** in the `llm_conversations` table. The Results page's "Regenerate" button is a `POST` (it triggers a fresh call); the initial card render is a `GET` (it returns the cached version if any).
 
-### PDF export
+### Report download (HTML)
 
-On the AI Report card, click **"Download PDF"**. The browser-side [`jsPDF`](https://github.com/parallax/jsPDF) library renders the report (plus the page-header context — strategy, asset, window) into a single-page PDF and triggers a download. No backend round-trip is involved; this works in demo mode too.
+In the AI Analyst modal, click **"Download report"**. The browser-side `exportReportHtml`
+utility builds a self-contained HTML file that inlines the Plotly charts and the IBM Plex
+font bundle, then triggers a download. The resulting file is fully viewable offline — no
+live server or backend round-trip is required. This works in demo mode too.
 
 ---
 
@@ -267,7 +270,7 @@ On the AI Report card, click **"Download PDF"**. The browser-side [`jsPDF`](http
 | **"No data for asset"** on submit | The asset's bars are not loaded in the local DB yet. | Run `python scripts/load_initial_data.py --timeframes 1d 1h` to fetch the seeded universe, or `POST /assets/{symbol}/refresh?timeframe=1d` for a single symbol. |
 | **Slow page loads** on the Results page | Hourly runs with thousands of bars are larger payloads than daily. | Default to daily for first runs; switch to hourly only when the strategy needs intraday signals. |
 | **Strategy dropdown is empty** | Backend not running or `STRATEGY_REGISTRY` import failed at startup. | Check `uvicorn` logs for an `ImportError`; confirm `backend/strategies/__init__.py` lists every strategy module. |
-| **AI report errors with "LLM not enabled"** | `LLM_ENABLED=false` in `.env`, or `GEMINI_API_KEY` empty. | Set both correctly (see [§8](#8-ai-report-and-pdf-export)) and restart the backend. |
+| **AI report errors with "LLM not enabled"** | `LLM_ENABLED=false` in `.env`, or `GEMINI_API_KEY` empty. | Set both correctly (see [§8](#8-ai-report-and-report-download)) and restart the backend. |
 | **AI report errors with "Rate limit exceeded"** | Google AI free tier per-minute quota hit. | Wait 60 seconds and click "Regenerate", or upgrade your AI Studio plan. |
 | **Frontend shows "Network error" on submit** | Vite dev server cannot reach the backend (proxy 502). | Check the backend is on port 8000; verify `FRONTEND_API_URL` in `.env` matches. |
 | **Backtest dates greyed-out for hourly** | Hourly data is capped at ~730 days back by yfinance. | Either pick a more recent window, or use daily, or extend the date range via `POST /assets/{symbol}/refresh` with `timeframe=1h` (the `CryptoFetcher` can reach further via Binance fallback). |

@@ -170,6 +170,44 @@ both the old \texttt{postgresql://} and the new \texttt{postgresql+psycopg://}
 dialect strings at engine-creation time, so existing \texttt{DATABASE\_URL}
 environment variables continue to work without change.
 
+\subsection*{Frontend polish and backtest isolation (2026-05-29)}
+
+The day's work divided into two tracks that shipped in the same afternoon.
+
+The first was a front-end polish sprint. The most visible addition was an interactive
+onboarding tour (\texttt{b3acd7d}): \texttt{OnboardingTour} is mounted once at the app
+root and spotlights one UI element per step. \textit{Active} steps ask the user to
+click the highlighted control before the tour advances, so first-time users learn by
+doing rather than by reading a static help page. The tour is replayable via a ``Replay
+tour'' footer link at any time. A companion commit (\texttt{a7ffe1c}, PR~\#18) replaced
+the per-page ad-hoc spinners across \texttt{NewBacktest}, \texttt{RunResults}, and
+\texttt{Strategies} with a single \texttt{PipelineLoadingScreen} component, and
+\texttt{45dddf4} eliminated a redundant network round-trip by prefetching the completed
+run detail inside \texttt{NewBacktest} and forwarding it via React Router state to
+\texttt{RunResults}, so the results page renders immediately on navigation.
+
+The AI Analyst modal received two related changes. \texttt{6056272} removed the private
+\texttt{MetricsGrid} that had been duplicated inside the modal and replaced it with the
+shared \texttt{MetricsPanel} component, rendered as a top strip with a new
+\texttt{tourHook} prop to suppress the onboarding anchor when mounted inside a modal.
+\texttt{fd57ede} switched the download action from a PDF (which required a synchronous
+\texttt{jsPDF} render pass) to an interactive HTML report produced by
+\texttt{exportReportHtml} (\texttt{38816c3}, PR~\#19). The HTML exporter inlines Plotly
+and the newly added IBM Plex font bundle (WOFF2, self-hosted) so the exported file is
+fully self-contained and viewable offline without a live server.
+
+The second track was backtest isolation (\texttt{1acc780}). Previously
+\texttt{GET /backtests} returned every run in the database, meaning two browsers would
+see each other's history. The fix introduces an anonymous per-browser
+\texttt{client\_id}: \texttt{frontend/src/api/clientId.ts} generates a UUID on first
+load and persists it in \texttt{localStorage}; an Axios interceptor forwards it as
+\texttt{X-Client-Id} on every request. The \texttt{BacktestRun} model gains a
+nullable, indexed \texttt{client\_id} column; \texttt{POST /backtests} persists the
+header value; \texttt{GET /backtests} filters to the caller's runs and returns an
+empty list when the header is absent. A new integration test
+(\texttt{tests/test\_backtest\_isolation.py}) asserts that two clients cannot see each
+other's runs.
+
 \subsection*{Things we tried and abandoned}
 
 A few decisions did not survive the four weeks:

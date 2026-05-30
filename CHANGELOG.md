@@ -18,6 +18,24 @@ Hash references use the short SHA (e.g. `abcdef1`); resolve them with `git show 
   `frontend/.dockerignore` added (`e1dd918`).
 - **`psycopg[binary]`** added to `requirements.txt` for production Postgres
   connectivity (`e1dd918`).
+- **Onboarding tour** (`b3acd7d`) — `OnboardingTour` component spotlights one UI
+  element per step; *active* steps ask the user to click the highlighted control
+  before advancing, teaching by doing rather than by reading. Replayable via a
+  "Replay tour" footer link. No third-party tour library.
+- **PipelineLoadingScreen** (`a7ffe1c`) — shared animated pipeline-progress loader
+  replacing the per-page ad-hoc spinners on NewBacktest, RunResults, and Strategies.
+- **IBM Plex font bundle** (`38816c3`) — self-hosted WOFF2 files (Mono/Sans/Serif)
+  with a `plex.ts` loader; used by `exportReportHtml` so offline reports carry their
+  own fonts.
+- **HTML report download** (`fd57ede`) — AI Analyst modal now exports an interactive
+  self-contained HTML report via `exportReportHtml`, replacing the earlier PDF option;
+  the same export also powers the Dashboard runs-table download button.
+- **`exportReportHtml` utility** (`38816c3`) — produces a standalone HTML file that
+  inlines Plotly and the IBM Plex font bundle; no backend round-trip.
+- **Anonymous per-browser `client_id`** (`1acc780`) — `frontend/src/api/clientId.ts`
+  generates a persistent UUID in `localStorage`; an Axios interceptor forwards it as
+  `X-Client-Id` on every request so backtest history is scoped to the originating
+  browser.
 
 ### Changed
 
@@ -30,6 +48,21 @@ Hash references use the short SHA (e.g. `abcdef1`); resolve them with `git show 
   env parsing (strips surrounding quotes and inline comments), and interactive y/N
   prompts (`ed31a92`, `b8c9332`, `533dedb`, merged as PR \#16).
 - **Railway Claude plugin** enabled in `.claude/settings.json` (`b1a9b07`).
+- **MetricsPanel promoted to shared component** (`6056272`) — `AIAnalystModal` no
+  longer maintains a private `MetricsGrid`; it renders the shared `MetricsPanel` as a
+  top-strip inside the modal, with a new `tourHook` prop to suppress the onboarding
+  anchor in modal context. Canonical 5×2 metric set updated with signed/unsigned
+  percent formatting.
+- **Results prefetch** (`45dddf4`) — `NewBacktest` now fetches the completed run
+  detail immediately after submission and passes it via React Router state, so
+  `RunResults` renders without a second network round-trip.
+- **Gemini default model updated from `gemini-2.5-flash-lite` to `gemini-3.5-flash`**
+  (`ad77f90`) — reflected in `.env.example`, `backend/config.py`, and
+  `backend/llm/gemini_provider.py`.
+- **Backtest runs scoped to anonymous `client_id`** (`1acc780`) — `BacktestRun`
+  gains a nullable, indexed `client_id` column; `POST /backtests` reads `X-Client-Id`
+  from the request header and persists it; `GET /backtests` returns only the caller's
+  runs (empty list when the header is absent; legacy `NULL` rows are never surfaced).
 
 ### CI
 
@@ -172,6 +205,22 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 - `2026-05-28 b1a9b07` Enable Railway plugin in Claude settings (Luca Di Pietro).
 - `2026-05-28 e1dd918` Normalize DB URL and add frontend Dockerfile — `frontend/Dockerfile.prod`, psycopg v3 support, Railway-compatible backend CMD (Filippo Selmi).
 
+### Week of 2026-05-29 — *Frontend polish + backtest isolation*
+
+- `2026-05-29 b81c8cd` Add `offsetLeft` prop to `MarketLoadingScreen` (Baumender11).
+- `2026-05-29 f0b28c1` Add loading screen and backtest-status polling to `RunResults` (Baumender11).
+- `2026-05-29 b3acd7d` Add `OnboardingTour` and replay footer link (Luca Di Pietro).
+- `2026-05-29 aed9915` Adjust AI analyst modal layout and stat width (Luca Di Pietro).
+- `2026-05-29 a7ffe1c` Add `PipelineLoadingScreen` and replace per-page loaders (Baumender11; merged via PR \#18).
+- `2026-05-29 45dddf4` Prefetch results and pass via router state (Baumender11).
+- `2026-05-29 13c93fc` Add Playwright snapshots and tour assets (Baumender11).
+- `2026-05-29 38816c3` Add IBM Plex font bundle and `exportReportHtml` utility (Luca Di Pietro; merged via PR \#19).
+- `2026-05-29 ad77f90` Update Gemini model to `gemini-3.5-flash` (Filippo Selmi).
+- `2026-05-29 6056272` Replace AI metrics grid with shared `MetricsPanel` (Baumender11).
+- `2026-05-29 fd57ede` Add HTML report download to AI Analyst modal (Luca Di Pietro).
+- `2026-05-29 1acc780` Scope backtests by anonymous `client_id` — `BacktestRun.client_id` column, `X-Client-Id` header dependency, `frontend/src/api/clientId.ts` UUID utility (Filippo Selmi).
+- `2026-05-29 38a3505` chore(docs): nightly auto-refresh 2026-05-29 (automated — Claude Code; merged via PR \#17).
+
 ### Week of 2026-05-25 — *Documentation pass*
 
 - `2026-05-24 399f763` Update `.gitignore` (Stefano Angelo Galdini).
@@ -199,4 +248,4 @@ GitHub Copilot's bot account (`copilot-swe-agent[bot]`) appears in a single merg
 
 ---
 
-_Last verified against code: 2026-05-29._
+_Last verified against code: 2026-05-30._
