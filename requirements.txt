@@ -30,7 +30,11 @@ requests==2.32.3                # general HTTP (transitive dep of yfinance/panda
 plotly==5.24.1                  # build figure JSON server-side; render client-side
 
 # --- PDF export --------------------------------------------------------------
-reportlab==4.5.1                # styled PDF for the AI backtest report
+reportlab==4.5.1                # styled PDF for the legacy text-only report (GET /report.pdf)
+playwright==1.49.0              # headless Chromium → true PDF render of the HTML report (POST /report.pdf)
+                                # NOTE: also requires `playwright install --with-deps chromium`
+                                # (done in the Dockerfile). Import is lazy, so the backend still
+                                # starts cleanly if the browser isn't installed locally.
 
 # --- Scheduling --------------------------------------------------------------
 APScheduler==3.10.4             # nightly data refresh job
