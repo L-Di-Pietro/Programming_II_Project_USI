@@ -261,4 +261,13 @@ export const Api = {
   reportPdfUrl(runId: number): string {
     return `${baseURL}/backtests/${runId}/report.pdf`;
   },
+  /** Render the given report HTML to a true PDF via the backend (headless
+   * Chromium). Returns the PDF bytes as a Blob for direct download. */
+  async renderReportPdf(runId: number, html: string): Promise<Blob> {
+    const { data } = await api.post(`/backtests/${runId}/report.pdf`, { html }, {
+      responseType: "blob",
+      timeout: REPORT_GEN_TIMEOUT_MS,
+    });
+    return data as Blob;
+  },
 };

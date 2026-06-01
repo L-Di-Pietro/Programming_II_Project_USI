@@ -6,6 +6,7 @@ import { Api, type Metrics, type Report } from "@/api/client";
 import { ConfigPopover } from "@/components/ConfigPopover";
 import { MetricsPanel } from "@/components/MetricsPanel";
 import { fmtBacktestDate } from "@/utils/datetime";
+import { openReportTab } from "@/utils/reportTab";
 
 interface RunInfo {
   strategyName: string;
@@ -100,17 +101,20 @@ export function AIAnalystModal({
     }
   };
 
-  // Same interactive HTML report the Dashboard serves: identical generator,
-  // identical (runId, report) args ⇒ identical file. The heavy export module
-  // (inlines Plotly + fonts) is imported lazily on click.
-  const downloadReport = async () => {
+  // Open the interactive HTML report in a new tab (it carries its own "Save HTML
+  // File" button for opt-in download). The tab is opened synchronously here so
+  // the popup survives the async build; the heavy export module (inlines Plotly
+  // + fonts) is imported lazily, then navigates the tab once ready.
+  const openReport = async () => {
     if (!report) return;
+    const win = openReportTab();
     setError("");
     setDownloading(true);
     try {
-      const { exportReportHtml } = await import("@/utils/exportReportHtml");
-      await exportReportHtml(runId, report); // cover + metrics + charts + benchmark toggles + AI analysis
+      const { openReportHtml } = await import("@/utils/exportReportHtml");
+      await openReportHtml(runId, report, win); // cover + metrics + charts + benchmark toggles + AI analysis
     } catch (e) {
+      if (win && !win.closed) win.close();
       setError(errMsg(e));
       setStatus("error");
     } finally {
@@ -231,10 +235,10 @@ export function AIAnalystModal({
             <button
               type="button"
               className="btn-primary text-xs py-1.5"
-              onClick={downloadReport}
+              onClick={openReport}
               disabled={!report || status === "loading" || downloading}
             >
-              {downloading ? "Generating…" : "Download Report"}
+              {downloading ? "Generating…" : "View Report"}
             </button>
           </div>
         </div>

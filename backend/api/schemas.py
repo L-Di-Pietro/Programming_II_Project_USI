@@ -214,3 +214,9 @@ class ReportResponse(BaseModel):
     cached: bool
     prompt_tokens: int = 0
     completion_tokens: int = 0
+
+
+class ReportPdfRequest(BaseModel):
+    """A fully-assembled, self-contained report document (built client-side in
+    'pdf' mode) to be rendered to a true PDF by headless Chromium."""
+    html: str

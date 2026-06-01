@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { Api, type BacktestSummary } from "@/api/client";
+import { Api, type BacktestSummary, type Report } from "@/api/client";
+import { PdfSectionsDialog } from "@/components/PdfSectionsDialog";
+import { ReportActionMenu, type ReportMenuAction } from "@/components/ReportActionMenu";
 import { formatApiError } from "@/utils/apiError";
+import type { ReportSections } from "@/utils/exportReportHtml";
 import { formatLocal } from "@/utils/datetime";
+import { openReportTab } from "@/utils/reportTab";
 
 // ── Max lookback descriptors (text rather than a single big number) ─────────
 const LOOKBACK_LIMITS = [
@@ -245,6 +249,7 @@ function AiReportCell({
   const [phase, setPhase] = useState<ReportPhase>("idle");
   const [downloading, setDownloading] = useState(false);
   const [errMsg, setErrMsg] = useState("");
+  const [pdfDialogOpen, setPdfDialogOpen] = useState(false);
 
   // Generate + Regenerate are the same call: POST overwrites the cached report.
   const generate = async () => {
@@ -260,25 +265,64 @@ function AiReportCell({
     }
   };
 
-  // Build the interactive HTML report on demand from the latest cached report +
-  // live run data, so a download always reflects the newest regeneration. The
-  // heavy export module (inlines Plotly + fonts) is imported lazily on click.
-  const download = async () => {
+  // Every report action pulls the latest cached report, then delivers it via the
+  // lazily-imported export module (inlines Plotly + fonts), so a view/download
+  // always reflects the newest regeneration.
+  const runReport = async (
+    deliver: (report: Report) => Promise<void>,
+    onError?: () => void,
+  ) => {
     setDownloading(true);
     setErrMsg("");
     setPhase("idle");
     try {
       const report = await Api.getReport(run.id);
       if (!report) throw new Error("No report found — regenerate it first.");
-      const { exportReportHtml } = await import("@/utils/exportReportHtml");
-      await exportReportHtml(run.id, report);
+      await deliver(report);
     } catch (e) {
+      onError?.();
       setErrMsg(formatApiError(e));
       setPhase("error");
     } finally {
       setDownloading(false);
     }
   };
+
+  // "See Report": open in a new tab. The tab must be opened synchronously in the
+  // click (before the async fetch/import) or the popup is blocked.
+  const seeReport = () => {
+    const win = openReportTab();
+    void runReport(
+      async (report) => {
+        const { openReportHtml } = await import("@/utils/exportReportHtml");
+        await openReportHtml(run.id, report, win);
+      },
+      () => { if (win && !win.closed) win.close(); },
+    );
+  };
+
+  // "Download PDF": first let the user pick which sections/graphs to include.
+  const downloadPdf = () => setPdfDialogOpen(true);
+
+  const confirmPdf = (sections: ReportSections) => {
+    setPdfDialogOpen(false);
+    void runReport(async (report) => {
+      const { downloadReportPdf } = await import("@/utils/exportReportHtml");
+      await downloadReportPdf(run.id, report, sections);
+    });
+  };
+
+  const downloadHtml = () =>
+    void runReport(async (report) => {
+      const { downloadReportHtml } = await import("@/utils/exportReportHtml");
+      await downloadReportHtml(run.id, report);
+    });
+
+  const reportActions: ReportMenuAction[] = [
+    { key: "see", label: "See Report", hint: "Open the interactive report in a new tab", icon: <IconEye />, onSelect: seeReport },
+    { key: "pdf", label: "Download PDF", hint: "Print-ready static PDF", icon: <IconFilePdf />, onSelect: downloadPdf },
+    { key: "html", label: "Download HTML", hint: "Standalone interactive .html file", icon: <IconDownload />, onSelect: downloadHtml },
+  ];
 
   if (phase === "working" || downloading) {
     return (
@@ -292,6 +336,11 @@ function AiReportCell({
 
   return (
     <>
+      <PdfSectionsDialog
+        open={pdfDialogOpen}
+        onClose={() => setPdfDialogOpen(false)}
+        onConfirm={confirmPdf}
+      />
       {phase === "error" && (
         <span
           className="text-accent-red flex items-center"
@@ -302,15 +351,7 @@ function AiReportCell({
       )}
       {run.has_report ? (
         <>
-          <button
-            type="button"
-            onClick={download}
-            className="btn-ghost text-xs px-2"
-            title="Download interactive HTML report"
-            aria-label="Download interactive report"
-          >
-            <IconDownload />
-          </button>
+          <ReportActionMenu actions={reportActions} />
           <button
             type="button"
             onClick={generate}
@@ -378,6 +419,28 @@ function IconWarning() {
       <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
       <line x1="12" y1="9" x2="12" y2="13" />
       <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  );
+}
+
+function IconEye() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function IconFilePdf() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+      <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M12 11v6" />
+      <path d="M9.5 14.5 12 17l2.5-2.5" />
     </svg>
   );
 }

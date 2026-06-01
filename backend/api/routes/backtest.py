@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from typing import Literal
 
@@ -20,6 +21,7 @@ from backend.api.schemas import (
     ChartResponse,
     EquityPointOut,
     MetricsOut,
+    ReportPdfRequest,
     ReportResponse,
     TradeOut,
 )
@@ -429,6 +431,57 @@ def get_report_pdf(run_id: int, db: Session = Depends(get_session)) -> Response:
         demo_mode=agent.is_demo_mode,
     )
     filename = pdf_filename(run.strategy.name, run.asset.symbol, generated_at)
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _slug(s: str) -> str:
+    """Filename-safe token — matches the frontend's slug() in exportReportHtml.ts."""
+    return re.sub(r"^_+|_+$", "", re.sub(r"[^A-Za-z0-9]+", "_", s)) or "x"
+
+
+def _pdf_download_name(run: BacktestRun) -> str:
+    """{Strategy}_{Ticker}_{Start}_{End}_report.pdf — mirrors the HTML filename."""
+    start = run.start_date.isoformat()[:10]
+    end = run.end_date.isoformat()[:10]
+    return f"{_slug(run.strategy.name)}_{_slug(run.asset.symbol)}_{start}_{end}_report.pdf"
+
+
+@router.post("/{run_id}/report.pdf")
+def render_report_pdf(
+    run_id: int,
+    payload: ReportPdfRequest,
+    db: Session = Depends(get_session),
+) -> Response:
+    """Render a client-built report document ('pdf' mode HTML) to a true PDF via
+    headless Chromium. The client ships the fully-assembled document so the PDF
+    is pixel-identical to the interactive report, with the benchmark toggles
+    replaced by a static legend at generation time."""
+    run = db.get(BacktestRun, run_id)
+    if run is None:
+        raise HTTPException(404, f"Run {run_id} not found")
+
+    # Playwright is an optional export-only dependency (it pulls in a headless
+    # browser); import lazily so a missing install degrades just this endpoint.
+    try:
+        from backend.analytics.report_pdf_render import render_html_to_pdf
+    except ModuleNotFoundError as exc:
+        raise HTTPException(
+            503,
+            "PDF export needs the 'playwright' package plus its Chromium browser. "
+            "Run `pip install -r requirements.txt` then "
+            "`playwright install --with-deps chromium`.",
+        ) from exc
+
+    try:
+        pdf = render_html_to_pdf(payload.html)
+    except Exception as exc:  # noqa: BLE001 - surface any render failure as a 500
+        raise HTTPException(500, f"PDF render failed: {exc}") from exc
+
+    filename = _pdf_download_name(run)
     return Response(
         content=pdf,
         media_type="application/pdf",

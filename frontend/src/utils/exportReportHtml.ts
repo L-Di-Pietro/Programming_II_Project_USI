@@ -20,6 +20,7 @@ import {
   type Trade,
 } from "@/api/client";
 import { fmtBacktestDate, formatLocal } from "@/utils/datetime";
+import { computeMonthlyReturns } from "@/utils/monthlyReturns";
 
 // IBM Plex (OFL) as base64 data URIs (see assets/fonts/plex.ts) so the document
 // is fully offline — identical in dev and prod, no reliance on Vite ?inline.
@@ -66,6 +67,26 @@ export interface ReportPayload {
   trades: Trade[];
   benchmarks: ReportBenchmark[]; // only benchmarks that have data for this run
   report: Report;
+}
+
+// "interactive": the in-browser report (toggle buttons, Save/Print actions).
+// "pdf": a static variant for the headless-Chromium PDF render — toggles become
+// a non-interactive legend and the action buttons are dropped.
+export type ReportMode = "interactive" | "pdf";
+
+// Per-section include/exclude switches (used by the PDF export so a user can
+// keep only the parts they want). Omitted or `true` = included; only an explicit
+// `false` drops a section. The cover and footer are always present.
+export interface ReportSections {
+  summary?: boolean; // Executive Summary KPI cards
+  metrics?: boolean; // Full Metrics table
+  comparison?: boolean; // Strategy vs. Benchmarks
+  equity?: boolean; // Equity Curve chart
+  drawdown?: boolean; // Drawdown chart
+  monthly?: boolean; // Monthly Returns heatmap
+  trades?: boolean; // Trade P&L
+  commentary?: boolean; // AI Analysis narrative
+  params?: boolean; // Run Parameters appendix
 }
 
 // -----------------------------------------------------------------------------
@@ -260,14 +281,29 @@ function buildEquityFigure(equity: EquityPoint[], benchmarks: ReportBenchmark[])
   return { id: "fig-equity", data, layout, benchTraces };
 }
 
+/** Underwater curve as a percentage: (equity / running-peak − 1) × 100. Mirrors
+ *  DrawdownChart.tsx so the report and the Results page render identically —
+ *  drawdown is ≤ 0 (0% at the top, deeper troughs below). We compute it from
+ *  the equity series rather than trusting the stored drawdown_pct, whose sign
+ *  and scale differ between the strategy (/equity) and benchmark endpoints. */
+function underwater(equity: number[]): number[] {
+  let peak = -Infinity;
+  return equity.map((e) => {
+    peak = Math.max(peak, e);
+    return peak > 0 ? (e / peak - 1) * 100 : 0;
+  });
+}
+const arrMin = (a: number[]) => a.reduce((m, v) => (v < m ? v : m), Infinity);
+
 function buildDrawdownFigure(equity: EquityPoint[], benchmarks: ReportBenchmark[]): PlotlyFig {
+  const stratDd = underwater(equity.map((p) => p.equity));
   const data: Record<string, unknown>[] = [
     {
       type: "scatter",
       mode: "lines",
       name: "Strategy",
       x: equity.map((p) => p.ts),
-      y: equity.map((p) => p.drawdown_pct),
+      y: stratDd,
       line: { color: C.strategy, width: 2.2 },
       fill: "tozeroy",
       fillcolor: "rgba(8,145,178,0.10)",
@@ -275,13 +311,16 @@ function buildDrawdownFigure(equity: EquityPoint[], benchmarks: ReportBenchmark[
     },
   ];
   const benchTraces: { kind: string; index: number }[] = [];
+  const benchDd: number[][] = [];
   for (const b of benchmarks) {
+    const dd = underwater(b.equity.map((p) => p.equity));
+    benchDd.push(dd);
     data.push({
       type: "scatter",
       mode: "lines",
       name: b.label,
       x: b.equity.map((p) => p.ts),
-      y: b.equity.map((p) => p.drawdown_pct),
+      y: dd,
       line: { color: b.color, width: 1.5 },
       opacity: 0.85,
       visible: true,
@@ -290,18 +329,17 @@ function buildDrawdownFigure(equity: EquityPoint[], benchmarks: ReportBenchmark[
     benchTraces.push({ kind: b.kind, index: data.length - 1 });
   }
 
-  // Annotate the strategy's max-drawdown trough.
+  // Annotate the strategy's max-drawdown trough (the most-negative point).
   const annotations: Record<string, unknown>[] = [];
-  if (equity.length) {
+  if (stratDd.length) {
     let wi = 0;
-    equity.forEach((p, i) => {
-      if (p.drawdown_pct < equity[wi].drawdown_pct) wi = i;
+    stratDd.forEach((v, i) => {
+      if (v < stratDd[wi]) wi = i;
     });
-    const t = equity[wi];
     annotations.push({
-      x: t.ts,
-      y: t.drawdown_pct,
-      text: `Max DD ${t.drawdown_pct.toFixed(1)}%`,
+      x: equity[wi].ts,
+      y: stratDd[wi],
+      text: `Max DD ${stratDd[wi].toFixed(1)}%`,
       showarrow: true,
       arrowhead: 6,
       arrowsize: 1,
@@ -317,10 +355,22 @@ function buildDrawdownFigure(equity: EquityPoint[], benchmarks: ReportBenchmark[
     });
   }
 
+  // Fix the y-axis from the worst trough across every series up to 0, so 0% sits
+  // at the top and deeper drawdowns extend downward — matching DrawdownChart.tsx.
+  const worst = Math.min(arrMin(stratDd), ...benchDd.map(arrMin));
+  const yaxis: Record<string, unknown> = {
+    ...AXIS,
+    ticksuffix: "%",
+    zeroline: true,
+    zerolinecolor: "#cfd6dd",
+    zerolinewidth: 1,
+  };
+  if (Number.isFinite(worst) && worst < 0) yaxis.range = [worst * 1.05, 0];
+
   const layout = {
     ...commonLayout(),
     xaxis: { ...AXIS, type: "date", tickformat: "%b %Y" },
-    yaxis: { ...AXIS, ticksuffix: "%", zeroline: true, zerolinecolor: "#cfd6dd", zerolinewidth: 1 },
+    yaxis,
     annotations,
   };
   return { id: "fig-drawdown", data, layout, benchTraces };
@@ -384,32 +434,6 @@ function buildTradePnlFigure(trades: Trade[]): PlotlyFig {
 // -----------------------------------------------------------------------------
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-function monthlyReturns(equity: EquityPoint[]): { years: string[]; byYear: Map<string, (number | null)[]> } {
-  if (!equity.length) return { years: [], byYear: new Map() };
-  const sorted = [...equity].sort((a, b) => (a.ts < b.ts ? -1 : 1));
-  const fl = new Map<string, { first: number; last: number }>();
-  for (const p of sorted) {
-    const ym = p.ts.slice(0, 7);
-    const e = fl.get(ym);
-    if (!e) fl.set(ym, { first: p.equity, last: p.equity });
-    else e.last = p.equity;
-  }
-  const months = [...fl.keys()];
-  const ret = new Map<string, number>();
-  months.forEach((ym, i) => {
-    const cur = fl.get(ym)!;
-    const base = i === 0 ? cur.first : fl.get(months[i - 1])!.last;
-    ret.set(ym, base ? cur.last / base - 1 : 0);
-  });
-  const byYear = new Map<string, (number | null)[]>();
-  for (const ym of months) {
-    const [y, m] = ym.split("-");
-    if (!byYear.has(y)) byYear.set(y, new Array(12).fill(null));
-    byYear.get(y)![parseInt(m, 10) - 1] = ret.get(ym)!;
-  }
-  return { years: [...byYear.keys()], byYear };
-}
-
 function heatCell(v: number, scale: number): { bg: string; fg: string } {
   const t = Math.max(-1, Math.min(1, v / scale));
   const a = Math.abs(t);
@@ -419,29 +443,33 @@ function heatCell(v: number, scale: number): { bg: string; fg: string } {
     ? { bg: `rgba(21,128,61,${alpha})`, fg }
     : { bg: `rgba(185,28,28,${alpha})`, fg };
 }
-const monthPct = (v: number) => `${v >= 0 ? "+" : ""}${(v * 100).toFixed(1)}`;
+// Values are already percentages (e.g. 5.0 = +5%), matching the Results page.
+const monthPct = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}`;
 
 function monthlyTable(equity: EquityPoint[]): string {
-  const { years, byYear } = monthlyReturns(equity);
+  // Same computation as the Results-page heatmap (computeMonthlyReturns) so the
+  // numbers are identical: within-month return, percentages, annual = year
+  // first→last bar.
+  const { years, returns, annual } = computeMonthlyReturns(equity);
   if (!years.length) return `<div class="sec-sub">No data available.</div>`;
-  let scale = 0.02;
-  for (const y of years) for (const v of byYear.get(y)!) if (v != null) scale = Math.max(scale, Math.abs(v));
+  // Colour scale: largest absolute monthly return (%), min 2% so a calm series
+  // still grades.
+  let scale = 2;
+  for (const y of years)
+    for (let m = 1; m <= 12; m++) {
+      const v = returns[y][m];
+      if (v != null) scale = Math.max(scale, Math.abs(v));
+    }
   const head = `<tr><th></th>${MONTHS.map((m) => `<th>${m}</th>`).join("")}<th>Year</th></tr>`;
   const rows = years
     .map((y) => {
-      const arr = byYear.get(y)!;
-      let comp = 1;
-      let any = false;
-      const cells = arr
-        .map((v) => {
-          if (v == null) return `<td></td>`;
-          any = true;
-          comp *= 1 + v;
-          const c = heatCell(v, scale);
-          return `<td style="background:${c.bg};color:${c.fg}">${monthPct(v)}</td>`;
-        })
-        .join("");
-      const yr = any ? comp - 1 : null;
+      const cells = MONTHS.map((_, i) => {
+        const v = returns[y][i + 1];
+        if (v == null) return `<td></td>`;
+        const c = heatCell(v, scale);
+        return `<td style="background:${c.bg};color:${c.fg}">${monthPct(v)}</td>`;
+      }).join("");
+      const yr = annual[y] ?? null;
       const yc =
         yr == null
           ? `<td class="yr"></td>`
@@ -458,11 +486,13 @@ function monthlyTable(equity: EquityPoint[]): string {
 const INFO_SVG =
   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
 
-function renderBanner(hasBench: boolean): string {
+function renderBanner(hasBench: boolean, mode: ReportMode): string {
+  // The PDF render is a static document — no interactive banner or buttons.
+  if (mode === "pdf") return "";
   const tip = hasBench
-    ? "use the benchmark toggles above each chart to customize your view. Toggling a benchmark updates every chart at once."
-    : "hover any chart for details, and print to PDF for a static copy.";
-  return `<div class="banner"><div class="banner-txt">${INFO_SVG}<span><b>Interactive report</b> — ${tip}</span></div><button class="printbtn" type="button" onclick="window.print()">Print / Save as PDF</button></div>`;
+    ? "use the Sections bar to show or hide parts of the report, and the benchmark toggles above each chart to customize your view."
+    : "use the Sections bar to show or hide parts of the report, then save the file for a local copy.";
+  return `<div class="banner"><div class="banner-txt">${INFO_SVG}<span><b>Interactive report</b> — ${tip}</span></div><div class="banner-actions"><button class="savebtn" type="button" onclick="window.__saveReportHtml&&window.__saveReportHtml()">Save HTML File</button><button class="printbtn" type="button" onclick="window.print()">Print / Save as PDF</button></div></div>`;
 }
 
 function renderCover(run: BacktestDetail, asset: Asset | undefined, report: Report): string {
@@ -606,6 +636,42 @@ function togBar(benchmarks: ReportBenchmark[]): string {
   return `<div class="togbar">${strat}${btns}</div>`;
 }
 
+/** Non-interactive version of togBar for the PDF render: shows which series are
+ *  active (all of them, at generation time) as a static legend, no buttons. */
+function staticLegend(benchmarks: ReportBenchmark[]): string {
+  const chip = (label: string, color: string) =>
+    `<span class="tog on" style="--c:${color}"><span class="dot"></span>${escapeHtml(label)}</span>`;
+  const items = [chip("Strategy", C.strategy), ...benchmarks.map((b) => chip(b.label, b.color))].join("");
+  return `<div class="togbar">${items}</div>`;
+}
+
+// Short labels for the in-report "Sections" bar (interactive only). Keys mirror
+// ReportSections so the PDF picker and the live report stay in lock-step.
+const SECTION_LABELS: Record<keyof ReportSections, string> = {
+  summary: "Summary",
+  metrics: "Metrics",
+  comparison: "Comparison",
+  equity: "Equity",
+  drawdown: "Drawdown",
+  monthly: "Monthly",
+  trades: "Trades",
+  commentary: "AI Analysis",
+  params: "Parameters",
+};
+
+/** Live section show/hide bar for the interactive report — one pill per section
+ *  actually present, all ON by default. The runtime toggles `[data-section]`. */
+function renderSectionBar(keys: (keyof ReportSections)[]): string {
+  if (!keys.length) return "";
+  const btns = keys
+    .map(
+      (k) =>
+        `<button type="button" class="sectog on" data-section-btn="${k}" aria-pressed="true">${SECTION_LABELS[k]}</button>`,
+    )
+    .join("");
+  return `<div class="sectionbar"><span class="sectionbar-label">Sections</span><div class="sectionbar-btns">${btns}</div></div>`;
+}
+
 function chartSection(
   kicker: string,
   title: string,
@@ -613,8 +679,9 @@ function chartSection(
   figId: string,
   benchmarks: ReportBenchmark[] | null,
   tall: boolean,
+  mode: ReportMode,
 ): string {
-  const bar = benchmarks && benchmarks.length ? togBar(benchmarks) : "";
+  const bar = benchmarks && benchmarks.length ? (mode === "pdf" ? staticLegend(benchmarks) : togBar(benchmarks)) : "";
   return `<section class="block chart-block"><div class="kicker">${kicker}</div><h2 class="sec-title">${title}</h2><p class="sec-sub">${sub}</p>${bar}<div id="${figId}" class="chart${tall ? " tall" : ""}"></div></section>`;
 }
 
@@ -697,8 +764,19 @@ body{background:var(--page);color:var(--body);font-family:'IBM Plex Sans','Helve
 .banner-txt{font-size:13px;display:flex;align-items:center;gap:10px}
 .banner-txt b{color:#0e7490}
 .banner-txt svg{flex:none;color:#0891b2}
-.printbtn{flex:none;font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:12.5px;color:#fff;background:var(--cy);border:none;border-radius:6px;padding:8px 16px;cursor:pointer}
-.printbtn:hover{background:#0e7490}
+.banner-actions{flex:none;display:flex;align-items:center;gap:8px}
+.savebtn{font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:12.5px;color:#fff;background:var(--cy);border:none;border-radius:6px;padding:8px 16px;cursor:pointer}
+.savebtn:hover{background:#0e7490}
+.printbtn{font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:12.5px;color:var(--cy);background:transparent;border:1.5px solid var(--cy);border-radius:6px;padding:6.5px 14px;cursor:pointer}
+.printbtn:hover{background:var(--cy);color:#fff}
+/* Section toggles (interactive only) */
+.sectionbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:11px 56px;background:#f8fafc;border-bottom:1px solid var(--hair)}
+.sectionbar-label{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;flex:none}
+.sectionbar-btns{display:flex;gap:7px;flex-wrap:wrap}
+.sectog{font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:11.5px;padding:5px 12px;border-radius:999px;border:1.5px solid var(--hair);background:#fff;color:var(--muted);cursor:pointer;transition:background .12s,color .12s,border-color .12s}
+.sectog.on{background:var(--cy);border-color:var(--cy);color:#fff}
+.sectog.off{background:#fff;color:var(--faint)}
+.sectog.off:hover{border-color:var(--cy);color:var(--cy)}
 /* KPIs */
 .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--hair);border:1px solid var(--hair);border-radius:7px;overflow:hidden}
 .kpi{background:var(--card);padding:20px 22px}
@@ -765,7 +843,7 @@ table.params tr:last-child td{border-bottom:none}
 .foot .disc{max-width:62ch;font-style:italic}
 .foot-meta{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
 @media (max-width:680px){.kpis{grid-template-columns:repeat(2,1fr)}.meta-grid{grid-template-columns:1fr}.block,.cover,.banner,.foot{padding-left:24px;padding-right:24px}}
-@media print{body{background:#fff;padding:0}.doc{box-shadow:none;border:none;border-radius:0;max-width:none}.printbtn{display:none}.banner{background:#f0fdff}.block,.cover{padding:24px 40px}section,.chart-block,.kpi,.heat-block,table,.cover,.banner{page-break-inside:avoid}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+@media print{body{background:#fff;padding:0}.doc{box-shadow:none;border:none;border-radius:0;max-width:none}.banner-actions,.sectionbar{display:none}.banner{background:#f0fdff}.block,.cover{padding:24px 40px}section,.chart-block,.kpi,.heat-block,table,.cover,.banner{page-break-inside:avoid}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
 
 const TOGGLE_RUNTIME = `
 (function(){
@@ -773,12 +851,27 @@ const TOGGLE_RUNTIME = `
   var figs = R.figures || [];
   var state = R.toggles || {};
   var cfg = { responsive:true, displayModeBar:false };
+  // Signal to the headless-Chromium PDF renderer that every figure has drawn.
+  function ready(){ window.__REPORT_READY__ = true; }
   if(window.Plotly){
-    figs.forEach(function(f){
+    var proms = figs.map(function(f){
       var el = document.getElementById(f.id);
-      if(el) Plotly.newPlot(el, f.data, f.layout, cfg);
+      return el ? Plotly.newPlot(el, f.data, f.layout, cfg) : null;
     });
-  }
+    (Promise.all(proms)).then(ready).catch(ready);
+  } else { ready(); }
+  // Opt-in "Save HTML File": re-fetch this document's own (un-revoked) blob URL
+  // for a byte-faithful copy and download it under the report's filename.
+  window.__saveReportHtml = function(){
+    var name = R.filename || 'backtest_report.html';
+    fetch(location.href).then(function(r){ return r.blob(); }).then(function(b){
+      var u = URL.createObjectURL(b);
+      var a = document.createElement('a');
+      a.href = u; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(u); }, 1000);
+    }).catch(function(e){ alert('Could not save the HTML file: ' + e); });
+  };
   function applyBench(kind, on){
     state[kind] = on;
     figs.forEach(function(f){
@@ -803,6 +896,25 @@ const TOGGLE_RUNTIME = `
       applyBench(kind, !state[kind]);
     });
   });
+  // Section show/hide — the in-report "Sections" bar. All sections start visible.
+  function applySection(key, on){
+    document.querySelectorAll('[data-section="'+key+'"]').forEach(function(el){ el.style.display = on ? '' : 'none'; });
+    document.querySelectorAll('[data-section-btn="'+key+'"]').forEach(function(btn){
+      btn.classList.toggle('on', on);
+      btn.classList.toggle('off', !on);
+      btn.setAttribute('aria-pressed', String(on));
+    });
+    // A chart revealed after the window changed size needs Plotly to re-fit.
+    if(on && window.Plotly){
+      figs.forEach(function(f){ var el=document.getElementById(f.id); if(el){ try{ Plotly.Plots.resize(el); }catch(e){} } });
+    }
+  }
+  document.querySelectorAll('[data-section-btn]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var key = btn.getAttribute('data-section-btn');
+      applySection(key, !btn.classList.contains('on'));
+    });
+  });
   window.addEventListener('beforeprint', function(){
     if(!window.Plotly) return;
     figs.forEach(function(f){ var el=document.getElementById(f.id); if(el){ try{ Plotly.Plots.resize(el); }catch(e){} } });
@@ -815,81 +927,128 @@ const TOGGLE_RUNTIME = `
 export function buildReportHtml(
   payload: ReportPayload,
   plotlySource: string,
+  mode: ReportMode = "interactive",
+  sections?: ReportSections,
 ): { html: string; filename: string } {
   const { run, asset, metrics, equity, trades, benchmarks, report } = payload;
   const hasBench = benchmarks.length > 0;
+  const on = (k: keyof ReportSections) => sections?.[k] !== false; // default: included
 
-  const figures: PlotlyFig[] = [buildEquityFigure(equity, benchmarks), buildDrawdownFigure(equity, benchmarks)];
-  const tradeFig = trades.length ? buildTradePnlFigure(trades) : null;
+  // Only build (and inline) the figures for sections that are actually kept.
+  const figures: PlotlyFig[] = [];
+  if (on("equity")) figures.push(buildEquityFigure(equity, benchmarks));
+  if (on("drawdown")) figures.push(buildDrawdownFigure(equity, benchmarks));
+  const tradeFig = on("trades") && trades.length ? buildTradePnlFigure(trades) : null;
   if (tradeFig) figures.push(tradeFig);
 
   const toggles: Record<string, boolean> = {};
   for (const b of benchmarks) toggles[b.kind] = true;
-
-  const tradeSection = tradeFig
-    ? chartSection(
-        "Trade Analysis",
-        "Trade Profit &amp; Loss",
-        "Net P&amp;L of each closed trade after commission and slippage. The best and worst trades are annotated.",
-        "fig-tradepnl",
-        null,
-        false,
-      )
-    : `<section class="block"><div class="kicker">Trade Analysis</div><h2 class="sec-title">Trade Profit &amp; Loss</h2><p class="sec-sub">No trades were executed in this run.</p></section>`;
-
-  const body = [
-    `<div class="accentbar"></div>`,
-    renderBanner(hasBench),
-    renderCover(run, asset, report),
-    renderExecSummary(metrics),
-    renderMetricsTable(metrics),
-    renderComparison(metrics, benchmarks),
-    chartSection(
-      "Performance",
-      "Equity Curve",
-      "Growth of the modeled portfolio over the test window, against the selected benchmarks.",
-      "fig-equity",
-      benchmarks,
-      true,
-    ),
-    chartSection(
-      "Risk",
-      "Drawdown",
-      "Peak-to-trough decline at each point in time. Deeper is worse; the strategy trough is annotated.",
-      "fig-drawdown",
-      benchmarks,
-      false,
-    ),
-    renderMonthly(equity, benchmarks),
-    tradeSection,
-    renderCommentary(report),
-    renderParams(run, asset),
-    renderFooter(report),
-  ].join("\n");
-
-  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${escapeHtml(
-    run.strategy_name,
-  )} — Backtest Report</title><style>${FONT_CSS}\n${CSS}</style></head><body><main class="doc">${body}</main><script>${plotlySource}</script><script>window.__REPORT__=${jsonEmbed(
-    { figures, toggles },
-  )};</script><script>${TOGGLE_RUNTIME}</script></body></html>`;
 
   const filename = `${slug(run.strategy_name)}_${slug(asset?.symbol ?? "asset")}_${run.start_date.slice(
     0,
     10,
   )}_${run.end_date.slice(0, 10)}_report.html`;
 
+  const tradeSection = !on("trades")
+    ? ""
+    : tradeFig
+      ? chartSection(
+          "Trade Analysis",
+          "Trade Profit &amp; Loss",
+          "Net P&amp;L of each closed trade after commission and slippage. The best and worst trades are annotated.",
+          "fig-tradepnl",
+          null,
+          false,
+          mode,
+        )
+      : `<section class="block"><div class="kicker">Trade Analysis</div><h2 class="sec-title">Trade Profit &amp; Loss</h2><p class="sec-sub">No trades were executed in this run.</p></section>`;
+
+  // Each toggleable section, in document order. Empty entries (dropped by the
+  // PDF picker, or a renderer that produced nothing — e.g. the comparison table
+  // with no benchmarks) are removed so they get no stray toggle.
+  const sectionEntries: { key: keyof ReportSections; html: string }[] = [
+    { key: "summary", html: on("summary") ? renderExecSummary(metrics) : "" },
+    { key: "metrics", html: on("metrics") ? renderMetricsTable(metrics) : "" },
+    { key: "comparison", html: on("comparison") ? renderComparison(metrics, benchmarks) : "" },
+    {
+      key: "equity",
+      html: on("equity")
+        ? chartSection(
+            "Performance",
+            "Equity Curve",
+            "Growth of the modeled portfolio over the test window, against the selected benchmarks.",
+            "fig-equity",
+            benchmarks,
+            true,
+            mode,
+          )
+        : "",
+    },
+    {
+      key: "drawdown",
+      html: on("drawdown")
+        ? chartSection(
+            "Risk",
+            "Drawdown",
+            "Peak-to-trough decline at each point in time. Deeper is worse; the strategy trough is annotated.",
+            "fig-drawdown",
+            benchmarks,
+            false,
+            mode,
+          )
+        : "",
+    },
+    { key: "monthly", html: on("monthly") ? renderMonthly(equity, benchmarks) : "" },
+    { key: "trades", html: tradeSection },
+    { key: "commentary", html: on("commentary") ? renderCommentary(report) : "" },
+    { key: "params", html: on("params") ? renderParams(run, asset) : "" },
+  ];
+  const presentSections = sectionEntries.filter((e) => e.html);
+
+  // Interactive mode wraps each section so the in-report "Sections" bar can show
+  // / hide it live; pdf mode emits the sections plainly (the picker already chose).
+  const sectionBlocks =
+    mode === "interactive"
+      ? presentSections.map((e) => `<div data-section="${e.key}">${e.html}</div>`).join("\n")
+      : presentSections.map((e) => e.html).join("\n");
+
+  const body = [
+    `<div class="accentbar"></div>`,
+    renderBanner(hasBench, mode),
+    mode === "interactive" ? renderSectionBar(presentSections.map((e) => e.key)) : "",
+    renderCover(run, asset, report),
+    sectionBlocks,
+    renderFooter(report),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><title>${escapeHtml(
+    run.strategy_name,
+  )} — Backtest Report</title><style>${FONT_CSS}\n${CSS}</style></head><body><main class="doc">${body}</main><script>${plotlySource}</script><script>window.__REPORT__=${jsonEmbed(
+    { figures, toggles, filename },
+  )};</script><script>${TOGGLE_RUNTIME}</script></body></html>`;
+
   return { html, filename };
 }
 
 // -----------------------------------------------------------------------------
-// IO wrapper — fetch data, inline Plotly, build, download.
+// IO — fetch data, inline Plotly, build, then deliver (view / download / PDF).
 // -----------------------------------------------------------------------------
 const BENCH_DEFS: { kind: BenchmarkKind; label: string; color: string }[] = [
   { kind: "buy_and_hold", label: "Buy & Hold", color: C.bh },
   { kind: "sp500", label: "S&P 500", color: C.spx },
 ];
 
-export async function exportReportHtml(runId: number, report: Report): Promise<void> {
+/** Fetch every input for a run and build the report document. Shared by all
+ *  delivery paths so they emit identical content (apart from interactive vs.
+ *  pdf mode). */
+export async function buildReportArtifacts(
+  runId: number,
+  report: Report,
+  mode: ReportMode = "interactive",
+  sections?: ReportSections,
+): Promise<{ html: string; filename: string }> {
   const [run, assets, metrics, equity, trades, benchEq, benchMt] = await Promise.all([
     Api.getBacktest(runId),
     Api.listAssets(),
@@ -921,12 +1080,45 @@ export async function exportReportHtml(runId: number, report: Report): Promise<v
   // Inline the full Plotly library (lazy chunk) so the file works offline.
   const plotlySource = (await import("plotly.js-dist-min/plotly.min.js?raw")).default;
 
-  const { html, filename } = buildReportHtml(payload, plotlySource);
-  triggerDownload(html, filename);
+  return buildReportHtml(payload, plotlySource, mode, sections);
 }
 
-function triggerDownload(html: string, filename: string): void {
-  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+/** Download the interactive report as a standalone .html file. */
+export async function downloadReportHtml(runId: number, report: Report): Promise<void> {
+  const { html, filename } = await buildReportArtifacts(runId, report, "interactive");
+  triggerBlobDownload(new Blob([html], { type: "text/html;charset=utf-8" }), filename);
+}
+
+/**
+ * Open the interactive report in a new browser tab. The caller should open the
+ * window synchronously inside the click handler and pass it here, so the popup
+ * survives the async build (post-`await` `window.open` is blocked by browsers).
+ * The blob URL is deliberately NOT revoked: the in-report "Save HTML File"
+ * button re-fetches it to produce a byte-faithful download.
+ */
+export async function openReportHtml(runId: number, report: Report, win: Window | null): Promise<void> {
+  const { html } = await buildReportArtifacts(runId, report, "interactive");
+  const url = URL.createObjectURL(new Blob([html], { type: "text/html;charset=utf-8" }));
+  if (win && !win.closed) win.location.href = url;
+  else window.open(url, "_blank");
+}
+
+/** Download a true, static PDF rendered by the backend (headless Chromium).
+ *  `sections` lets the caller keep only the parts they want (default: all). */
+export async function downloadReportPdf(
+  runId: number,
+  report: Report,
+  sections?: ReportSections,
+): Promise<void> {
+  const { html, filename } = await buildReportArtifacts(runId, report, "pdf", sections);
+  const pdf = await Api.renderReportPdf(runId, html);
+  triggerBlobDownload(pdf, filename.replace(/\.html$/, ".pdf"));
+}
+
+/** Back-compat alias for the original auto-download entry point. */
+export const exportReportHtml = downloadReportHtml;
+
+function triggerBlobDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

@@ -5,6 +5,24 @@ import { buildReportHtml, type ReportBenchmark, type ReportPayload } from "./exp
 
 const PLOTLY_STUB = "/*__PLOTLY_STUB__*/";
 
+interface EmbeddedFig {
+  id: string;
+  data: { y?: number[] }[];
+  benchTraces: { kind: string; index: number }[];
+}
+interface EmbeddedReport {
+  figures: EmbeddedFig[];
+  toggles: Record<string, boolean>;
+  filename: string;
+}
+
+/** Pull the inlined `window.__REPORT__` chart payload back out of the document. */
+function extractReportData(html: string): EmbeddedReport {
+  const m = html.match(/window\.__REPORT__=(.+?);<\/script>/s);
+  if (!m) throw new Error("no __REPORT__ payload found");
+  return JSON.parse(m[1]) as EmbeddedReport;
+}
+
 function mkMetrics(): Metrics {
   return {
     return: { total_return_pct: 42.5, cagr_pct: 9.1, annualized_volatility_pct: 14.2 },
@@ -181,5 +199,121 @@ describe("buildReportHtml", () => {
     const { html } = buildReportHtml(mkPayload({ trades: [] }), PLOTLY_STUB);
     expect(html).toContain("No trades were executed");
     expect(html).not.toContain('id="fig-tradepnl"');
+  });
+
+  // ---- New-tab / Save HTML (interactive mode) --------------------------------
+  it("interactive mode adds a 'Save HTML File' action and embeds the filename", () => {
+    const { html, filename } = buildReportHtml(mkPayload(), PLOTLY_STUB);
+    expect(html).toContain("Save HTML File");
+    expect(html).toContain("__saveReportHtml");
+    // The filename is embedded so the in-report Save button names the download.
+    expect(extractReportData(html).filename).toBe(filename);
+  });
+
+  it("embeds the readiness sentinel the PDF renderer waits on", () => {
+    const { html } = buildReportHtml(mkPayload(), PLOTLY_STUB);
+    expect(html).toContain("__REPORT_READY__");
+  });
+
+  // ---- PDF mode --------------------------------------------------------------
+  it("pdf mode drops the interactive controls and shows a static legend instead", () => {
+    const { html } = buildReportHtml(mkPayload(), PLOTLY_STUB, "pdf");
+    // No actual toggle buttons (the runtime's selector string doesn't count).
+    expect(html).not.toContain('data-bench-btn="buy_and_hold"');
+    expect(html).not.toContain('data-bench-btn="sp500"');
+    expect(html).not.toContain('class="savebtn"'); // no Save HTML button
+    expect(html).not.toContain('class="printbtn"'); // no Print button
+    expect(html).not.toContain("Interactive report"); // banner dropped
+    expect(html).toContain('class="togbar"'); // static legend still present
+    // Benchmarks remain active (rendered) at generation time.
+    expect(extractReportData(html).toggles).toEqual({ buy_and_hold: true, sp500: true });
+  });
+
+  // ---- Drawdown sign (Part 3) ------------------------------------------------
+  it("renders the drawdown underwater (≤ 0) for the strategy and each benchmark", () => {
+    // Equity dips from a peak, so the computed underwater curve must go negative —
+    // regardless of the (deliberately wrong) drawdown_pct on the points.
+    const dip = (base: number): EquityPoint[] =>
+      [100, 120, 90, 110].map((v, i) => ({
+        ts: `2021-0${i + 1}-15T12:00:00Z`,
+        equity: (v / 100) * base,
+        cash: 0,
+        position_value: 0,
+        drawdown_pct: 999, // ignored — the report computes its own underwater curve
+      }));
+    const payload = mkPayload({
+      equity: dip(10_000),
+      benchmarks: [
+        { kind: "buy_and_hold", label: "Buy & Hold", color: "#2563eb", equity: dip(5_000), metrics: mkMetrics() },
+      ],
+    });
+    const fig = extractReportData(buildReportHtml(payload, PLOTLY_STUB).html).figures.find(
+      (f) => f.id === "fig-drawdown",
+    )!;
+    const stratY = fig.data[0].y ?? [];
+    expect(Math.min(...stratY)).toBeLessThan(0); // there is a real drawdown
+    expect(Math.max(...stratY)).toBeLessThanOrEqual(0); // never above the zero line
+    // The benchmark drawdown trace is present and genuinely underwater (not ~0).
+    expect(fig.data.length).toBe(2);
+    expect(Math.min(...(fig.data[1].y ?? []))).toBeLessThan(-1);
+  });
+
+  // ---- Heatmap parity (Part 4) -----------------------------------------------
+  it("renders heatmap cells from within-month returns, matching the Results page", () => {
+    const equity: EquityPoint[] = [
+      { ts: "2020-01-10T12:00:00Z", equity: 100, cash: 0, position_value: 0, drawdown_pct: 0 },
+      { ts: "2020-01-20T12:00:00Z", equity: 110, cash: 0, position_value: 0, drawdown_pct: 0 }, // +10.0
+      { ts: "2020-02-10T12:00:00Z", equity: 110, cash: 0, position_value: 0, drawdown_pct: 0 },
+      { ts: "2020-02-20T12:00:00Z", equity: 99, cash: 0, position_value: 0, drawdown_pct: 0 }, // -10.0
+    ];
+    const { html } = buildReportHtml(mkPayload({ equity, benchmarks: [] }), PLOTLY_STUB);
+    expect(html).toContain(">+10.0<"); // Jan within-month return
+    expect(html).toContain(">-10.0<"); // Feb within-month return
+    expect(html).toContain(">-1.0<"); // annual: 100 → 99
+  });
+
+  // ---- PDF section toggles ---------------------------------------------------
+  it("includes every section by default", () => {
+    const { html } = buildReportHtml(mkPayload(), PLOTLY_STUB, "pdf");
+    for (const id of ['id="fig-equity"', 'id="fig-drawdown"', 'id="fig-tradepnl"']) {
+      expect(html).toContain(id);
+    }
+    expect(html).toContain("Monthly Return Heatmap");
+    expect(html).toContain("Run Parameters");
+  });
+
+  it("drops unchecked sections and their inlined figures", () => {
+    const { html } = buildReportHtml(mkPayload(), PLOTLY_STUB, "pdf", {
+      drawdown: false,
+      trades: false,
+      commentary: false,
+    });
+    // Dropped sections + their figures are gone…
+    expect(html).not.toContain('id="fig-drawdown"');
+    expect(html).not.toContain('id="fig-tradepnl"');
+    expect(html).not.toContain("AI Analysis");
+    // …but kept sections (and figures) remain.
+    expect(html).toContain('id="fig-equity"');
+    expect(html).toContain("Monthly Return Heatmap");
+
+    const data = extractReportData(html);
+    expect(data.figures.find((f) => f.id === "fig-drawdown")).toBeUndefined();
+    expect(data.figures.find((f) => f.id === "fig-tradepnl")).toBeUndefined();
+    expect(data.figures.find((f) => f.id === "fig-equity")).toBeDefined();
+  });
+
+  // ---- Live "Sections" bar (interactive report) ------------------------------
+  it("interactive mode adds a live Sections bar and wraps each toggleable section", () => {
+    const { html } = buildReportHtml(mkPayload(), PLOTLY_STUB);
+    expect(html).toContain('class="sectionbar"');
+    expect(html).toContain('data-section-btn="drawdown"'); // a toggle pill
+    expect(html).toContain('data-section="drawdown"'); // the wrapped, hideable section
+    expect(html).toContain('data-section="equity"');
+  });
+
+  it("pdf mode has no live Sections bar (the picker already chose)", () => {
+    const { html } = buildReportHtml(mkPayload(), PLOTLY_STUB, "pdf");
+    expect(html).not.toContain('class="sectionbar"');
+    expect(html).not.toContain('data-section-btn="drawdown"');
   });
 });

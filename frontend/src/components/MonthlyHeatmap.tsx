@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 
 import type { EquityPoint } from "@/api/client";
+import { computeMonthlyReturns } from "@/utils/monthlyReturns";
 import { type BenchmarkSeries, STRATEGY } from "./benchmarks";
 
 const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -16,41 +17,6 @@ function cellBg(v: number | null): string {
 function fmt(v: number | null): string {
   if (v === null) return "—";
   return (v >= 0 ? "+" : "") + v.toFixed(1);
-}
-
-function computeReturns(data: EquityPoint[]) {
-  const monthly: Record<number, Record<number, { first: number; last: number }>> = {};
-  for (const pt of data) {
-    const d = new Date(pt.ts);
-    const y = d.getFullYear();
-    const m = d.getMonth() + 1;
-    if (!monthly[y]) monthly[y] = {};
-    if (!monthly[y][m]) {
-      monthly[y][m] = { first: pt.equity, last: pt.equity };
-    } else {
-      monthly[y][m].last = pt.equity;
-    }
-  }
-
-  const years = Object.keys(monthly).map(Number).sort();
-  const annual: Record<number, number | null> = {};
-  for (const y of years) {
-    const pts = data.filter((pt) => new Date(pt.ts).getFullYear() === y);
-    annual[y] = pts.length >= 2
-      ? (pts[pts.length - 1].equity / pts[0].equity - 1) * 100
-      : null;
-  }
-
-  const returns: Record<number, Record<number, number | null>> = {};
-  for (const y of years) {
-    returns[y] = {};
-    for (let m = 1; m <= 12; m++) {
-      const cell = monthly[y]?.[m];
-      returns[y][m] = cell ? (cell.last / cell.first - 1) * 100 : null;
-    }
-  }
-
-  return { years, returns, annual };
 }
 
 const thStyle: CSSProperties = {
@@ -83,7 +49,7 @@ const spacerTdStyle: CSSProperties = {
 
 /** The year × 12-month returns grid for one equity series. */
 function HeatmapTable({ equity }: { equity: EquityPoint[] }) {
-  const { years, returns, annual } = computeReturns(equity);
+  const { years, returns, annual } = computeMonthlyReturns(equity);
   return (
     <table style={{ borderCollapse: "collapse", fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "#c9d1d9", width: "100%" }}>
       <thead>

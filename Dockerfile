@@ -21,6 +21,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
+# Headless Chromium for server-side PDF rendering of the AI report
+# (backend/analytics/report_pdf_render.py). `--with-deps` pulls the required
+# system libraries; browsers install to a world-readable path so the app finds
+# them regardless of the runtime user. This noticeably enlarges the image and
+# build time — the trade-off for pixel-faithful PDF export.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN playwright install --with-deps chromium \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy app source.
 COPY backend ./backend
 COPY scripts ./scripts
