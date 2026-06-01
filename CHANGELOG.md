@@ -36,6 +36,16 @@ Hash references use the short SHA (e.g. `abcdef1`); resolve them with `git show 
   generates a persistent UUID in `localStorage`; an Axios interceptor forwards it as
   `X-Client-Id` on every request so backtest history is scoped to the originating
   browser.
+- **True PDF export via headless Chromium** (`b7996f6`, PR \#21) — new
+  `POST /backtests/{run_id}/report.pdf` endpoint accepts the client-assembled HTML
+  report (produced by `exportReportHtml` in `"pdf"` mode) and renders it to a
+  print-quality A4 PDF using Playwright's sync API. Because the same browser engine
+  that displays the interactive report also renders the PDF, charts, fonts, and layout
+  are pixel-identical. `backend/analytics/report_pdf_render.py` encapsulates the
+  Playwright logic; `playwright==1.49.0` added to `requirements.txt`; the `Dockerfile`
+  updated to install the Chromium bundle for Railway deployments.
+- **`PdfSectionsDialog` component** (`b7996f6`) — modal that lets the user choose
+  which report sections to include before the Chromium PDF render is triggered.
 
 ### Changed
 
@@ -63,6 +73,9 @@ Hash references use the short SHA (e.g. `abcdef1`); resolve them with `git show 
   gains a nullable, indexed `client_id` column; `POST /backtests` reads `X-Client-Id`
   from the request header and persists it; `GET /backtests` returns only the caller's
   runs (empty list when the header is absent; legacy `NULL` rows are never surfaced).
+- **`ReportActionMenu` and `AIAnalystModal`** updated for the new Chromium PDF path
+  (`b7996f6`) — the download menu now surfaces both the offline HTML export and the
+  server-side true-PDF render as distinct actions.
 
 ### CI
 
@@ -221,6 +234,11 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 - `2026-05-29 1acc780` Scope backtests by anonymous `client_id` — `BacktestRun.client_id` column, `X-Client-Id` header dependency, `frontend/src/api/clientId.ts` UUID utility (Filippo Selmi).
 - `2026-05-29 38a3505` chore(docs): nightly auto-refresh 2026-05-29 (automated — Claude Code; merged via PR \#17).
 
+### Week of 2026-06-01 — *True PDF export via headless Chromium*
+
+- `2026-06-01 020fcdc` Remove stale `tour-step2-strategies.png` asset (Luca Di Pietro).
+- `2026-06-01 b7996f6` Add PDF export via headless Chromium — `POST /backtests/{run_id}/report.pdf`, `backend/analytics/report_pdf_render.py`, `PdfSectionsDialog` component, Playwright in `requirements.txt` and `Dockerfile` (Luca Di Pietro; merged as PR \#21).
+
 ### Week of 2026-05-25 — *Documentation pass*
 
 - `2026-05-24 399f763` Update `.gitignore` (Stefano Angelo Galdini).
@@ -248,4 +266,4 @@ GitHub Copilot's bot account (`copilot-swe-agent[bot]`) appears in a single merg
 
 ---
 
-_Last verified against code: 2026-05-30._
+_Last verified against code: 2026-06-01._

@@ -575,6 +575,58 @@ curl -s http://127.0.0.1:8000/backtests/17/report | jq '{cached, model, demo_mod
 curl -s -X POST http://127.0.0.1:8000/backtests/17/report | jq '{cached, model, demo_mode, completion_tokens}'
 ```
 
+### 5.12 `GET /backtests/{run_id}/report.pdf`
+
+[`backend/api/routes/backtest.py:393`](../backend/api/routes/backtest.py).
+
+**Purpose.** Download the cached LLM report as a styled PDF built with `reportlab`. Requires a cached report (generate one first via `POST /backtests/{run_id}/report`) and the `reportlab` package installed.
+
+**Response — `200 OK`** — `application/pdf` binary download with a `Content-Disposition: attachment` header.
+
+**Errors.**
+
+| Status | When |
+|---|---|
+| `404 Not Found` | Run does not exist, or no cached report exists yet. |
+| `503 Service Unavailable` | The `reportlab` package is not installed (`pip install -r requirements.txt`). |
+
+**Example.**
+
+```bash
+curl -s http://127.0.0.1:8000/backtests/17/report.pdf -o report.pdf
+```
+
+### 5.13 `POST /backtests/{run_id}/report.pdf`
+
+[`backend/api/routes/backtest.py:453`](../backend/api/routes/backtest.py).
+
+**Purpose.** Render a client-assembled HTML report to a print-quality A4 PDF via headless Chromium. The client builds the full self-contained HTML (Plotly and fonts inlined) using `exportReportHtml` in `"pdf"` mode, then POSTs it; the server loads it in Playwright, waits for all figures to finish drawing (`window.__REPORT_READY__ === true`), activates `@media print`, and streams back `page.pdf()`. The PDF is pixel-identical to the interactive report.
+
+**Request body** — `ReportPdfRequest`:
+
+| Field | Type | Description |
+|---|---|---|
+| `html` | `str` | Fully self-contained HTML report document (Plotly and IBM Plex fonts inlined). |
+
+**Response — `200 OK`** — `application/pdf` binary download with a `Content-Disposition: attachment` header.
+
+**Errors.**
+
+| Status | When |
+|---|---|
+| `404 Not Found` | Run does not exist. |
+| `500 Internal Server Error` | Chromium render failed (timeout, crash, or JS error). |
+| `503 Service Unavailable` | `playwright` package or its Chromium browser not installed. Run `pip install -r requirements.txt` then `playwright install --with-deps chromium`. |
+
+**Example.**
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/backtests/17/report.pdf \
+  -H "Content-Type: application/json" \
+  -d '{"html": "<html>...</html>"}' \
+  -o report.pdf
+```
+
 ---
 
 ## 6. Explain (`/explain`)
@@ -785,6 +837,12 @@ Mixin with `model_config = ConfigDict(from_attributes=True)`. Every response mod
 | `prompt_tokens` | `int` | `0` |
 | `completion_tokens` | `int` | `0` |
 
+### `ReportPdfRequest` — `schemas.py:219`
+
+| Field | Type | Description |
+|---|---|---|
+| `html` | `str` | Fully self-contained HTML report document to render via headless Chromium. |
+
 ---
 
 ## 8. Error catalogue
@@ -792,7 +850,7 @@ Mixin with `model_config = ConfigDict(from_attributes=True)`. Every response mod
 | Status | Meaning in this app |
 |---|---|
 | `200 OK` | Standard success for `GET` endpoints. |
-| `201 Created` | Used by `POST /backtests` and `POST /backtests/{run_id}/report`. |
+| `201 Created` | Used by `POST /backtests` and `POST /backtests/{run_id}/report`. `POST /backtests/{run_id}/report.pdf` returns `200`. |
 | `400 Bad Request` | Pydantic validation error, domain constraint (e.g. invalid `sizing_mode`, no bars in DB, fetcher cap exceeded), or `report_run` on a not-completed run. |
 | `404 Not Found` | Asset / strategy / run / benchmark not present. |
 | `422 Unprocessable Entity` | FastAPI's body-validation default when a request payload doesn't match the Pydantic schema (e.g. missing required field, wrong type). |
@@ -803,4 +861,4 @@ Mixin with `model_config = ConfigDict(from_attributes=True)`. Every response mod
 
 ---
 
-_Last verified against code: 2026-05-24._
+_Last verified against code: 2026-06-01._

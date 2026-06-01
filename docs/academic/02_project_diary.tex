@@ -208,6 +208,30 @@ empty list when the header is absent. A new integration test
 (\texttt{tests/test\_backtest\_isolation.py}) asserts that two clients cannot see each
 other's runs.
 
+\subsection*{PDF export via headless Chromium (2026-06-01)}
+
+Commit \texttt{b7996f6} (PR~\#21) replaced the earlier \texttt{jsPDF} single-pass
+render with a server-side pipeline that produces print-quality A4 output. The
+frontend assembles the full report document client-side using \texttt{exportReportHtml}
+in a dedicated \texttt{"pdf"} mode --- the same utility that powers the interactive
+HTML download --- and then \texttt{POST}s the self-contained HTML to the new
+\texttt{POST /backtests/\{run\_id\}/report.pdf} endpoint. On the backend,
+\texttt{backend/analytics/report\_pdf\_render.py} opens a headless Chromium instance
+via Playwright's synchronous API, feeds it the HTML with \texttt{page.set\_content()},
+waits for the embedded runtime to set \texttt{window.\_\_REPORT\_READY\_\_ = true}
+(signalling that all Plotly figures have finished drawing), activates the report's
+\texttt{@media print} CSS, and calls \texttt{page.pdf()} with A4 dimensions and
+comfortable margins. The result is pixel-identical to the interactive report because
+the same browser engine that displays it also renders it for the PDF.
+
+Playwright is declared as an optional dependency in \texttt{requirements.txt} and its
+\texttt{import} is deferred inside the route handler, so a missing Chromium installation
+degrades only the \texttt{/report.pdf} endpoint and does not affect the rest of the
+application. The production \texttt{Dockerfile} was updated to install the Playwright
+Chromium bundle so the endpoint is available in the Railway deployment without any
+manual setup step. A companion \texttt{PdfSectionsDialog} component lets the user
+choose which sections to include in the rendered document before initiating the download.
+
 \subsection*{Things we tried and abandoned}
 
 A few decisions did not survive the four weeks:

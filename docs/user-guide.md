@@ -254,12 +254,25 @@ To get a real LLM-generated report:
 
 The report is **cached per run** in the `llm_conversations` table. The Results page's "Regenerate" button is a `POST` (it triggers a fresh call); the initial card render is a `GET` (it returns the cached version if any).
 
-### Report download (HTML)
+### Report download — HTML (offline)
 
-In the AI Analyst modal, click **"Download report"**. The browser-side `exportReportHtml`
-utility builds a self-contained HTML file that inlines the Plotly charts and the IBM Plex
-font bundle, then triggers a download. The resulting file is fully viewable offline — no
-live server or backend round-trip is required. This works in demo mode too.
+In the AI Analyst modal, open the **Report actions** menu and choose **"Download HTML"**.
+The browser-side `exportReportHtml` utility builds a self-contained HTML file that inlines
+the Plotly charts and the IBM Plex font bundle, then triggers a download. The resulting
+file is fully viewable offline — no live server or backend round-trip is required. This
+works in demo mode too.
+
+### Report download — PDF (server-rendered)
+
+In the AI Analyst modal, open the **Report actions** menu and choose **"Download PDF"**.
+A `PdfSectionsDialog` lets you select which sections to include (charts, metrics, trade
+log, etc.). After confirming, the frontend assembles the full report document in `"pdf"`
+mode and POSTs it to `POST /backtests/{run_id}/report.pdf`. The backend loads it in
+headless Chromium via Playwright, waits for all figures to render, applies the `@media
+print` stylesheet, and returns an A4 PDF that is pixel-identical to the on-screen report.
+The backend must have `playwright` installed and Chromium available (both are included
+when you run `pip install -r requirements.txt && playwright install --with-deps chromium`,
+or when using the production Docker image).
 
 ---
 
@@ -282,4 +295,4 @@ For anything not covered here, open a GitHub Issue (see [`../CONTRIBUTING.md`](.
 
 ---
 
-_Last verified against code: 2026-05-24._
+_Last verified against code: 2026-06-01._
