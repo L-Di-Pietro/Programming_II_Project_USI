@@ -1,7 +1,10 @@
 # Backend Docker image — Python 3.11 slim, FastAPI app.
 # Built and run by docker-compose.yml.
 
-FROM python:3.11-slim
+# Pinned to bookworm (Debian 12) on purpose: the floating `python:3.11-slim` tag
+# now resolves to trixie (Debian 13), where Playwright 1.49's `playwright install
+# --with-deps chromium` (below) fails on renamed font packages. Don't un-pin.
+FROM python:3.11-slim-bookworm
 
 # Avoid .pyc clutter and force unbuffered stdout for clean docker logs.
 ENV PYTHONDONTWRITEBYTECODE=1 \
