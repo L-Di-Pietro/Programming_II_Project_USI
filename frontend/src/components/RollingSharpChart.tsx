@@ -265,7 +265,7 @@ function RollingSharpePlot({
         data={[...lineTraces, ...dotTraces]}
         layout={layout}
         useResizeHandler
-        style={{ width: "100%", height: `${PLOT_H}px` }}
+        style={{ width: "100%", height: `${PLOT_H}px`, touchAction: "pan-y" }}
         config={{ displaylogo: false, responsive: true, displayModeBar: false }}
         onHover={onHover}
         onUnhover={onUnhover}

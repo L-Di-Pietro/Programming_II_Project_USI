@@ -272,7 +272,7 @@ export function NewBacktest() {
   }
 
   return (
-    <div className="px-10 py-8 pb-16">
+    <div className="px-4 sm:px-6 lg:px-10 py-8 pb-16">
 
       {/* ── Header ──────────────────────────────────────────────────── */}
       <div className="mb-7">
@@ -292,7 +292,7 @@ export function NewBacktest() {
         <div className="card border-accent-red text-accent-red text-sm mb-6">{error}</div>
       )}
 
-      <div className="flex gap-7 items-start">
+      <div className="flex flex-col lg:flex-row gap-7 lg:items-start">
 
         {/* ── Main column ─────────────────────────────────────────── */}
         <div className="flex-1 min-w-0 flex flex-col gap-4">
@@ -322,7 +322,7 @@ export function NewBacktest() {
                 <button
                   key={cls}
                   onClick={() => setAssetClass(cls)}
-                  className={`px-4 py-1.5 rounded-md border text-[13px] transition-all ${
+                  className={`px-4 py-2 md:py-1.5 rounded-md border text-[13px] transition-all ${
                     assetClass === cls
                       ? "bg-accent-cyan border-accent-cyan text-[#0d1117] font-semibold"
                       : "border-border-subtle text-ink-muted hover:text-ink-primary hover:border-border"
@@ -341,8 +341,7 @@ export function NewBacktest() {
             ) : (
               <div
                 data-tour="instrument-grid"
-                className="grid gap-2"
-                style={{ gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))" }}
+                className="grid gap-2 grid-cols-2 sm:[grid-template-columns:repeat(auto-fill,minmax(170px,1fr))]"
               >
                 {classAssets.map((a) => (
                   <button
@@ -369,7 +368,7 @@ export function NewBacktest() {
                 <button
                   key={tf}
                   onClick={() => setTimeframe(tf)}
-                  className={`px-4 py-1.5 rounded-md border text-[13px] transition-all ${
+                  className={`px-4 py-2 md:py-1.5 rounded-md border text-[13px] transition-all ${
                     timeframe === tf
                       ? "bg-accent-cyan border-accent-cyan text-[#0d1117] font-semibold"
                       : "border-border-subtle text-ink-muted hover:text-ink-primary hover:border-border"
@@ -393,7 +392,7 @@ export function NewBacktest() {
 
           {/* Backtest period */}
           <Section title="Backtest Period">
-            <div data-tour="period" className="flex items-end gap-4 flex-wrap">
+            <div data-tour="period" className="flex flex-col sm:flex-row sm:items-end gap-4 sm:flex-wrap">
               <DateField label="Start Date" value={start} min={dateMin} max={dateMax} ranges={bounds?.ranges} onCommit={setStart} />
               <DateField label="End Date"   value={end}   min={dateMin} max={dateMax} ranges={bounds?.ranges} onCommit={setEnd} />
               {years > 0 && (

@@ -27,20 +27,21 @@ const GAP = 6; // gap between badge and popover
  * to <body>, so no ancestor (e.g. the AI modal's overflow-hidden panel) clips
  * it. Returns fixed-position coordinates.
  */
-function placeFromBadge(badge: DOMRect, popH: number): { top: number; left: number } {
+function placeFromBadge(badge: DOMRect, popH: number): { top: number; left: number; width: number } {
   const vw = document.documentElement.clientWidth;
   const vh = document.documentElement.clientHeight;
+  const width = Math.min(POPOVER_W, vw - MARGIN * 2); // never wider than the viewport
 
   let left = badge.left; // right-opening: popover's left edge aligns to badge's left
-  if (left + POPOVER_W > vw - MARGIN) left = badge.right - POPOVER_W; // flip left
-  left = Math.max(MARGIN, Math.min(left, vw - POPOVER_W - MARGIN));
+  if (left + width > vw - MARGIN) left = badge.right - width; // flip left
+  left = Math.max(MARGIN, Math.min(left, vw - width - MARGIN));
 
   let top = badge.bottom + GAP; // down-opening
   if (top + popH > vh - MARGIN) {
     const above = badge.top - GAP - popH; // flip up
     top = above >= MARGIN ? above : Math.max(MARGIN, vh - popH - MARGIN);
   }
-  return { top, left };
+  return { top, left, width };
 }
 
 /**
@@ -63,7 +64,7 @@ export function ConfigPopover({
   forceClosed?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
 
@@ -123,11 +124,13 @@ export function ConfigPopover({
         aria-expanded={effectiveOpen}
         aria-label="Show backtest parameters"
         title="Backtest parameters"
-        className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full
+        className="relative inline-flex items-center justify-center w-[18px] h-[18px] rounded-full
                    border-[1.5px] border-[#FFE600] hover:border-[#60C8FF]
                    bg-transparent text-ink-muted hover:text-[#60C8FF]
                    transition-colors duration-200 ease-out"
       >
+        {/* Invisible 44px touch target on phones (visual size unchanged). */}
+        <span aria-hidden="true" className="absolute -inset-[13px] md:hidden" />
         <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.6">
           <circle cx="8" cy="8" r="6.4" />
           <path d="M8 7.3v3.4" strokeLinecap="round" />
@@ -142,7 +145,7 @@ export function ConfigPopover({
             position: "fixed",
             top: coords?.top ?? -9999,
             left: coords?.left ?? -9999,
-            width: POPOVER_W,
+            width: coords?.width ?? POPOVER_W,
             visibility: coords ? "visible" : "hidden",
           }}
           className="z-[60] bg-surface border border-border rounded-lg shadow-xl p-4 text-left cursor-default"

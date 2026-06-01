@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import type { EquityPoint } from "@/api/client";
 import { computeMonthlyReturns } from "@/utils/monthlyReturns";
 import { type BenchmarkSeries, STRATEGY } from "./benchmarks";
+import { ScrollHint } from "./ScrollHint";
 
 const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
@@ -104,17 +105,19 @@ export function MonthlyHeatmap({
 }) {
   if (!equityData || equityData.length === 0) {
     return (
-      <div className="flex items-center justify-center h-[320px] text-ink-muted text-sm font-mono">
+      <div className="flex items-center justify-center h-[260px] sm:h-[320px] text-ink-muted text-sm font-mono">
         No equity data yet.
       </div>
     );
   }
 
-  // No benchmarks → the original single table, unchanged.
+  // No benchmarks → the original single table (now with a mobile scroll hint).
   if (benchmarks.length === 0) {
     return (
-      <div className="overflow-x-auto px-5 py-4" style={{ background: "#0d1117" }}>
-        <HeatmapTable equity={equityData} />
+      <div style={{ background: "#0d1117" }}>
+        <ScrollHint className="px-5 py-4">
+          <HeatmapTable equity={equityData} />
+        </ScrollHint>
       </div>
     );
   }

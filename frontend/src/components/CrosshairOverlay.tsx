@@ -112,8 +112,11 @@ export function CrosshairTooltip({
 }) {
   if (!hover || hover.points.length === 0) return null;
 
-  // Clamp tooltip position so it doesn't overflow the container
-  const tooltipWidth = 200;
+  // Clamp tooltip width to the container so it never overflows on narrow
+  // (phone) charts, then clamp its position so it stays inside.
+  const tooltipWidth = containerWidth
+    ? Math.max(120, Math.min(200, containerWidth - 16))
+    : 200;
   const maxLeft = (containerWidth ?? 9999) - tooltipWidth - 8;
   const left = Math.max(8, Math.min(hover.pixelX - tooltipWidth / 2, maxLeft));
 

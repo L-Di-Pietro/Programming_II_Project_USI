@@ -609,6 +609,10 @@ const CSS = `
 
 @media (max-width: 480px) {
   .ot-card { width: calc(100vw - 24px); }
+  /* Larger body text + comfortable tap targets on phones. */
+  .ot-body { font-size: 14px; }
+  .ot-skip { font-size: 13px; padding: 8px 6px; }
+  .ot-footer { gap: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

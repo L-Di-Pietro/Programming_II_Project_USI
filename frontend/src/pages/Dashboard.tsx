@@ -75,7 +75,7 @@ export function Dashboard() {
     <div className="pb-16">
 
       {/* ── Hero ──────────────────────────────────────────────────── */}
-      <div className="flex gap-10 px-10 pt-12 pb-10 items-start flex-wrap">
+      <div className="flex gap-10 px-4 sm:px-6 lg:px-10 pt-12 pb-10 items-start flex-wrap">
         <div className="flex-1 min-w-[320px]">
           {/* Badge */}
           <div className="inline-block border border-accent-cyan text-accent-cyan
@@ -91,11 +91,11 @@ export function Dashboard() {
             across equities, FX and crypto — stress-test with commissions, slippage, and
             AI-powered insights.
           </p>
-          <div className="flex gap-3 mt-8">
-            <Link to="/strategies" className="btn-primary text-lg px-7 py-3.5 rounded-lg">
+          <div className="flex flex-col sm:flex-row gap-3 mt-8">
+            <Link to="/strategies" className="btn-primary text-lg px-7 py-3.5 rounded-lg w-full sm:w-auto justify-center">
               Select Strategy
             </Link>
-            <Link to="/backtests/new" className="btn-secondary text-lg px-7 py-3.5 rounded-lg">
+            <Link to="/backtests/new" className="btn-secondary text-lg px-7 py-3.5 rounded-lg w-full sm:w-auto justify-center">
               Configure Run
             </Link>
           </div>
@@ -103,15 +103,15 @@ export function Dashboard() {
 
         {/* Stat box. Width tracks the ~20% content scale-up so the widest
             value ("1D / 1H") keeps its room; structure/columns/colors unchanged. */}
-        <div className="flex-shrink-0 w-[588px] border border-border-subtle rounded-lg overflow-hidden">
+        <div className="flex-shrink-0 w-full max-w-[588px] lg:w-[588px] border border-border-subtle rounded-lg overflow-hidden">
           {/* Top row — three small stat cells. Fixed-height value area keeps
               labels aligned across boxes even when one value is smaller. */}
-          <div className="grid grid-cols-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3">
             {topStats.map((s, i) => (
               <div
                 key={s.label}
-                className={`bg-base px-4 py-7 flex flex-col items-center justify-center text-center border-b border-border
-                  ${i < 2 ? "border-r border-border" : ""}`}
+                className={`bg-base px-4 py-5 sm:py-7 flex flex-col items-center justify-center text-center border-b border-border
+                  ${i < 2 ? "sm:border-r" : ""}`}
               >
                 <div className="h-[52px] flex items-center justify-center">
                   <span
@@ -144,72 +144,133 @@ export function Dashboard() {
       </div>
 
       {/* ── Recent Backtests label ─────────────────────────────────── */}
-      <div className="px-10 pb-3 border-b border-border">
+      <div className="px-4 sm:px-6 lg:px-10 pb-3 border-b border-border">
         <span className="font-mono text-[11px] tracking-[2px] text-accent-cyan">
           RECENT BACKTESTS
         </span>
       </div>
 
       {error && (
-        <div className="mx-10 mt-4 card border-accent-red text-accent-red text-sm">
+        <div className="mx-4 sm:mx-6 lg:mx-10 mt-4 card border-accent-red text-accent-red text-sm">
           Could not reach backend: {error}. Is uvicorn running on :8000?
         </div>
       )}
 
-      {/* ── Runs table ────────────────────────────────────────────── */}
-      <div className="w-full overflow-x-auto">
-        {/* Table header */}
-        <div className="grid gap-0 border-b border-border px-10 py-2.5"
-          style={{ gridTemplateColumns: RUNS_GRID_COLUMNS }}>
-          {RUNS_HEADERS.map((h, i) => (
-            <div key={i} className="font-mono text-[10px] uppercase tracking-widest text-ink-muted min-w-0 text-center">
-              {h}
+      {/* ── Empty state (shared) ──────────────────────────────────── */}
+      {runs.length === 0 && !error && (
+        <div className="px-6 py-12 text-center text-ink-muted text-sm">
+          No runs yet.{" "}
+          <Link to="/backtests/new" className="text-accent-cyan underline underline-offset-2">
+            Configure a backtest
+          </Link>{" "}
+          to get started.
+        </div>
+      )}
+
+      {/* ── Runs table (tablet/desktop, md+) ──────────────────────── */}
+      {runs.length > 0 && (
+        <div className="hidden md:block w-full overflow-x-auto">
+          {/* Table header */}
+          <div className="grid gap-0 border-b border-border px-6 lg:px-10 py-2.5"
+            style={{ gridTemplateColumns: RUNS_GRID_COLUMNS }}>
+            {RUNS_HEADERS.map((h, i) => (
+              <div key={i} className="font-mono text-[10px] uppercase tracking-widest text-ink-muted min-w-0 text-center">
+                {h}
+              </div>
+            ))}
+          </div>
+
+          {runs.map((r) => (
+            <div
+              key={r.id}
+              className="grid border-b border-border px-6 lg:px-10 py-3.5 hover:bg-white/[0.02] transition-colors cursor-default"
+              style={{ gridTemplateColumns: RUNS_GRID_COLUMNS }}
+            >
+              <div className="text-ink-primary text-sm font-medium flex items-center justify-center min-w-0 truncate text-center">
+                {r.strategy_name}
+              </div>
+              <div className="font-mono text-[12px] text-ink-muted flex items-center justify-center min-w-0 truncate text-center">
+                {r.asset_symbol}
+              </div>
+              <div className="font-mono text-[11px] text-ink-muted flex items-center justify-center min-w-0 truncate text-center">
+                {r.start_date.slice(0, 10)} &ndash; {r.end_date.slice(0, 10)}
+              </div>
+              <div className="flex items-center justify-center min-w-0">
+                <StatusPill status={r.status} />
+              </div>
+              <div className="text-[11px] text-ink-muted flex items-center justify-center min-w-0 truncate text-center">
+                {formatLocal(r.created_at)}
+              </div>
+              <div className="flex items-center justify-center gap-1 min-w-0">
+                <AiReportCell run={r} onGenerated={markGenerated} />
+              </div>
+              <div className="flex items-center justify-end">
+                <Link to={`/backtests/${r.id}`} className="btn-ghost text-xs">
+                  View
+                </Link>
+              </div>
             </div>
           ))}
         </div>
+      )}
 
-        {runs.length === 0 && !error && (
-          <div className="px-10 py-12 text-center text-ink-muted text-sm">
-            No runs yet.{" "}
-            <Link to="/backtests/new" className="text-accent-cyan underline underline-offset-2">
-              Configure a backtest
-            </Link>{" "}
-            to get started.
-          </div>
-        )}
+      {/* ── Runs cards (phones, <md) ──────────────────────────────── */}
+      {runs.length > 0 && (
+        <div className="md:hidden border-t border-border divide-y divide-border">
+          {runs.map((r) => (
+            <RunCard key={r.id} run={r} onGenerated={markGenerated} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
-        {runs.map((r) => (
-          <div
-            key={r.id}
-            className="grid border-b border-border px-10 py-3.5 hover:bg-white/[0.02] transition-colors cursor-default"
-            style={{ gridTemplateColumns: RUNS_GRID_COLUMNS }}
-          >
-            <div className="text-ink-primary text-sm font-medium flex items-center justify-center min-w-0 truncate text-center">
-              {r.strategy_name}
-            </div>
-            <div className="font-mono text-[12px] text-ink-muted flex items-center justify-center min-w-0 truncate text-center">
-              {r.asset_symbol}
-            </div>
-            <div className="font-mono text-[11px] text-ink-muted flex items-center justify-center min-w-0 truncate text-center">
-              {r.start_date.slice(0, 10)} &ndash; {r.end_date.slice(0, 10)}
-            </div>
-            <div className="flex items-center justify-center min-w-0">
-              <StatusPill status={r.status} />
-            </div>
-            <div className="text-[11px] text-ink-muted flex items-center justify-center min-w-0 truncate text-center">
-              {formatLocal(r.created_at)}
-            </div>
-            <div className="flex items-center justify-center gap-1 min-w-0">
-              <AiReportCell run={r} onGenerated={markGenerated} />
-            </div>
-            <div className="flex items-center justify-end">
-              <Link to={`/backtests/${r.id}`} className="btn-ghost text-xs">
-                View
-              </Link>
-            </div>
+// ── Mobile run card (replaces the table row below md) ───────────────────────
+function RunCard({
+  run,
+  onGenerated,
+}: {
+  run: BacktestSummary;
+  onGenerated: (id: number) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="px-4 py-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-ink-primary text-[15px] font-medium truncate">
+            {run.strategy_name}
           </div>
-        ))}
+          <div className="font-mono text-[12px] text-ink-muted mt-1 truncate">
+            {run.asset_symbol} &middot; {run.start_date.slice(0, 10)} &ndash; {run.end_date.slice(0, 10)}
+          </div>
+        </div>
+        <StatusPill status={run.status} />
       </div>
+
+      <div className="flex items-center justify-between gap-2 mt-3">
+        <div className="flex items-center gap-1">
+          <AiReportCell run={run} onGenerated={onGenerated} />
+        </div>
+        <Link to={`/backtests/${run.id}`} className="btn-ghost text-sm">
+          View
+        </Link>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className="mt-1 inline-flex items-center min-h-[44px] font-mono text-[11px] text-ink-muted hover:text-ink-primary transition-colors"
+      >
+        {expanded ? "Hide details" : "More details"}
+      </button>
+      {expanded && (
+        <div className="-mt-1 pb-1 text-[12px] text-ink-muted">
+          Created {formatLocal(run.created_at)}
+        </div>
+      )}
     </div>
   );
 }

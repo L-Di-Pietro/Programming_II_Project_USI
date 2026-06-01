@@ -7,9 +7,11 @@
     font-family: Inter, system-ui, -apple-system, sans-serif;
     background-color: #0d1117;
     color: #e6edf3;
+    overflow-x: hidden;
   }
   body {
     @apply min-h-screen;
+    overflow-x: hidden;
   }
   h1 { @apply text-2xl font-bold tracking-tight; }
   h2 { @apply text-xl font-bold; }
@@ -73,4 +75,27 @@
            text-accent-cyan text-xs font-mono;
   }
   .report-prose strong { @apply font-bold text-ink-primary; }
+}
+
+/* ── Mobile-only adjustments (desktop ≥1024px is untouched) ───────────────── */
+
+/* Offset page content below the fixed mobile top bar (hidden at lg+). Matches
+   the bar height in components/MobileNav.tsx, including the notch safe area. */
+@media (max-width: 1023px) {
+  .mobile-nav-offset {
+    padding-top: calc(3.5rem + env(safe-area-inset-top));
+  }
+}
+
+/* Phones: comfortable 44px tap targets, and 16px inputs so iOS doesn't
+   auto-zoom on focus. Gated to mobile so desktop metrics never change. */
+@media (max-width: 767px) {
+  .btn-primary,
+  .btn-secondary,
+  .btn-ghost {
+    min-height: 44px;
+  }
+  .input-base {
+    font-size: 16px;
+  }
 }

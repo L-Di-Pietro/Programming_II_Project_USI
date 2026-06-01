@@ -84,6 +84,24 @@ function cellFor(m: MetricDef, src: Metrics): { value: string; valueClass: strin
   return { value: m.format(raw), valueClass: m.color(raw) };
 }
 
+// Flush-grid dividers that adapt to the responsive column count: 2 columns on
+// phones, 5 at md+. Right divider except the last column of each scheme; top
+// divider on every row after the first. The `md:` overrides restore the exact
+// 5-column desktop borders, so tablet/desktop are unchanged.
+function dividerClass(i: number): string {
+  const mobileRight = i % 2 !== 1;
+  const deskRight = i % 5 !== 4;
+  const mobileTop = i >= 2;
+  const deskTop = i >= 5;
+  return [
+    "border-border",
+    mobileRight ? "border-r" : "",
+    deskRight ? "md:border-r" : "md:border-r-0",
+    mobileTop ? "border-t" : "",
+    deskTop ? "md:border-t" : "md:border-t-0",
+  ].filter(Boolean).join(" ");
+}
+
 export function MetricsPanel({
   metrics,
   benchmarks = [],
@@ -99,15 +117,15 @@ export function MetricsPanel({
   if (!metrics) {
     return (
       <div data-tour={tourHook ? "metrics" : undefined} className="border border-border rounded-lg overflow-hidden">
-        <div className="grid bg-surface" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
-          {METRICS.map((m) => (
+        <div className="grid grid-cols-2 md:grid-cols-5 bg-surface">
+          {METRICS.map((m, i) => (
             <MetricCard
               key={m.key}
               label={m.label}
               sub={m.sub}
               rows={[{ tag: STRATEGY.tag, tagClass: STRATEGY.tagClass, value: "—", valueClass: "text-ink-muted" }]}
               stacked={false}
-              border
+              dividerClass={dividerClass(i)}
             />
           ))}
         </div>
@@ -119,8 +137,8 @@ export function MetricsPanel({
 
   return (
     <div data-tour={tourHook ? "metrics" : undefined} className="border border-border rounded-lg overflow-hidden">
-      {/* 2 rows of 5 columns, flush grid with dividers */}
-      <div className="grid" style={{ gridTemplateColumns: "repeat(5, 1fr)" }}>
+      {/* 2 cols on phones, 5 cols at md+; flush grid with dividers */}
+      <div className="grid grid-cols-2 md:grid-cols-5">
         {METRICS.map((m, i) => {
           // Strategy row, then one row per active benchmark. Each row is
           // coloured by its own value (independent thresholds).
@@ -141,8 +159,7 @@ export function MetricsPanel({
               sub={m.sub}
               rows={rows}
               stacked={stacked}
-              border={i % 5 !== 4}          // right border except last col
-              topBorder={i >= 5}             // top border for row 2
+              dividerClass={dividerClass(i)}
             />
           );
         })}
@@ -152,17 +169,13 @@ export function MetricsPanel({
 }
 
 function MetricCard({
-  label, sub, rows, stacked, border, topBorder,
+  label, sub, rows, stacked, dividerClass,
 }: {
   label: string; sub: string; rows: Row[]; stacked: boolean;
-  border?: boolean; topBorder?: boolean;
+  dividerClass?: string;
 }) {
   return (
-    <div
-      className={`bg-surface px-4 ${stacked ? "py-5" : "py-4"}
-        ${border    ? "border-r border-border" : ""}
-        ${topBorder ? "border-t border-border" : ""}`}
-    >
+    <div className={`bg-surface px-4 ${stacked ? "py-5" : "py-4"} ${dividerClass ?? ""}`}>
       <div className="font-mono text-[10px] uppercase tracking-widest text-ink-muted mb-2">
         {label}
       </div>

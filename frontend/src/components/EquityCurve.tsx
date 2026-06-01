@@ -49,7 +49,8 @@ export function EquityCurve({
       data={data}
       layout={layout}
       useResizeHandler
-      style={{ width: "100%", height: "320px" }}
+      className="h-[260px] sm:h-[320px]"
+      style={{ width: "100%", touchAction: "pan-y" }}
       config={{ displaylogo: false, responsive: true, displayModeBar: false }}
     />
   );
@@ -57,7 +58,7 @@ export function EquityCurve({
 
 export function ChartEmpty({ label }: { label: string }) {
   return (
-    <div className="flex items-center justify-center h-[320px] text-ink-muted text-sm font-mono">
+    <div className="flex items-center justify-center h-[260px] sm:h-[320px] text-ink-muted text-sm font-mono">
       {label}
     </div>
   );

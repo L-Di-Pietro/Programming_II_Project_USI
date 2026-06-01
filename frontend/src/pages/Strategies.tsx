@@ -93,7 +93,7 @@ export function Strategies() {
   }
 
   return (
-    <div className="px-10 py-10 pb-16">
+    <div className="px-4 sm:px-6 lg:px-10 py-10 pb-16">
 
       {/* ── Header ──────────────────────────────────────────────── */}
       <div className="mb-7">
@@ -113,7 +113,7 @@ export function Strategies() {
           <button
             key={c}
             onClick={() => setFilter(c)}
-            className={`px-4 py-1.5 rounded-full border text-[13px] transition-all ${
+            className={`px-4 py-2 md:py-1.5 rounded-full border text-[13px] transition-all ${
               filter === c
                 ? "bg-accent-cyan border-accent-cyan text-base font-semibold"
                 : "border-border-subtle text-ink-muted hover:text-ink-primary hover:border-border"
@@ -122,13 +122,13 @@ export function Strategies() {
             {c}
           </button>
         ))}
-        <span className="ml-auto font-mono text-[12px] text-ink-muted">
+        <span className="w-full md:w-auto md:ml-auto font-mono text-[12px] text-ink-muted">
           {filtered.length} {filtered.length === 1 ? "strategy" : "strategies"}
         </span>
       </div>
 
       {/* ── Strategy grid ───────────────────────────────────────── */}
-      <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))" }}>
+      <div className="grid gap-4 grid-cols-1 sm:[grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
         {filtered.map((s) => {
           const meta = STRATEGY_META[s.slug];
           const isHovered = hovered === s.slug;

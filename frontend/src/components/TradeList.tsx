@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type { Trade } from "@/api/client";
+import { ScrollHint } from "./ScrollHint";
 
 const PAGE_SIZE = 12;
 
@@ -52,61 +53,67 @@ export function TradeList({ trades }: { trades: Trade[] }) {
         </span>
       </div>
 
-      {/* Column headers */}
-      <div
-        className="grid px-5 py-2.5 border-b border-border bg-surface"
-        style={{ gridTemplateColumns: "0.5fr 1fr 0.8fr 1fr 1fr 0.9fr 1fr" }}
-      >
-        {COLUMNS.map((col) => (
-          <button
-            key={col.key}
-            onClick={() => toggleSort(col.key)}
-            className={`font-mono text-[10px] uppercase tracking-wider text-left hover:text-ink-primary transition-colors ${
-              col.right ? "text-right" : ""
-            } ${sortKey === col.key ? "text-accent-cyan" : "text-ink-muted"}`}
-          >
-            {col.label}
-            {sortKey === col.key && (
-              <span className="ml-0.5">{sortDir > 0 ? " ↑" : " ↓"}</span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Rows */}
-      {slice.length === 0 && (
-        <div className="px-5 py-10 text-center text-ink-muted text-sm font-mono">
-          No trades.
-        </div>
-      )}
-
-      {slice.map((t) => {
-        const isWin = t.net_pnl > 0;
-        return (
+      {/* Table (column headers + rows) — scrolls horizontally on phones so the
+          header and rows stay aligned; min-width keeps columns readable. */}
+      <ScrollHint>
+        <div className="min-w-[640px]">
+          {/* Column headers */}
           <div
-            key={t.id}
-            className="grid px-5 py-2.5 border-b border-border hover:bg-white/[0.02] transition-colors"
-            style={{
-              gridTemplateColumns: "0.5fr 1fr 0.8fr 1fr 1fr 0.9fr 1fr",
-              borderLeft: `2px solid ${isWin ? "rgba(63,185,80,0.35)" : "rgba(248,81,73,0.35)"}`,
-            }}
+            className="grid px-5 py-2.5 border-b border-border bg-surface"
+            style={{ gridTemplateColumns: "0.5fr 1fr 0.8fr 1fr 1fr 0.9fr 1fr" }}
           >
-            <span className="font-mono text-[12px] text-ink-muted">{t.id}</span>
-            <span className="font-mono text-[12px] text-ink-muted">
-              {new Date(t.ts).toISOString().slice(0, 10)}
-            </span>
-            <span className={`font-mono text-[12px] font-bold ${t.side === "buy" ? "text-accent-green" : "text-accent-red"}`}>
-              {t.side.toUpperCase()}
-            </span>
-            <span className="font-mono text-[12px] text-ink-primary text-right">{t.qty.toFixed(4)}</span>
-            <span className="font-mono text-[12px] text-ink-primary text-right">${t.price.toFixed(2)}</span>
-            <span className="font-mono text-[12px] text-ink-muted text-right">${t.commission.toFixed(2)}</span>
-            <span className={`font-mono text-[12px] font-bold text-right ${isWin ? "text-accent-green" : "text-accent-red"}`}>
-              {t.net_pnl >= 0 ? "+" : ""}${t.net_pnl.toFixed(2)}
-            </span>
+            {COLUMNS.map((col) => (
+              <button
+                key={col.key}
+                onClick={() => toggleSort(col.key)}
+                className={`font-mono text-[10px] uppercase tracking-wider text-left hover:text-ink-primary transition-colors ${
+                  col.right ? "text-right" : ""
+                } ${sortKey === col.key ? "text-accent-cyan" : "text-ink-muted"}`}
+              >
+                {col.label}
+                {sortKey === col.key && (
+                  <span className="ml-0.5">{sortDir > 0 ? " ↑" : " ↓"}</span>
+                )}
+              </button>
+            ))}
           </div>
-        );
-      })}
+
+          {/* Rows */}
+          {slice.length === 0 && (
+            <div className="px-5 py-10 text-center text-ink-muted text-sm font-mono">
+              No trades.
+            </div>
+          )}
+
+          {slice.map((t) => {
+            const isWin = t.net_pnl > 0;
+            return (
+              <div
+                key={t.id}
+                className="grid px-5 py-2.5 border-b border-border hover:bg-white/[0.02] transition-colors"
+                style={{
+                  gridTemplateColumns: "0.5fr 1fr 0.8fr 1fr 1fr 0.9fr 1fr",
+                  borderLeft: `2px solid ${isWin ? "rgba(63,185,80,0.35)" : "rgba(248,81,73,0.35)"}`,
+                }}
+              >
+                <span className="font-mono text-[12px] text-ink-muted">{t.id}</span>
+                <span className="font-mono text-[12px] text-ink-muted">
+                  {new Date(t.ts).toISOString().slice(0, 10)}
+                </span>
+                <span className={`font-mono text-[12px] font-bold ${t.side === "buy" ? "text-accent-green" : "text-accent-red"}`}>
+                  {t.side.toUpperCase()}
+                </span>
+                <span className="font-mono text-[12px] text-ink-primary text-right">{t.qty.toFixed(4)}</span>
+                <span className="font-mono text-[12px] text-ink-primary text-right">${t.price.toFixed(2)}</span>
+                <span className="font-mono text-[12px] text-ink-muted text-right">${t.commission.toFixed(2)}</span>
+                <span className={`font-mono text-[12px] font-bold text-right ${isWin ? "text-accent-green" : "text-accent-red"}`}>
+                  {t.net_pnl >= 0 ? "+" : ""}${t.net_pnl.toFixed(2)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </ScrollHint>
 
       {/* Pagination */}
       {totalPages > 1 && (

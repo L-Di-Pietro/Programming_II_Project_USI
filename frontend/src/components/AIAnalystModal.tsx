@@ -124,13 +124,14 @@ export function AIAnalystModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-5"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-0 sm:p-5"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div data-tour="ai-panel" className="w-[920px] max-w-[calc(100vw-2.5rem)] max-h-[85vh] flex flex-col
-                      overflow-hidden rounded-xl border border-accent-cyan/40 bg-surface">
+      <div data-tour="ai-panel" className="w-full h-full max-h-none rounded-none
+                      sm:w-[920px] sm:h-auto sm:max-w-[calc(100vw-2.5rem)] sm:max-h-[85vh] sm:rounded-xl
+                      flex flex-col overflow-hidden border border-accent-cyan/40 bg-surface">
 
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
@@ -144,7 +145,7 @@ export function AIAnalystModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="text-ink-muted hover:text-ink-primary transition-colors text-lg leading-none"
+            className="flex items-center justify-center w-11 h-11 -mr-2 text-ink-muted hover:text-ink-primary transition-colors text-xl leading-none"
           >
             ✕
           </button>
@@ -219,11 +220,11 @@ export function AIAnalystModal({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-4 px-5 py-3 border-t border-border">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-5 py-3 border-t border-border">
           <span className="text-ink-muted text-[11px]">
             AI analysis is not financial advice. Past performance does not guarantee future results.
           </span>
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center justify-end gap-2.5 shrink-0">
             <button
               type="button"
               className="btn-secondary text-xs py-1.5"

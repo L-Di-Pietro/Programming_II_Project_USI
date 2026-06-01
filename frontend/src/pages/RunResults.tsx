@@ -306,12 +306,12 @@ export function RunResults() {
   }
 
   return (
-    <div className="px-10 py-8 pb-16 space-y-5">
+    <div className="px-4 sm:px-6 lg:px-10 py-8 pb-16 space-y-5">
 
       {/* ── Header ──────────────────────────────────────────────── */}
       <div className="flex items-end justify-between flex-wrap gap-3">
-        <div>
-          <div className="flex items-center gap-2.5 text-[17px] mb-2.5 flex-wrap">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5 text-[15px] sm:text-[17px] mb-2.5 flex-wrap">
             <Link to="/" className="text-ink-muted hover:text-ink-primary transition-colors">
               Backtest
             </Link>
@@ -339,7 +339,7 @@ export function RunResults() {
           <h2 className="text-ink-primary">Backtest Results</h2>
         </div>
 
-        <div className="flex gap-2.5">
+        <div className="flex gap-2.5 flex-wrap">
           <button
             data-tour="ai-analysis"
             className="btn-secondary border-accent-cyan text-accent-cyan hover:bg-accent-cyan/10"
@@ -371,9 +371,10 @@ export function RunResults() {
       {/* ── Tabbed chart panel ──────────────────────────────────── */}
       <div className="border border-border rounded-lg overflow-hidden">
 
-        {/* Tab bar — tabs on the left, equity legend on the far right. */}
-        <div className="flex items-center justify-between border-b border-border px-5 bg-surface">
-          <div className="flex items-center">
+        {/* Tab bar — tabs scroll horizontally on phones; the equity legend sits
+            on the far right at md+ and stacks below the tabs on mobile. */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-border px-5 bg-surface">
+          <div className="flex items-center overflow-x-auto">
             {CHART_TABS.map((t) => (
               <button
                 key={t.id}
@@ -390,7 +391,7 @@ export function RunResults() {
           </div>
 
           {activeChart === "equity" && chartLegend.length > 0 && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap pb-2.5 md:pb-0">
               {chartLegend.map((it) => (
                 <div key={it.label} className="flex items-center gap-1.5">
                   <span

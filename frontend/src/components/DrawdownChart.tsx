@@ -43,7 +43,7 @@ export function DrawdownChart({
 }) {
   if (!figure) {
     return (
-      <div className="flex items-center justify-center h-[320px] text-ink-muted text-sm font-mono">
+      <div className="flex items-center justify-center h-[260px] sm:h-[320px] text-ink-muted text-sm font-mono">
         No drawdown data yet.
       </div>
     );
@@ -200,7 +200,8 @@ function DrawdownPlot({
         data={patchedData}
         layout={layout}
         useResizeHandler
-        style={{ width: "100%", height: "320px" }}
+        className="h-[260px] sm:h-[320px]"
+        style={{ width: "100%", touchAction: "pan-y" }}
         config={{ displaylogo: false, responsive: true, displayModeBar: false }}
         onHover={onHover}
         onUnhover={onUnhover}

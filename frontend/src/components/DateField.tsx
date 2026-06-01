@@ -203,7 +203,7 @@ export function DateField({
         </button>
 
         {open && (
-          <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-[252px] bg-surface border border-border rounded-lg shadow-xl p-3 cursor-default">
+          <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-[252px] max-w-[calc(100vw_-_2rem)] bg-surface border border-border rounded-lg shadow-xl p-3 cursor-default">
             {/* Month nav */}
             <div className="flex items-center justify-between mb-2">
               <NavButton dir="prev" disabled={prevDisabled} onClick={() => shiftMonth(-1)} />
