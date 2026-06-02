@@ -232,6 +232,42 @@ Chromium bundle so the endpoint is available in the Railway deployment without a
 manual setup step. A companion \texttt{PdfSectionsDialog} component lets the user
 choose which sections to include in the rendered document before initiating the download.
 
+\subsection*{Dockerfile base image pinned to bookworm (2026-06-01)}
+
+Commit \texttt{b6718ce} (``Fix backend build: pin base image to
+\texttt{python:3.11-slim-bookworm}'') addressed a build regression introduced by the
+Chromium PDF feature shipped in PR~\#21. The floating \texttt{python:3.11-slim} tag
+had quietly resolved to Debian trixie (13) on the Railway builder, where Playwright
+1.49's \texttt{playwright install -{}-with-deps chromium} step fails because two font
+packages have been renamed between Debian 12 and 13 (\texttt{ttf-unifont} and
+\texttt{ttf-ubuntu-font-family}). Pinning the image to
+\texttt{python:3.11-slim-bookworm} (Debian~12, which Playwright's own test matrix
+covers) restored the build. A \texttt{\# Don't un-pin} comment was added in the
+\texttt{Dockerfile} to record the reason for future contributors. This is a good
+illustration of why production Dockerfiles should pin to an explicit OS image and not
+rely on the ``latest minor'' behaviour of a floating tag.
+
+\subsection*{Mobile-responsive navigation and UI (2026-06-01)}
+
+Commit \texttt{b9414a7} (``Add responsive mobile nav and UI improvements'') introduced
+mobile-first navigation to the frontend. The two principal additions are
+\texttt{MobileNav}, a drawer + fixed top bar that collapses the \texttt{SideNav} on
+narrow viewports, and \texttt{ScrollHint}, a thin wrapper that adds a scroll-affordance
+cue to horizontally overflowing tables and the monthly returns heatmap.
+
+Beyond navigation, the commit applied a systematic mobile-friendliness pass to nearly
+every component on the results page: minimum touch-target sizes on interactive elements,
+\texttt{touchAction: pan-y} on Plotly figures to prevent scroll capture, responsive grid
+layouts in \texttt{MetricsPanel} and \texttt{TradeList}, and clamped font/dimension sizes
+so the dense KPI grid remains legible on a phone without horizontal overflow. The
+\texttt{viewport-fit=cover} meta tag was added to \texttt{index.html} to honour safe-area
+insets on notched iOS/Android devices.
+
+The design principle behind this change was \emph{additive responsiveness}: all
+breakpoints are expressed via Tailwind's responsive prefix system, so the desktop layout
+is unchanged and mobile improvements layer on top rather than forking a separate code
+path.
+
 \subsection*{Things we tried and abandoned}
 
 A few decisions did not survive the four weeks:

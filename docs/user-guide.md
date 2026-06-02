@@ -38,7 +38,7 @@ Goal: run **SMA Crossover on SPY (S&P 500 ETF) from 2020-01-01 to 2024-12-31, da
 
 2. **Open the app.** Browse to <http://localhost:5173>. You will land on the **Dashboard**. On your first visit the app starts an **onboarding tour** that walks you through the core workflow step-by-step. You can replay it at any time via the "Replay tour" link in the app footer.
 
-3. **Click "New Backtest"** in the sidebar.
+3. **Click "New Backtest"** in the sidebar (desktop) or in the navigation drawer (mobile/tablet — tap the menu icon in the top bar).
 
 4. **Pick the asset.** In the *Asset* dropdown, type `SPY` and select it. SPY is one of the seeded ETFs (see [`data-sources.md`](data-sources.md)).
 
@@ -295,4 +295,4 @@ For anything not covered here, open a GitHub Issue (see [`../CONTRIBUTING.md`](.
 
 ---
 
-_Last verified against code: 2026-06-01._
+_Last verified against code: 2026-06-02._
