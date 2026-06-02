@@ -12,6 +12,13 @@ Hash references use the short SHA (e.g. `abcdef1`); resolve them with `git show 
 
 ### Added
 
+- **Mobile-responsive navigation** (`b9414a7`) — `MobileNav` component provides a
+  drawer + fixed top bar for phone/tablet layouts with safe-area inset support and
+  touch-friendly targets; `SideNav` extracted as a standalone component;
+  `ScrollHint` wraps horizontally scrollable tables and heatmaps to prevent
+  overflow. Charts (equity curve, drawdown, rolling Sharpe), `MetricsPanel`,
+  `TradeList`, `AIAnalystModal`, `ConfigPopover`, and `DateField` all adapted for
+  mobile viewports; `viewport-fit=cover` meta added to `index.html`.
 - **Production Dockerfiles** — `Dockerfile` (backend, Railway-compatible `exec`-form
   CMD so `$PORT` expands at runtime) and `frontend/Dockerfile.prod` (multi-stage Vite
   build served with SPA fallback; `VITE_API_URL` baked at build time).
@@ -76,6 +83,15 @@ Hash references use the short SHA (e.g. `abcdef1`); resolve them with `git show 
 - **`ReportActionMenu` and `AIAnalystModal`** updated for the new Chromium PDF path
   (`b7996f6`) — the download menu now surfaces both the offline HTML export and the
   server-side true-PDF render as distinct actions.
+
+### Fixed
+
+- **Dockerfile base image pinned to `python:3.11-slim-bookworm`** (`b6718ce`) —
+  the floating `python:3.11-slim` tag now resolves to Debian trixie (13), where
+  Playwright 1.49's `playwright install --with-deps chromium` fails on renamed
+  font packages (`ttf-unifont`, `ttf-ubuntu-font-family`). Pinned to bookworm
+  (Debian 12) to restore the Railway backend build. A `# Don't un-pin` comment
+  was added to the `Dockerfile` to make the intent explicit.
 
 ### CI
 
@@ -234,10 +250,12 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 - `2026-05-29 1acc780` Scope backtests by anonymous `client_id` — `BacktestRun.client_id` column, `X-Client-Id` header dependency, `frontend/src/api/clientId.ts` UUID utility (Filippo Selmi).
 - `2026-05-29 38a3505` chore(docs): nightly auto-refresh 2026-05-29 (automated — Claude Code; merged via PR \#17).
 
-### Week of 2026-06-01 — *True PDF export via headless Chromium*
+### Week of 2026-06-01 — *True PDF export, Dockerfile fix, mobile-responsive UI*
 
 - `2026-06-01 020fcdc` Remove stale `tour-step2-strategies.png` asset (Luca Di Pietro).
 - `2026-06-01 b7996f6` Add PDF export via headless Chromium — `POST /backtests/{run_id}/report.pdf`, `backend/analytics/report_pdf_render.py`, `PdfSectionsDialog` component, Playwright in `requirements.txt` and `Dockerfile` (Luca Di Pietro; merged as PR \#21).
+- `2026-06-01 b6718ce` Fix backend build: pin Dockerfile base image to `python:3.11-slim-bookworm` — Playwright 1.49's `--with-deps chromium` fails on Debian trixie's renamed font packages; bookworm restores the Railway build (Filippo Selmi).
+- `2026-06-01 b9414a7` Add responsive mobile nav and UI improvements — `MobileNav` drawer + top bar, `SideNav` standalone component, `ScrollHint` wrapper; mobile-friendly charts, `MetricsPanel`, `TradeList`, and modals; `viewport-fit=cover` meta (Luca Di Pietro).
 
 ### Week of 2026-05-25 — *Documentation pass*
 
@@ -266,4 +284,4 @@ GitHub Copilot's bot account (`copilot-swe-agent[bot]`) appears in a single merg
 
 ---
 
-_Last verified against code: 2026-06-01._
+_Last verified against code: 2026-06-02._
