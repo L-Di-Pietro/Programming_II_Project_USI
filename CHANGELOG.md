@@ -256,6 +256,7 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 - `2026-06-01 b7996f6` Add PDF export via headless Chromium — `POST /backtests/{run_id}/report.pdf`, `backend/analytics/report_pdf_render.py`, `PdfSectionsDialog` component, Playwright in `requirements.txt` and `Dockerfile` (Luca Di Pietro; merged as PR \#21).
 - `2026-06-01 b6718ce` Fix backend build: pin Dockerfile base image to `python:3.11-slim-bookworm` — Playwright 1.49's `--with-deps chromium` fails on Debian trixie's renamed font packages; bookworm restores the Railway build (Filippo Selmi).
 - `2026-06-01 b9414a7` Add responsive mobile nav and UI improvements — `MobileNav` drawer + top bar, `SideNav` standalone component, `ScrollHint` wrapper; mobile-friendly charts, `MetricsPanel`, `TradeList`, and modals; `viewport-fit=cover` meta (Luca Di Pietro).
+- `2026-06-02 57b0e6c` chore(docs): nightly auto-refresh 2026-06-02 (automated — Claude Code; merged via PR \#23). Updated `docs/user-guide.md` navigation step to mention mobile drawer; added CHANGELOG and diary entries for `b6718ce` and `b9414a7`.
 
 ### Week of 2026-05-25 — *Documentation pass*
 
@@ -284,4 +285,4 @@ GitHub Copilot's bot account (`copilot-swe-agent[bot]`) appears in a single merg
 
 ---
 
-_Last verified against code: 2026-06-02._
+_Last verified against code: 2026-06-03._
