@@ -149,6 +149,9 @@ describe("buildReportHtml", () => {
     expect(html).toContain("benchmark toggles above each chart");
     expect(html).toContain("Print / Save as PDF");
     expect(html).toContain("window.print()");
+    // The button pre-sizes the charts via the print wrapper before printing, so
+    // they fit the page and aren't truncated (and Safari doesn't blank the page).
+    expect(html).toContain("__printReport");
   });
 
   it("renders every executive-summary KPI", () => {

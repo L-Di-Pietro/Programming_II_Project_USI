@@ -492,7 +492,7 @@ function renderBanner(hasBench: boolean, mode: ReportMode): string {
   const tip = hasBench
     ? "use the Sections bar to show or hide parts of the report, and the benchmark toggles above each chart to customize your view."
     : "use the Sections bar to show or hide parts of the report, then save the file for a local copy.";
-  return `<div class="banner"><div class="banner-txt">${INFO_SVG}<span><b>Interactive report</b> — ${tip}</span></div><div class="banner-actions"><button class="savebtn" type="button" onclick="window.__saveReportHtml&&window.__saveReportHtml()">Save HTML File</button><button class="printbtn" type="button" onclick="window.print()">Print / Save as PDF</button></div></div>`;
+  return `<div class="banner"><div class="banner-txt">${INFO_SVG}<span><b>Interactive report</b> — ${tip}</span></div><div class="banner-actions"><button class="savebtn" type="button" onclick="window.__saveReportHtml&&window.__saveReportHtml()">Save HTML File</button><button class="printbtn" type="button" onclick="window.__printReport&&window.__printReport()">Print / Save as PDF</button></div></div>`;
 }
 
 function renderCover(run: BacktestDetail, asset: Asset | undefined, report: Report): string {
@@ -843,7 +843,39 @@ table.params tr:last-child td{border-bottom:none}
 .foot .disc{max-width:62ch;font-style:italic}
 .foot-meta{font-family:'IBM Plex Mono',monospace;white-space:nowrap}
 @media (max-width:680px){.kpis{grid-template-columns:repeat(2,1fr)}.meta-grid{grid-template-columns:1fr}.block,.cover,.banner,.foot{padding-left:24px;padding-right:24px}}
-@media print{body{background:#fff;padding:0}.doc{box-shadow:none;border:none;border-radius:0;max-width:none}.banner-actions,.sectionbar{display:none}.banner{background:#f0fdff}.block,.cover{padding:24px 40px}section,.chart-block,.kpi,.heat-block,table,.cover,.banner{page-break-inside:avoid}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}}`;
+@page{size:A4;margin:12mm}
+@media print{
+  body{background:#fff;padding:0}
+  /* overflow:visible is critical: the base .doc is overflow:hidden, which clips
+     every printed page after the first (Safari renders the whole job blank). */
+  .doc{box-shadow:none;border:none;border-radius:0;max-width:none;overflow:visible}
+  /* The banner is interactive-only guidance ("use the Sections bar…") — drop it
+     entirely from the PDF along with the toolbar and section pills. */
+  .banner,.banner-actions,.sectionbar{display:none}
+  .block,.cover{padding:22px 28px}
+  /* Keep only genuinely-unsplittable units intact. Letting sections, chart-blocks
+     and the metrics/params tables FLOW (rows stay whole via tr) avoids the big
+     white gaps that page-break-inside:avoid on whole sections used to create. */
+  .chart,.kpi,.heat-block,table.heat,tr,.cover{page-break-inside:avoid}
+  /* Keep a chart's heading/legend glued to the chart so it isn't orphaned. */
+  .kicker,.sec-title,.sec-sub,.togbar{break-after:avoid;page-break-after:avoid}
+  /* Cap chart size for print. max-width is the key guard: Plotly's responsive
+     ResizeObserver resizes a chart to its container, so without a hard cap a wide
+     print viewport (notably Safari, which keeps the screen viewport during print)
+     would size charts past the page edge and truncate them. Capping the box means
+     the chart can never exceed the printable width. Heights are capped so a chart
+     always fits within one page (no vertical split). Centered for a clean margin. */
+  .chart{height:300px;max-width:580px;margin-left:auto;margin-right:auto}
+  .chart.tall{height:360px}
+  /* Monthly heatmap is a 14-column table (label + 12 months + Year). On screen it
+     scrolls via overflow-x:auto, but print can't scroll, so it was clipped after
+     ~October. Fix the layout to the page width so every month + the Year fit. */
+  .heat-wrap{overflow:visible}
+  table.heat{width:100%;table-layout:fixed;border-spacing:2px;font-size:8.5px}
+  table.heat th{padding:3px 1px;font-size:8px}
+  table.heat td{padding:4px 2px;min-width:0}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}`;
 
 const TOGGLE_RUNTIME = `
 (function(){
@@ -915,10 +947,39 @@ const TOGGLE_RUNTIME = `
       applySection(key, !btn.classList.contains('on'));
     });
   });
-  window.addEventListener('beforeprint', function(){
+  // Print path. On screen the charts are responsive (~900px wide), but the print
+  // layout is the narrow A4 content box (~650px). Resize every figure to a fixed
+  // print width BEFORE invoking print — explicit dimensions, not a container
+  // measurement, so this is independent of when the browser switches to print
+  // media (Safari fires 'beforeprint' BEFORE the switch, which is why charts used
+  // to overflow the page and get cut off). afterprint restores the screen sizing.
+  var PRINT_W = 580; // matches the .chart print max-width; fits the A4 content box
+  function sizeForPrint(){
     if(!window.Plotly) return;
-    figs.forEach(function(f){ var el=document.getElementById(f.id); if(el){ try{ Plotly.Plots.resize(el); }catch(e){} } });
-  });
+    figs.forEach(function(f){
+      var el = document.getElementById(f.id);
+      if(!el) return;
+      var h = el.classList.contains('tall') ? 360 : 300;
+      try{ Plotly.relayout(el, { width: PRINT_W, height: h, autosize: false }); }catch(e){}
+    });
+  }
+  function sizeForScreen(){
+    if(!window.Plotly) return;
+    figs.forEach(function(f){
+      var el = document.getElementById(f.id);
+      if(!el) return;
+      try{ Plotly.relayout(el, { width: null, height: null, autosize: true }); Plotly.Plots.resize(el); }catch(e){}
+    });
+  }
+  // Invoked by the "Print / Save as PDF" button: pre-size the charts, let Plotly
+  // paint the resized SVGs, then open the print dialog (which yields window.print()).
+  window.__printReport = function(){
+    sizeForPrint();
+    setTimeout(function(){ window.print(); }, 250);
+  };
+  // Fallbacks for a direct Cmd/Ctrl+P (no button): size on beforeprint, restore after.
+  window.addEventListener('beforeprint', sizeForPrint);
+  window.addEventListener('afterprint', sizeForScreen);
 })();`;
 
 // -----------------------------------------------------------------------------
