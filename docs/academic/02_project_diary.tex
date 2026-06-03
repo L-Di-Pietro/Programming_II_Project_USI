@@ -268,6 +268,17 @@ breakpoints are expressed via Tailwind's responsive prefix system, so the deskto
 is unchanged and mobile improvements layer on top rather than forking a separate code
 path.
 
+\subsection*{Nightly documentation pass (2026-06-02)}
+
+The nightly documentation-refresh workflow fired at 02:00~UTC on 2026-06-02 (commit
+\texttt{57b0e6c}, merged as PR~\#23). This pass caught the two changes that had landed
+on 2026-06-01 after the previous refresh window: the Dockerfile base-image pin
+(\texttt{b6718ce}) and the mobile-responsive navigation overhaul (\texttt{b9414a7}).
+Both were recorded in \texttt{CHANGELOG.md} (new \texttt{Fixed} entry and an extended
+\texttt{Added} bullet respectively) and in this diary (the preceding two subsections).
+Additionally, \texttt{docs/user-guide.md}'s ``Click New Backtest'' step was updated to
+mention the mobile navigation drawer for phone and tablet users. No code was modified.
+
 \subsection*{Things we tried and abandoned}
 
 A few decisions did not survive the four weeks:
