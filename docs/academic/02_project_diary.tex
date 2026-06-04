@@ -279,6 +279,48 @@ Both were recorded in \texttt{CHANGELOG.md} (new \texttt{Fixed} entry and an ext
 Additionally, \texttt{docs/user-guide.md}'s ``Click New Backtest'' step was updated to
 mention the mobile navigation drawer for phone and tablet users. No code was modified.
 
+\subsection*{Print path hardening (2026-06-03)}
+
+Commit \texttt{1ebcae4} (``Add print sizing and \_\_printReport'') fixed a cluster of
+print-quality defects in the self-contained HTML report produced by
+\texttt{exportReportHtml}.
+
+The root cause was a mismatch between how Plotly sizes charts on screen (responsive,
+typically $\approx 900$~px wide) and the A4 print content column ($\approx 580$~px). When
+the user triggered \texttt{window.print()}, Plotly's \texttt{ResizeObserver} did not refire
+for the narrower print viewport, so charts overflowed and were clipped. Safari aggravated
+the problem further: it fires the \texttt{beforeprint} event \emph{before} switching to
+\texttt{@media print}, so a resize triggered there was still measured against the full
+screen viewport rather than the page column. An unrelated Safari bug rendered the entire
+print job blank when \texttt{.doc} carried \texttt{overflow: hidden}.
+
+The fix introduces \texttt{window.\_\_printReport}: clicking ``Print / Save as PDF'' now
+calls \texttt{Plotly.relayout} on every figure with explicit \texttt{width: 580} and
+\texttt{height: 300} (360 for taller charts) before invoking \texttt{window.print()} with
+a 250~ms settling delay, giving Plotly time to commit the resized SVGs before the browser
+snapshot. Because the resize is \emph{explicit} rather than container-driven, it is
+independent of when the browser switches media query. After the dialog closes,
+\texttt{sizeForScreen} calls \texttt{Plotly.relayout} with \texttt{autosize: true} and
+fires \texttt{Plots.resize} to restore the full-width interactive layout.
+\texttt{beforeprint}/\texttt{afterprint} listeners apply the same sequence when the user
+presses \keystroke{Cmd/Ctrl + P} directly.
+
+CSS changes accompanied the runtime fix: \texttt{overflow: visible} was set on
+\texttt{.doc} in \texttt{@media print}, the monthly-returns heatmap received
+\texttt{width: 100\%; table-layout: fixed; font-size: 8.5px} so all 14 columns
+(label + 12 months + Year) fit without clipping, and an \texttt{@page \{ size: A4;
+margin: 12mm \}} rule pinned the paper format rather than relying on the user's browser
+default.
+
+\subsection*{Nightly documentation pass (2026-06-04)}
+
+The nightly documentation-refresh workflow fired at 02:00~UTC on 2026-06-04. This pass
+caught commit \texttt{1ebcae4} (``Add print sizing and \_\_printReport'') by Filippo
+Selmi, which had landed on 2026-06-03 after the previous nightly window closed. The
+commit was recorded in \texttt{CHANGELOG.md} (new \texttt{Changed} entry under
+\texttt{[Unreleased]} and a pre-release timeline bullet in the Week of 2026-06-01 block)
+and in the preceding diary subsection. No code was modified.
+
 \subsection*{Things we tried and abandoned}
 
 A few decisions did not survive the four weeks:
