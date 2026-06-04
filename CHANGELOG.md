@@ -56,6 +56,7 @@ Hash references use the short SHA (e.g. `abcdef1`); resolve them with `git show 
 
 ### Changed
 
+- **`exportReportHtml` print path hardened** (`1ebcae4`) — the "Print / Save as PDF" button now calls `window.__printReport`, which pre-sizes every Plotly chart to explicit A4 dimensions (580 px wide, 300/360 px tall) before invoking `window.print()`. A new `@page { size: A4; margin: 12mm }` rule and an expanded `@media print` block fix the `.doc` overflow (which caused Safari to render the whole print job blank after the first page), cap chart widths to the A4 content column to prevent truncation, and reflow the monthly-returns heatmap table so all 12 month columns and the Year total fit without clipping. `sizeForScreen` restores responsive chart sizing after the dialog closes; `beforeprint`/`afterprint` handlers cover the same sequence for a direct Cmd/Ctrl+P.
 - **DB URL normalised to psycopg v3 dialect** (`postgresql+psycopg://`) in
   `backend/database/connection.py`; `DATABASE_URL` is accepted in either dialect and
   normalised at engine-creation time (`e1dd918`).
@@ -257,6 +258,7 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 - `2026-06-01 b6718ce` Fix backend build: pin Dockerfile base image to `python:3.11-slim-bookworm` — Playwright 1.49's `--with-deps chromium` fails on Debian trixie's renamed font packages; bookworm restores the Railway build (Filippo Selmi).
 - `2026-06-01 b9414a7` Add responsive mobile nav and UI improvements — `MobileNav` drawer + top bar, `SideNav` standalone component, `ScrollHint` wrapper; mobile-friendly charts, `MetricsPanel`, `TradeList`, and modals; `viewport-fit=cover` meta (Luca Di Pietro).
 - `2026-06-02 57b0e6c` chore(docs): nightly auto-refresh 2026-06-02 (automated — Claude Code; merged via PR \#23). Updated `docs/user-guide.md` navigation step to mention mobile drawer; added CHANGELOG and diary entries for `b6718ce` and `b9414a7`.
+- `2026-06-03 1ebcae4` Add print sizing and __printReport (Filippo Selmi). Print-specific CSS (`@page A4`, overflow fix for Safari, chart/heatmap constraints) and `window.__printReport` runtime that pre-sizes Plotly figures to A4 dimensions before calling `window.print()`; `sizeForScreen` restores responsive sizing afterwards.
 
 ### Week of 2026-05-25 — *Documentation pass*
 
@@ -285,4 +287,4 @@ GitHub Copilot's bot account (`copilot-swe-agent[bot]`) appears in a single merg
 
 ---
 
-_Last verified against code: 2026-06-03._
+_Last verified against code: 2026-06-04._
