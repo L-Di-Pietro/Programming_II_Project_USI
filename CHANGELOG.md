@@ -259,6 +259,8 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 - `2026-06-01 b9414a7` Add responsive mobile nav and UI improvements — `MobileNav` drawer + top bar, `SideNav` standalone component, `ScrollHint` wrapper; mobile-friendly charts, `MetricsPanel`, `TradeList`, and modals; `viewport-fit=cover` meta (Luca Di Pietro).
 - `2026-06-02 57b0e6c` chore(docs): nightly auto-refresh 2026-06-02 (automated — Claude Code; merged via PR \#23). Updated `docs/user-guide.md` navigation step to mention mobile drawer; added CHANGELOG and diary entries for `b6718ce` and `b9414a7`.
 - `2026-06-03 1ebcae4` Add print sizing and __printReport (Filippo Selmi). Print-specific CSS (`@page A4`, overflow fix for Safari, chart/heatmap constraints) and `window.__printReport` runtime that pre-sizes Plotly figures to A4 dimensions before calling `window.print()`; `sizeForScreen` restores responsive sizing afterwards.
+- `2026-06-04 650bcbc` chore(docs): nightly auto-refresh 2026-06-04 (automated — Claude Code; merged via PR \#25). Recorded `1ebcae4` (print-path hardening) in `CHANGELOG.md` and `docs/academic/02_project_diary.tex`.
+- `2026-06-05 855c0a6` added github nickname — added `[SAGaldini]` GitHub handle for Stefano Angelo Galdini in `docs/academic/main.tex` author list; defined missing `\keystroke` macro in preamble (Stefano Angelo Galdini; merged via PR \#26).
 
 ### Week of 2026-05-25 — *Documentation pass*
 
@@ -280,11 +282,11 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 |---|---|---|---|
 | Aaron Arauz | Aaron Arauz | `Baumender11` | 7 |
 | Luca Di Pietro | Luca Di Pietro | `L-Di-Pietro` | 15 |
-| Stefano Angelo Galdini | Stefano Angelo Galdini | *(commits under real name; no separate handle)* | 6 |
+| Stefano Angelo Galdini | Stefano Angelo Galdini | `SAGaldini` | 7 |
 | Filippo Selmi | Filippo Selmi | `FilippoSelmi` (also seen as `selmif`) | 4 |
 
 GitHub Copilot's bot account (`copilot-swe-agent[bot]`) appears in a single merge-resolution commit and is **not** a project contributor; see [`AI_USAGE.md`](AI_USAGE.md).
 
 ---
 
-_Last verified against code: 2026-06-04._
+_Last verified against code: 2026-06-05._
