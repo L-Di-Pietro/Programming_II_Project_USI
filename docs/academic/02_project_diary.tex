@@ -321,6 +321,30 @@ commit was recorded in \texttt{CHANGELOG.md} (new \texttt{Changed} entry under
 \texttt{[Unreleased]} and a pre-release timeline bullet in the Week of 2026-06-01 block)
 and in the preceding diary subsection. No code was modified.
 
+\subsection*{GitHub nickname and macro fix (2026-06-05)}
+
+Commit \texttt{855c0a6} (``added github nickname'') by Stefano Angelo Galdini made two
+changes to \texttt{docs/academic/main.tex}. First, it added the missing
+\texttt{\textbackslash keystroke} macro definition --- a thin \texttt{\textbackslash fbox}
+wrapper that typesets keyboard shortcuts as outlined boxes --- which had been used in the
+project diary since the print-hardening subsection (\texttt{1ebcae4}) but was never declared
+in the preamble, causing a compile error on a fresh \LaTeX{} toolchain. Second, it added
+Stefano's GitHub handle \texttt{[SAGaldini]} to the cover-page author list, matching the
+format already used by the other three contributors. The \texttt{CHANGELOG.md} Contributors
+table was updated accordingly: the handle column changes from ``\textit{commits under real
+name; no separate handle}'' to \texttt{SAGaldini} and the non-merge commit count advances
+from 6 to~7.
+
+\subsection*{Nightly documentation pass (2026-06-05)}
+
+The nightly documentation-refresh workflow fired at 02:00~UTC on 2026-06-05. This pass
+caught commit \texttt{855c0a6} (``added github nickname and updated report'') by Stefano
+Angelo Galdini, which had landed on 2026-06-05 after the previous nightly window closed.
+The commit was recorded in \texttt{CHANGELOG.md} (a new pre-release timeline bullet in the
+Week of 2026-06-01 block, updated GitHub handle and commit count in the Contributors table,
+and the ``last verified'' date bumped to 2026-06-05) and in the preceding diary subsection.
+No code was modified.
+
 \subsection*{Things we tried and abandoned}
 
 A few decisions did not survive the four weeks:
