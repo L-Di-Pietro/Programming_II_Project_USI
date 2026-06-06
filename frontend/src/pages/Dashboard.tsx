@@ -399,6 +399,7 @@ function AiReportCell({
     <>
       <PdfSectionsDialog
         open={pdfDialogOpen}
+        runId={run.id}
         onClose={() => setPdfDialogOpen(false)}
         onConfirm={confirmPdf}
       />

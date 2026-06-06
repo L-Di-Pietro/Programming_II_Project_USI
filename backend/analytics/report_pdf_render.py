@@ -35,6 +35,13 @@ def render_html_to_pdf(html: str) -> bytes:
                 "window.__REPORT_READY__ === true", timeout=_RENDER_TIMEOUT_MS
             )
             page.emulate_media(media="print")  # activates the report's @media print CSS
+            # Match the interactive "Print / Save as PDF" path: size every chart to
+            # the print width and let Plotly repaint BEFORE exporting, so the PDF is
+            # laid out like the browser-print render (the gold standard) rather than
+            # at the wide screen size. The runtime resolves once relayout completes.
+            page.evaluate(
+                "() => window.__sizeForPrint ? window.__sizeForPrint().then(function(){}) : null"
+            )
             # A4 with comfortable margins; print-background keeps the report's colours.
             return page.pdf(
                 format="A4",

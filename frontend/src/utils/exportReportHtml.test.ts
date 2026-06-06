@@ -163,13 +163,14 @@ describe("buildReportHtml", () => {
     expect(html).toContain("-12.70%"); // max drawdown
   });
 
-  it("renders one toggle button per present benchmark, defaulting on", () => {
+  it("renders one toggle button per present benchmark, defaulting off (strategy only)", () => {
     const { html } = buildReportHtml(mkPayload(), PLOTLY_STUB);
     expect(html).toContain('data-bench-btn="buy_and_hold"');
     expect(html).toContain('data-bench-btn="sp500"');
-    // both default to ON in the global toggle state
-    expect(html).toContain('"buy_and_hold":true');
-    expect(html).toContain('"sp500":true');
+    // The interactive report opens strategy-only; benchmarks stay off until toggled.
+    expect(html).toContain('"buy_and_hold":false');
+    expect(html).toContain('"sp500":false');
+    expect(html).toContain('aria-pressed="false"');
   });
 
   it("omits the button (and section) for an absent benchmark", () => {
@@ -228,8 +229,36 @@ describe("buildReportHtml", () => {
     expect(html).not.toContain('class="printbtn"'); // no Print button
     expect(html).not.toContain("Interactive report"); // banner dropped
     expect(html).toContain('class="togbar"'); // static legend still present
-    // Benchmarks remain active (rendered) at generation time.
+    // With no explicit selection, every available benchmark is rendered.
     expect(extractReportData(html).toggles).toEqual({ buy_and_hold: true, sp500: true });
+  });
+
+  it("pdf mode includes only the benchmarks the picker selected", () => {
+    const { html } = buildReportHtml(mkPayload(), PLOTLY_STUB, "pdf", {
+      benchmarks: { buy_and_hold: true, sp500: false },
+    });
+    const data = extractReportData(html);
+    // Only the chosen benchmark survives, and it's visible in the static document.
+    // (Use structural markers, not the label — "S&P 500" also appears in the
+    //  asset name "SPDR S&P 500 ETF".)
+    expect(data.toggles).toEqual({ buy_and_hold: true });
+    const eq = data.figures.find((f) => f.id === "fig-equity")!;
+    expect(eq.benchTraces.map((t) => t.kind)).toEqual(["buy_and_hold"]);
+    expect(html).toContain('data-bench-block="buy_and_hold"'); // its heatmap block kept
+    expect(html).not.toContain('data-bench-block="sp500"'); // dropped one's block gone
+  });
+
+  it("pdf mode with no benchmark selected renders the strategy only", () => {
+    const { html } = buildReportHtml(mkPayload(), PLOTLY_STUB, "pdf", {
+      benchmarks: { buy_and_hold: false, sp500: false },
+    });
+    const data = extractReportData(html);
+    expect(data.toggles).toEqual({});
+    expect(html).not.toContain("Strategy vs. Benchmarks"); // comparison table dropped
+    const eq = data.figures.find((f) => f.id === "fig-equity")!;
+    expect(eq.benchTraces).toEqual([]); // no benchmark traces overlaid
+    expect(html).not.toContain('data-bench-block="buy_and_hold"');
+    expect(html).not.toContain('data-bench-block="sp500"');
   });
 
   // ---- Drawdown sign (Part 3) ------------------------------------------------
