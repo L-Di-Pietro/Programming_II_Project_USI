@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """One-command launcher for QuantEdge — venv, deps, .env, DB, servers, browser."""
 
+# Top-level execution order (see main()):
+#   1. Python / Node version check
+#   2. Port availability check (:8000, :5173) — fail fast before any prompt or work
+#   3. venv + Python deps + .env
+#   4. Gemini API key prompt (only reached if the ports are free)
+#   5. DB init + historical data load
+#   6. Frontend dep sync (npm)
+#   7. Start backend + frontend → wait for health → open browser
+
 from __future__ import annotations
 
 import argparse
@@ -521,6 +530,7 @@ def main() -> None:
     args = parse_args()
 
     check_prereqs()
+    check_ports_free([8000, 5173])  # fail fast: before any prompt or venv/pip work
     py = ensure_venv(reset=args.reset_venv)
     install_deps(py)
     ensure_env_file()
@@ -532,8 +542,6 @@ def main() -> None:
     if not npm:
         fail("npm not found on PATH. Did Node install correctly?")
     install_frontend_deps(npm)
-
-    check_ports_free([8000, 5173])
 
     backend = start_backend(py)
     frontend = start_frontend(npm)
