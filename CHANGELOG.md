@@ -262,6 +262,7 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 - `2026-06-04 650bcbc` chore(docs): nightly auto-refresh 2026-06-04 (automated — Claude Code; merged via PR \#25). Recorded `1ebcae4` (print-path hardening) in `CHANGELOG.md` and `docs/academic/02_project_diary.tex`.
 - `2026-06-05 855c0a6` added github nickname — added `[SAGaldini]` GitHub handle for Stefano Angelo Galdini in `docs/academic/main.tex` author list; defined missing `\keystroke` macro in preamble (Stefano Angelo Galdini; merged via PR \#26).
 - `2026-06-05 1de8ab2` chore(docs): nightly auto-refresh 2026-06-05 (automated — Claude Code; merged via PR \#27). Recorded `855c0a6` (GitHub nickname and `\keystroke` macro fix) in `CHANGELOG.md` and `docs/academic/02_project_diary.tex`.
+- `2026-06-06 57c8425` chore(docs): nightly auto-refresh 2026-06-06 (automated — Claude Code; merged via PR \#28). Only doc-only commits in the 24-hour window; recorded the nightly commit (`1de8ab2`, PR \#27) in the pre-release timeline and project diary. No code was modified.
 
 ### Week of 2026-05-25 — *Documentation pass*
 
@@ -290,4 +291,4 @@ GitHub Copilot's bot account (`copilot-swe-agent[bot]`) appears in a single merg
 
 ---
 
-_Last verified against code: 2026-06-06._
+_Last verified against code: 2026-06-07._
