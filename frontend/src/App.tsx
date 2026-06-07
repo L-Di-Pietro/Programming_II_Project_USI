@@ -3,6 +3,7 @@ import { Route, Routes, useLocation } from "react-router-dom";
 
 import { Api } from "./api/client";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { MobileDesktopBanner } from "./components/MobileDesktopBanner";
 import { MobileNav } from "./components/MobileNav";
 import { OnboardingTour } from "./components/OnboardingTour";
 import { SideNav } from "./components/SideNav";
@@ -59,6 +60,7 @@ export default function App() {
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto">
+          <MobileDesktopBanner />
           <ErrorBoundary key={location.pathname}>
             <Routes>
               <Route path="/"                  element={<Dashboard />} />
