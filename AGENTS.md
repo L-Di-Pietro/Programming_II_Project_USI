@@ -1,4 +1,4 @@
-# AGENTS.md — The AI-collaborator contract for QuantBacktest
+# AGENTS.md — The AI-collaborator contract for QuantEdge
 
 > This file is the canonical contract for any **AI coding agent** (Claude Code, GitHub Copilot, Cursor, Codex, ChatGPT, Google Gemini, …) that contributes to this repository. It is required by the *Programming in Finance II — Project 2.8* rubric and is intentionally distinct from [`docs/agents.md`](docs/agents.md), which documents the six **runtime agents** that live *inside* the product. This file documents the **collaboration rules** for the agents that help us build it.
 >
@@ -8,7 +8,7 @@
 
 ## 1. Why this project is organised agentically
 
-QuantBacktest is a six-agent system because the work it performs is genuinely heterogeneous: fetching market data, validating strategy parameters, running an event-driven backtest loop, computing KPIs, rendering Plotly charts, and generating natural-language reports each have different determinism guarantees, different failure modes, and different latency profiles. Splitting them apart lets us keep the deterministic surface (data, strategy, backtest, analytics) reproducible bar-for-bar across machines, and isolate the only two non-deterministic agents (orchestrator, explanation) behind a single [`LLMProvider`](backend/llm/base.py) abstraction with a `NullProvider` default. The result is a product where **tests never call an LLM**, **backtests never call a live API**, and the LLM features are opt-in via three environment variables (`LLM_ENABLED=true`, `LLM_PROVIDER=gemini`, `GEMINI_API_KEY=…`). The same separation is what makes the codebase tractable for AI contributors: any non-trivial change is scoped to one agent or to one well-defined seam between two of them.
+QuantEdge is a six-agent system because the work it performs is genuinely heterogeneous: fetching market data, validating strategy parameters, running an event-driven backtest loop, computing KPIs, rendering Plotly charts, and generating natural-language reports each have different determinism guarantees, different failure modes, and different latency profiles. Splitting them apart lets us keep the deterministic surface (data, strategy, backtest, analytics) reproducible bar-for-bar across machines, and isolate the only two non-deterministic agents (orchestrator, explanation) behind a single [`LLMProvider`](backend/llm/base.py) abstraction with a `NullProvider` default. The result is a product where **tests never call an LLM**, **backtests never call a live API**, and the LLM features are opt-in via three environment variables (`LLM_ENABLED=true`, `LLM_PROVIDER=gemini`, `GEMINI_API_KEY=…`). The same separation is what makes the codebase tractable for AI contributors: any non-trivial change is scoped to one agent or to one well-defined seam between two of them.
 
 ---
 

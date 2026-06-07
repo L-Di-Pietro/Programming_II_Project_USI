@@ -1,6 +1,6 @@
 # Citations
 
-QuantBacktest is a *USI Programming in Finance II — Project 2.8* submission and follows the course's policy on foreign-code attribution: every third-party library bundled into the project, and every algorithm or formula whose mathematical form we did not derive ourselves, is cited here in a single table. Sources cited inline elsewhere in the repository (e.g. one-line citations in [`docs/strategies.md`](docs/strategies.md)) are re-listed here in author-year form for easy lookup.
+QuantEdge is a *USI Programming in Finance II — Project 2.8* submission and follows the course's policy on foreign-code attribution: every third-party library bundled into the project, and every algorithm or formula whose mathematical form we did not derive ourselves, is cited here in a single table. Sources cited inline elsewhere in the repository (e.g. one-line citations in [`docs/strategies.md`](docs/strategies.md)) are re-listed here in author-year form for easy lookup.
 
 The list is organised into four sections:
 
@@ -187,9 +187,9 @@ Per the project's [data sources](docs/data-sources.md) doc, data fetched from an
 
 ## License audit
 
-Every library shipped in the default install path of QuantBacktest is licensed under one of: **MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0**, or a dual-license that includes one of these (e.g. `python-dateutil` is dual-licensed Apache-2.0 / BSD-3-Clause; `structlog` is dual-licensed Apache-2.0 / MIT). No GPL or AGPL code is bundled. The optional `psycopg[binary]` Postgres driver is LGPL-3.0-only and is left commented out in `requirements.txt` precisely so the default install path stays unambiguously permissive; teams that opt into Postgres in production accept the LGPL terms by uncommenting the line.
+Every library shipped in the default install path of QuantEdge is licensed under one of: **MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0**, or a dual-license that includes one of these (e.g. `python-dateutil` is dual-licensed Apache-2.0 / BSD-3-Clause; `structlog` is dual-licensed Apache-2.0 / MIT). No GPL or AGPL code is bundled. The optional `psycopg[binary]` Postgres driver is LGPL-3.0-only and is left commented out in `requirements.txt` precisely so the default install path stays unambiguously permissive; teams that opt into Postgres in production accept the LGPL terms by uncommenting the line.
 
-QuantBacktest itself is released under the MIT License — see [`LICENSE`](LICENSE).
+QuantEdge itself is released under the MIT License — see [`LICENSE`](LICENSE).
 
 ---
 

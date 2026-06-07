@@ -1,6 +1,6 @@
 # Architecture
 
-A deep-dive into the design of QuantBacktest. Read [`README.md`](./README.md) first for product context.
+A deep-dive into the design of QuantEdge. Read [`README.md`](./README.md) first for product context.
 
 ---
 

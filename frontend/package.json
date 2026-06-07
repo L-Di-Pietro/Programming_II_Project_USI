@@ -1,8 +1,8 @@
 {
-  "name": "quantbacktest-frontend",
+  "name": "quantedge-frontend",
   "private": true,
   "version": "0.1.0",
-  "description": "QuantBacktest web UI — React + TS + Vite + Tailwind.",
+  "description": "QuantEdge web UI — React + TS + Vite + Tailwind.",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -9,7 +9,7 @@
 
 ## 1 · Goal
 
-Give a brand-new user — and specifically the course professor — a single command that brings the entire QuantBacktest application up from a fresh git clone, with the AI-report (Gemini) feature working, on macOS, Linux, and Windows.
+Give a brand-new user — and specifically the course professor — a single command that brings the entire QuantEdge application up from a fresh git clone, with the AI-report (Gemini) feature working, on macOS, Linux, and Windows.
 
 Today's Quick Start in `README.md` requires the user to perform ~7 steps across two terminals (venv, deps, env, init DB, load data, backend, frontend) and to manually edit `.env`. That flow stays exactly as it is for power users; the new tooling is purely additive.
 
@@ -231,7 +231,7 @@ Three edits to `docker-compose.yml`, no new files:
      db:
        condition: service_healthy
    environment:
-     DATABASE_URL: postgresql+psycopg://quantbacktest:quantbacktest@db:5432/quantbacktest
+     DATABASE_URL: postgresql+psycopg://quantedge:quantedge@db:5432/quantedge
 -    LLM_ENABLED: "false"
 +    # LLM_ENABLED + LLM_PROVIDER + GEMINI_API_KEY come from env_file above
    command: >

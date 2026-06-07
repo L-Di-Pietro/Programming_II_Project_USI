@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-command launcher for QuantBacktest — venv, deps, .env, DB, servers, browser."""
+"""One-command launcher for QuantEdge — venv, deps, .env, DB, servers, browser."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ FRONTEND_DIR = ROOT / "frontend"
 NODE_MODULES = FRONTEND_DIR / "node_modules"
 NODE_MARKER = NODE_MODULES / ".deps_installed_at"
 PACKAGE_LOCK = FRONTEND_DIR / "package-lock.json"
-SQLITE_DB = ROOT / "quantbacktest.db"
+SQLITE_DB = ROOT / "quantedge.db"
 INIT_DB_SCRIPT = ROOT / "scripts" / "init_db.py"
 LOAD_DATA_SCRIPT = ROOT / "scripts" / "load_initial_data.py"
 
@@ -497,7 +497,7 @@ def open_browser_and_wait(processes: list[subprocess.Popen], no_browser: bool) -
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="QuantBacktest one-command launcher.")
+        description="QuantEdge one-command launcher.")
     p.add_argument("--no-data", action="store_true",
                    help="skip the bulk data load")
     p.add_argument("--no-browser", action="store_true",

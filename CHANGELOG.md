@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to **QuantBacktest** are documented in this file.
+All notable changes to **QuantEdge** are documented in this file.
 
 The format follows [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/) and the project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html). The repository carries no Git tags yet — this file treats the state at the *USI Programming II Project 2.8* submission (2026-05-24) as the first release candidate, **v1.0.0-rc1**, and groups prior work into weekly pre-release blocks so the academic project diary can cite specific commits.
 
@@ -184,7 +184,7 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 ### Week of 2026-04-27 — *Foundation*
 
 - `2026-04-25 4ff85c1` Initial commit (Luca Di Pietro).
-- `2026-04-29 ecdf3bb` Initial project scaffold for QuantBacktest (Luca Di Pietro). Backend skeleton, project layout, baseline `requirements.txt`.
+- `2026-04-29 ecdf3bb` Initial project scaffold for QuantEdge (Luca Di Pietro). Backend skeleton, project layout, baseline `requirements.txt`.
 
 ### Week of 2026-05-04 — *First domain feature + LLM report*
 

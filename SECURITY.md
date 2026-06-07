@@ -1,6 +1,6 @@
 # Security Policy
 
-QuantBacktest is a **student-built academic project** (USI Lugano — *Programming in Finance II*, Project 2.8, Spring 2026). It is **not a deployed production service**. There is no hosted instance; every user runs the application locally against their own SQLite (or, optionally, Postgres) database. The threat model is correspondingly narrow.
+QuantEdge is a **student-built academic project** (USI Lugano — *Programming in Finance II*, Project 2.8, Spring 2026). It is **not a deployed production service**. There is no hosted instance; every user runs the application locally against their own SQLite (or, optionally, Postgres) database. The threat model is correspondingly narrow.
 
 That said, we treat the codebase to production-leaning standards (look-ahead-bias guarantees in the engine, opt-in LLM features by default, parameterised SQL via SQLAlchemy, no credentials in the repo) and we welcome responsible disclosure of any vulnerability you find.
 

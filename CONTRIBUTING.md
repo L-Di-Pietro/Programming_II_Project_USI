@@ -1,8 +1,8 @@
-# Contributing to QuantBacktest
+# Contributing to QuantEdge
 
 Thanks for thinking about contributing. This document is the single source of truth for the *mechanics* of contributing: branch model, commit-message convention, how to run the tests, how to add a new strategy / data fetcher / agent, and what we expect from a PR. The *rules of the road* for AI contributors (Claude Code, GitHub Copilot, ChatGPT, Cursor, Gemini, …) are in [`AGENTS.md`](AGENTS.md) — read both.
 
-QuantBacktest is an academic project (USI Lugano, *Programming in Finance II*, Project 2.8, Spring 2026). The code targets *production-leaning quality* under an academic deadline. We accept contributions that increase that quality and decline contributions that trade it away for cleverness.
+QuantEdge is an academic project (USI Lugano, *Programming in Finance II*, Project 2.8, Spring 2026). The code targets *production-leaning quality* under an academic deadline. We accept contributions that increase that quality and decline contributions that trade it away for cleverness.
 
 ---
 

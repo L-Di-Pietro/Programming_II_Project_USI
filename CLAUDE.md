@@ -46,7 +46,7 @@ pytest                                     # run all backend tests
 pytest tests/test_engine_no_lookahead.py   # critical look-ahead-bias guard
 ruff check backend/                        # lint
 mypy backend/                              # type-check
-# Reset: delete quantbacktest.db* then re-run init_db + load_initial_data for a clean DB.
+# Reset: delete quantedge.db* then re-run init_db + load_initial_data for a clean DB.
 
 # Frontend
 cd frontend && npm install

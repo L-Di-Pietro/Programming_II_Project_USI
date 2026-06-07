@@ -35,9 +35,9 @@ class Settings(BaseSettings):
 
     # --- Database ------------------------------------------------------------
     # SQLAlchemy URL. SQLite for dev, Postgres in prod (psycopg dialect):
-    #   sqlite:///./quantbacktest.db
+    #   sqlite:///./quantedge.db
     #   postgresql+psycopg://user:pass@host:5432/db
-    database_url: str = Field(default="sqlite:///./quantbacktest.db")
+    database_url: str = Field(default="sqlite:///./quantedge.db")
 
     # --- API server ----------------------------------------------------------
     api_host: str = "127.0.0.1"

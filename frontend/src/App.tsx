@@ -30,7 +30,7 @@ export default function App() {
     if (location.pathname === "/strategies")         return "Strategies";
     if (location.pathname === "/backtests/new")      return "Configure";
     if (location.pathname.startsWith("/backtests/")) return "Results";
-    return "QuantBacktest";
+    return "QuantEdge";
   })();
 
   return (
