@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""One-command launcher for QuantBacktest — venv, deps, .env, DB, servers, browser."""
+"""One-command launcher for QuantEdge — venv, deps, .env, DB, servers, browser."""
+
+# Top-level execution order (see main()):
+#   1. Python / Node version check
+#   2. Port availability check (:8000, :5173) — fail fast before any prompt or work
+#   3. venv + Python deps + .env
+#   4. Gemini API key prompt (only reached if the ports are free)
+#   5. DB init + historical data load
+#   6. Frontend dep sync (npm)
+#   7. Start backend + frontend → wait for health → open browser
 
 from __future__ import annotations
 
@@ -30,7 +39,7 @@ FRONTEND_DIR = ROOT / "frontend"
 NODE_MODULES = FRONTEND_DIR / "node_modules"
 NODE_MARKER = NODE_MODULES / ".deps_installed_at"
 PACKAGE_LOCK = FRONTEND_DIR / "package-lock.json"
-SQLITE_DB = ROOT / "quantbacktest.db"
+SQLITE_DB = ROOT / "quantedge.db"
 INIT_DB_SCRIPT = ROOT / "scripts" / "init_db.py"
 LOAD_DATA_SCRIPT = ROOT / "scripts" / "load_initial_data.py"
 
@@ -497,7 +506,7 @@ def open_browser_and_wait(processes: list[subprocess.Popen], no_browser: bool) -
 
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="QuantBacktest one-command launcher.")
+        description="QuantEdge one-command launcher.")
     p.add_argument("--no-data", action="store_true",
                    help="skip the bulk data load")
     p.add_argument("--no-browser", action="store_true",
@@ -521,6 +530,7 @@ def main() -> None:
     args = parse_args()
 
     check_prereqs()
+    check_ports_free([8000, 5173])  # fail fast: before any prompt or venv/pip work
     py = ensure_venv(reset=args.reset_venv)
     install_deps(py)
     ensure_env_file()
@@ -532,8 +542,6 @@ def main() -> None:
     if not npm:
         fail("npm not found on PATH. Did Node install correctly?")
     install_frontend_deps(npm)
-
-    check_ports_free([8000, 5173])
 
     backend = start_backend(py)
     frontend = start_frontend(npm)

@@ -1,4 +1,4 @@
-# Onboarding — QuantBacktest
+# Onboarding — QuantEdge
 
 A web-based backtesting framework for retail quantitative traders. Test
 trading strategies on historical equities, FX, and crypto data, see
@@ -48,7 +48,7 @@ npm run build
 
 # Reset (optional): stop servers with Ctrl+C; free a stuck port with
 #   lsof -ti:8000 | xargs kill -9   (Win: netstat -ano | findstr :8000  then  taskkill /PID <pid> /F)
-# Fresh DB: rm -f quantbacktest.db*  (Win: Remove-Item quantbacktest.db* -Force), then re-run init + load.
+# Fresh DB: rm -f quantedge.db*  (Win: Remove-Item quantedge.db* -Force), then re-run init + load.
 ```
 
 OpenAPI docs at `http://127.0.0.1:8000/docs` once the backend is running.

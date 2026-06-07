@@ -1,5 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 
+import { useIsMobile } from "@/hooks/useIsMobile";
+
 // ── Inline SVG icon primitives ─────────────────────────────────────────────
 function IconDashboard() {
   return (
@@ -64,6 +66,7 @@ interface SideNavProps {
  */
 export function SideNav({ latestRunId, onNavigate, onClose }: SideNavProps) {
   const location = useLocation();
+  const isMobile = useIsMobile();
   const onResultsPage =
     location.pathname.startsWith("/backtests/") &&
     !location.pathname.startsWith("/backtests/new");
@@ -132,16 +135,19 @@ export function SideNav({ latestRunId, onNavigate, onClose }: SideNavProps) {
       </nav>
 
       <div className="px-5 py-4 text-[10px] font-mono text-ink-muted border-t border-border space-y-2">
-        <button
-          type="button"
-          onClick={() => {
-            window.dispatchEvent(new CustomEvent("onboarding:replay"));
-            onNavigate?.();
-          }}
-          className="block text-left text-ink-muted hover:text-accent-cyan transition-colors"
-        >
-          Replay tutorial
-        </button>
+        {/* The guided tour is desktop-only, so its trigger is hidden on mobile. */}
+        {!isMobile && (
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent("onboarding:replay"));
+              onNavigate?.();
+            }}
+            className="block text-left text-ink-muted hover:text-accent-cyan transition-colors"
+          >
+            Replay tutorial
+          </button>
+        )}
         <div>USI PROG II &mdash; 2.8</div>
       </div>
     </>

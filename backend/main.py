@@ -107,7 +107,7 @@ def _nightly_refresh() -> None:
 # -----------------------------------------------------------------------------
 def create_app() -> FastAPI:
     app = FastAPI(
-        title="QuantBacktest API",
+        title="QuantEdge API",
         version="0.1.0",
         description=(
             "Backtesting framework for retail quantitative traders. "

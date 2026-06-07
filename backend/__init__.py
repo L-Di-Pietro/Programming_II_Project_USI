@@ -1,4 +1,4 @@
-"""QuantBacktest backend package.
+"""QuantEdge backend package.
 
 The package is split into vertical slices that mirror the architecture diagram
 in ARCHITECTURE.md:

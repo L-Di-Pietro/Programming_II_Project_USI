@@ -18,15 +18,15 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: quantbacktest
-      POSTGRES_PASSWORD: quantbacktest
-      POSTGRES_DB: quantbacktest
+      POSTGRES_USER: quantedge
+      POSTGRES_PASSWORD: quantedge
+      POSTGRES_DB: quantedge
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U quantbacktest"]
+      test: ["CMD-SHELL", "pg_isready -U quantedge"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -44,7 +44,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql+psycopg://quantbacktest:quantbacktest@db:5432/quantbacktest
+      DATABASE_URL: postgresql+psycopg://quantedge:quantedge@db:5432/quantedge
       API_HOST: 0.0.0.0
       API_PORT: 8000
       LOG_LEVEL: INFO

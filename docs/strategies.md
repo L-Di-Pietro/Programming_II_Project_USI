@@ -1,6 +1,6 @@
 # Strategies
 
-QuantBacktest ships **11 strategies** across five families: three
+QuantEdge ships **11 strategies** across five families: three
 trend-followers, one time-series momentum model, two breakouts, four
 mean-reverters, and one buy-and-hold benchmark. The variety is
 deliberate — running them side-by-side teaches the most important

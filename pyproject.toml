@@ -6,7 +6,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "quantbacktest"
+name = "quantedge"
 version = "0.1.0"
 description = "A web-based backtesting framework for retail quantitative traders (USI Programming II Project 2.8)."
 readme = "README.md"

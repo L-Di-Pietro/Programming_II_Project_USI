@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Api } from "@/api/client";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 /**
  * First-time, hands-on guided product tour. Self-contained and purely additive:
@@ -157,6 +158,7 @@ const resolveTarget = (s: TourStep): Element | null =>
 export function OnboardingTour() {
   const location = useLocation();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
 
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -181,6 +183,7 @@ export function OnboardingTour() {
 
   // Auto-launch on first Dashboard visit, or resume a persisted step on reload.
   useEffect(() => {
+    if (isMobile) return; // tour is suppressed below the desktop breakpoint
     if (localStorage.getItem(STORAGE_KEY)) return;
     const saved = localStorage.getItem(STEP_KEY);
     if (saved !== null) {
@@ -211,6 +214,7 @@ export function OnboardingTour() {
   // Replay bridge (footer link dispatches this) — always listening.
   useEffect(() => {
     const onReplay = () => {
+      if (isMobile) return; // suppressed below the desktop breakpoint
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(STEP_KEY);
       expectingNavRef.current = null;
@@ -223,7 +227,7 @@ export function OnboardingTour() {
     };
     window.addEventListener(REPLAY_EVENT, onReplay);
     return () => window.removeEventListener(REPLAY_EVENT, onReplay);
-  }, [navigate]);
+  }, [navigate, isMobile]);
 
   const close = useCallback(() => {
     localStorage.setItem(STORAGE_KEY, "true");
@@ -448,7 +452,7 @@ export function OnboardingTour() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, step, close, back, advance]);
 
-  if (!open) return null;
+  if (!open || isMobile) return null;
 
   const spot =
     rect !== null

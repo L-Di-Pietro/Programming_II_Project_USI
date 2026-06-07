@@ -88,12 +88,12 @@ def build_report_pdf(
 
 
 def pdf_filename(strategy_name: str, asset_symbol: str, when: datetime | None) -> str:
-    """Build a sanitized download filename: QuantBacktest_<strategy>_<asset>_<date>.pdf."""
+    """Build a sanitized download filename: QuantEdge_<strategy>_<asset>_<date>.pdf."""
     def slug(s: str) -> str:
         return re.sub(r"[^A-Za-z0-9]+", "_", s).strip("_") or "x"
 
     date = (when or utcnow()).strftime("%Y-%m-%d")
-    return f"QuantBacktest_{slug(strategy_name)}_{slug(asset_symbol)}_{date}.pdf"
+    return f"QuantEdge_{slug(strategy_name)}_{slug(asset_symbol)}_{date}.pdf"
 
 
 # -----------------------------------------------------------------------------

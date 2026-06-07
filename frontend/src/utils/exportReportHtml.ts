@@ -87,7 +87,15 @@ export interface ReportSections {
   trades?: boolean; // Trade P&L
   commentary?: boolean; // AI Analysis narrative
   params?: boolean; // Run Parameters appendix
+  // Which benchmark overlays to include in the PDF (default: none = strategy
+  // only). Consulted by the PDF path; the interactive report ignores this and
+  // keeps every available benchmark, just toggled off by default.
+  benchmarks?: Partial<Record<BenchmarkKind, boolean>>;
 }
+
+// The toggleable body sections — everything in ReportSections except the
+// benchmark selection (which isn't a section, so it stays out of the bar/labels).
+type SectionKey = keyof Omit<ReportSections, "benchmarks">;
 
 // -----------------------------------------------------------------------------
 // Formatting + colour semantics (mirrors MetricsPanel.tsx thresholds)
@@ -246,7 +254,11 @@ function commonLayout(): Record<string, unknown> {
   };
 }
 
-function buildEquityFigure(equity: EquityPoint[], benchmarks: ReportBenchmark[]): PlotlyFig {
+function buildEquityFigure(
+  equity: EquityPoint[],
+  benchmarks: ReportBenchmark[],
+  benchVisible: boolean,
+): PlotlyFig {
   const data: Record<string, unknown>[] = [
     {
       type: "scatter",
@@ -268,7 +280,7 @@ function buildEquityFigure(equity: EquityPoint[], benchmarks: ReportBenchmark[])
       y: b.equity.map((p) => p.equity),
       line: { color: b.color, width: 1.6 },
       opacity: 0.9,
-      visible: true,
+      visible: benchVisible,
       hovertemplate: `%{x|%b %d, %Y}<br>$%{y:,.0f}<extra>${b.label}</extra>`,
     });
     benchTraces.push({ kind: b.kind, index: data.length - 1 });
@@ -295,7 +307,11 @@ function underwater(equity: number[]): number[] {
 }
 const arrMin = (a: number[]) => a.reduce((m, v) => (v < m ? v : m), Infinity);
 
-function buildDrawdownFigure(equity: EquityPoint[], benchmarks: ReportBenchmark[]): PlotlyFig {
+function buildDrawdownFigure(
+  equity: EquityPoint[],
+  benchmarks: ReportBenchmark[],
+  benchVisible: boolean,
+): PlotlyFig {
   const stratDd = underwater(equity.map((p) => p.equity));
   const data: Record<string, unknown>[] = [
     {
@@ -323,7 +339,7 @@ function buildDrawdownFigure(equity: EquityPoint[], benchmarks: ReportBenchmark[
       y: dd,
       line: { color: b.color, width: 1.5 },
       opacity: 0.85,
-      visible: true,
+      visible: benchVisible,
       hovertemplate: `%{x|%b %d, %Y}<br>%{y:.2f}%<extra>${b.label}</extra>`,
     });
     benchTraces.push({ kind: b.kind, index: data.length - 1 });
@@ -355,9 +371,11 @@ function buildDrawdownFigure(equity: EquityPoint[], benchmarks: ReportBenchmark[
     });
   }
 
-  // Fix the y-axis from the worst trough across every series up to 0, so 0% sits
-  // at the top and deeper drawdowns extend downward — matching DrawdownChart.tsx.
-  const worst = Math.min(arrMin(stratDd), ...benchDd.map(arrMin));
+  // Fix the y-axis from the worst trough across every VISIBLE series up to 0, so
+  // 0% sits at the top and deeper drawdowns extend downward — matching
+  // DrawdownChart.tsx. When benchmarks start hidden the frame follows the
+  // strategy; toggling one on relayouts to autorange (see applyBench).
+  const worst = Math.min(arrMin(stratDd), ...(benchVisible ? benchDd.map(arrMin) : []));
   const yaxis: Record<string, unknown> = {
     ...AXIS,
     ticksuffix: "%",
@@ -625,12 +643,13 @@ function renderComparison(m: Metrics, benchmarks: ReportBenchmark[]): string {
   return `<section class="block"><div class="kicker">Comparison</div><h2 class="sec-title">Strategy vs. Benchmarks</h2><p class="sec-sub">Headline metrics side by side. Each value is colored on its own merits.</p><table class="cmp"><thead>${head}</thead><tbody>${rows}</tbody></table></section>`;
 }
 
-function togBar(benchmarks: ReportBenchmark[]): string {
+function togBar(benchmarks: ReportBenchmark[], benchVisible: boolean): string {
   const strat = `<span class="tog strat" style="--c:${C.strategy}"><span class="dot"></span>Strategy</span>`;
+  const cls = benchVisible ? "tog on" : "tog off";
   const btns = benchmarks
     .map(
       (b) =>
-        `<button type="button" class="tog on" data-bench-btn="${b.kind}" aria-pressed="true" style="--c:${b.color}"><span class="dot"></span>${escapeHtml(b.label)}</button>`,
+        `<button type="button" class="${cls}" data-bench-btn="${b.kind}" aria-pressed="${benchVisible}" style="--c:${b.color}"><span class="dot"></span>${escapeHtml(b.label)}</button>`,
     )
     .join("");
   return `<div class="togbar">${strat}${btns}</div>`;
@@ -647,7 +666,7 @@ function staticLegend(benchmarks: ReportBenchmark[]): string {
 
 // Short labels for the in-report "Sections" bar (interactive only). Keys mirror
 // ReportSections so the PDF picker and the live report stay in lock-step.
-const SECTION_LABELS: Record<keyof ReportSections, string> = {
+const SECTION_LABELS: Record<SectionKey, string> = {
   summary: "Summary",
   metrics: "Metrics",
   comparison: "Comparison",
@@ -661,7 +680,7 @@ const SECTION_LABELS: Record<keyof ReportSections, string> = {
 
 /** Live section show/hide bar for the interactive report — one pill per section
  *  actually present, all ON by default. The runtime toggles `[data-section]`. */
-function renderSectionBar(keys: (keyof ReportSections)[]): string {
+function renderSectionBar(keys: SectionKey[]): string {
   if (!keys.length) return "";
   const btns = keys
     .map(
@@ -681,15 +700,28 @@ function chartSection(
   tall: boolean,
   mode: ReportMode,
 ): string {
-  const bar = benchmarks && benchmarks.length ? (mode === "pdf" ? staticLegend(benchmarks) : togBar(benchmarks)) : "";
+  const bar =
+    benchmarks && benchmarks.length
+      ? mode === "pdf"
+        ? staticLegend(benchmarks)
+        : togBar(benchmarks, false) // interactive starts strategy-only (toggles off)
+      : "";
   return `<section class="block chart-block"><div class="kicker">${kicker}</div><h2 class="sec-title">${title}</h2><p class="sec-sub">${sub}</p>${bar}<div id="${figId}" class="chart${tall ? " tall" : ""}"></div></section>`;
 }
 
-function renderMonthly(equity: EquityPoint[], benchmarks: ReportBenchmark[]): string {
+function renderMonthly(
+  equity: EquityPoint[],
+  benchmarks: ReportBenchmark[],
+  benchVisible: boolean,
+): string {
   const heatBlock = (label: string, color: string, eq: EquityPoint[], kind: string | null) => {
     const cap = `<div class="heat-cap"><span class="chip" style="background:${color}"></span>${escapeHtml(label)}</div>`;
     const attr = kind ? ` data-bench-block="${kind}"` : "";
-    return `<div class="heat-block"${attr}>${cap}<div class="heat-wrap">${monthlyTable(eq)}</div></div>`;
+    // Benchmark blocks start hidden when benchmarks are off (interactive default);
+    // the runtime's applyBench flips display on toggle. The Strategy block (no
+    // kind) is always shown.
+    const style = kind && !benchVisible ? ` style="display:none"` : "";
+    return `<div class="heat-block"${attr}${style}>${cap}<div class="heat-wrap">${monthlyTable(eq)}</div></div>`;
   };
   const blocks = [heatBlock("Strategy", C.strategy, equity, null)];
   for (const b of benchmarks) blocks.push(heatBlock(b.label, b.color, b.equity, b.kind));
@@ -855,10 +887,14 @@ table.params tr:last-child td{border-bottom:none}
   .block,.cover{padding:22px 28px}
   /* Keep only genuinely-unsplittable units intact. Letting sections, chart-blocks
      and the metrics/params tables FLOW (rows stay whole via tr) avoids the big
-     white gaps that page-break-inside:avoid on whole sections used to create. */
-  .chart,.kpi,.heat-block,table.heat,tr,.cover{page-break-inside:avoid}
-  /* Keep a chart's heading/legend glued to the chart so it isn't orphaned. */
-  .kicker,.sec-title,.sec-sub,.togbar{break-after:avoid;page-break-after:avoid}
+     white gaps that page-break-inside:avoid on whole sections used to create.
+     The heatmap is a tall multi-year table, so it must flow too: keeping
+     .heat-block/table.heat unsplittable shoved the whole grid to the next page,
+     leaving a large blank gap under the "Monthly Return Heatmap" heading. */
+  .chart,.kpi,tr,.cover{page-break-inside:avoid}
+  /* Keep a chart's heading/legend (and a heatmap's caption) glued to what follows
+     so it isn't orphaned above a page break. */
+  .kicker,.sec-title,.sec-sub,.togbar,.heat-cap{break-after:avoid;page-break-after:avoid}
   /* Cap chart size for print. max-width is the key guard: Plotly's responsive
      ResizeObserver resizes a chart to its container, so without a hard cap a wide
      print viewport (notably Safari, which keeps the screen viewport during print)
@@ -874,6 +910,12 @@ table.params tr:last-child td{border-bottom:none}
   table.heat{width:100%;table-layout:fixed;border-spacing:2px;font-size:8.5px}
   table.heat th{padding:3px 1px;font-size:8px}
   table.heat td{padding:4px 2px;min-width:0}
+  /* KPI cards: at the narrow A4 column the 30px value can overflow and get
+     clipped by .kpis overflow:hidden. Tighten the padding, shrink the value, and
+     keep label/value/sub on one line so each box fully contains its text. */
+  .kpi{padding:14px 16px}
+  .kpi-label,.kpi-val,.kpi-sub{white-space:nowrap}
+  .kpi-val{font-size:21px}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }`;
 
@@ -955,14 +997,19 @@ const TOGGLE_RUNTIME = `
   // to overflow the page and get cut off). afterprint restores the screen sizing.
   var PRINT_W = 580; // matches the .chart print max-width; fits the A4 content box
   function sizeForPrint(){
-    if(!window.Plotly) return;
-    figs.forEach(function(f){
+    if(!window.Plotly) return Promise.resolve();
+    var proms = figs.map(function(f){
       var el = document.getElementById(f.id);
-      if(!el) return;
+      if(!el) return null;
       var h = el.classList.contains('tall') ? 360 : 300;
-      try{ Plotly.relayout(el, { width: PRINT_W, height: h, autosize: false }); }catch(e){}
+      try{ return Plotly.relayout(el, { width: PRINT_W, height: h, autosize: false }); }catch(e){ return null; }
     });
+    return Promise.all(proms);
   }
+  // Exposed for the headless-Chromium PDF renderer, which awaits it so every
+  // chart is sized to the print width before page.pdf() — the same sizing the
+  // "Print / Save as PDF" button performs, so the PDF matches the browser print.
+  window.__sizeForPrint = sizeForPrint;
   function sizeForScreen(){
     if(!window.Plotly) return;
     figs.forEach(function(f){
@@ -991,19 +1038,29 @@ export function buildReportHtml(
   mode: ReportMode = "interactive",
   sections?: ReportSections,
 ): { html: string; filename: string } {
-  const { run, asset, metrics, equity, trades, benchmarks, report } = payload;
+  const { run, asset, metrics, equity, trades, report } = payload;
+  const on = (k: SectionKey) => sections?.[k] !== false; // default: included
+
+  // The PDF is a static snapshot of the benchmarks the user picked, so they
+  // render visible. The interactive report keeps every available benchmark but
+  // starts strategy-only — the toggle buttons reveal them on demand.
+  const benchVisible = mode === "pdf";
+  // The PDF picker passes an explicit benchmark selection (default: none); when
+  // present, keep only the chosen kinds. Interactive callers pass nothing, so
+  // every available benchmark stays (toggled off by default above).
+  const pick = sections?.benchmarks;
+  const benchmarks = pick ? payload.benchmarks.filter((b) => pick[b.kind]) : payload.benchmarks;
   const hasBench = benchmarks.length > 0;
-  const on = (k: keyof ReportSections) => sections?.[k] !== false; // default: included
 
   // Only build (and inline) the figures for sections that are actually kept.
   const figures: PlotlyFig[] = [];
-  if (on("equity")) figures.push(buildEquityFigure(equity, benchmarks));
-  if (on("drawdown")) figures.push(buildDrawdownFigure(equity, benchmarks));
+  if (on("equity")) figures.push(buildEquityFigure(equity, benchmarks, benchVisible));
+  if (on("drawdown")) figures.push(buildDrawdownFigure(equity, benchmarks, benchVisible));
   const tradeFig = on("trades") && trades.length ? buildTradePnlFigure(trades) : null;
   if (tradeFig) figures.push(tradeFig);
 
   const toggles: Record<string, boolean> = {};
-  for (const b of benchmarks) toggles[b.kind] = true;
+  for (const b of benchmarks) toggles[b.kind] = benchVisible;
 
   const filename = `${slug(run.strategy_name)}_${slug(asset?.symbol ?? "asset")}_${run.start_date.slice(
     0,
@@ -1027,7 +1084,7 @@ export function buildReportHtml(
   // Each toggleable section, in document order. Empty entries (dropped by the
   // PDF picker, or a renderer that produced nothing — e.g. the comparison table
   // with no benchmarks) are removed so they get no stray toggle.
-  const sectionEntries: { key: keyof ReportSections; html: string }[] = [
+  const sectionEntries: { key: SectionKey; html: string }[] = [
     { key: "summary", html: on("summary") ? renderExecSummary(metrics) : "" },
     { key: "metrics", html: on("metrics") ? renderMetricsTable(metrics) : "" },
     { key: "comparison", html: on("comparison") ? renderComparison(metrics, benchmarks) : "" },
@@ -1059,7 +1116,7 @@ export function buildReportHtml(
           )
         : "",
     },
-    { key: "monthly", html: on("monthly") ? renderMonthly(equity, benchmarks) : "" },
+    { key: "monthly", html: on("monthly") ? renderMonthly(equity, benchmarks, benchVisible) : "" },
     { key: "trades", html: tradeSection },
     { key: "commentary", html: on("commentary") ? renderCommentary(report) : "" },
     { key: "params", html: on("params") ? renderParams(run, asset) : "" },

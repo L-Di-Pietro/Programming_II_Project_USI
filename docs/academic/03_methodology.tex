@@ -15,7 +15,7 @@ Look-ahead bias is the canonical pitfall of backtest construction: a strategy
 needed to act \cite{lopezdeprado2018,bailey2014}. The most common form is a
 \emph{single-bar} leak \textemdash{} a strategy reads bar~$t$'s closing price and
 then places an order that fills at bar~$t$'s open or close. Across a long backtest
-the false edge accumulates and inflates every downstream metric. QuantBacktest
+the false edge accumulates and inflates every downstream metric. QuantEdge
 forbids the leak architecturally: orders generated during bar~$t$ fill at the
 \emph{open of bar~$t{+}1$}, with commission and slippage applied to the fill
 price. The rule is implemented once, in \texttt{backend/backtest/engine.py}, and
@@ -101,7 +101,7 @@ negative P\&L populations respectively~\cite{pardo2008,tharp1998}.
 \label{sec:calendars}
 
 A Sharpe ratio computed against the wrong $k$ misstates the annualised number by
-tens of percent. QuantBacktest looks up $k$ from
+tens of percent. QuantEdge looks up $k$ from
 \texttt{backend/analytics/periods.py} as a function of \texttt{(asset\_class,
 timeframe)}:
 

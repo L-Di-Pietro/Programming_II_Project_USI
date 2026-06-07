@@ -1,4 +1,4 @@
-# QuantBacktest — A Backtesting Framework for Retail Quantitative Traders
+# QuantEdge — A Backtesting Framework for Retail Quantitative Traders
 
 > **USI Programming II — Project 2.8**
 > A web-based backtesting platform that helps retail traders test trading strategies across **equities**, **FX**, and **crypto** before risking real capital.
@@ -12,7 +12,7 @@ Retail quantitative traders lose money for two related reasons:
 1. They deploy strategies that have never been rigorously tested on historical data.
 2. When they *do* test, they cut corners — using future information by accident, ignoring slippage and commissions, running too few trades to reach statistical significance.
 
-**QuantBacktest** is built to make rigorous backtesting accessible. It enforces look-ahead-bias prevention by construction, exposes commissions and slippage as first-class user parameters so strategies can be stress-tested, and presents results through the same charts and KPIs used by professional quants (equity curve, drawdown, monthly heatmap, Sharpe / Sortino / Calmar, win rate, profit factor, etc.).
+**QuantEdge** is built to make rigorous backtesting accessible. It enforces look-ahead-bias prevention by construction, exposes commissions and slippage as first-class user parameters so strategies can be stress-tested, and presents results through the same charts and KPIs used by professional quants (equity curve, drawdown, monthly heatmap, Sharpe / Sortino / Calmar, win rate, profit factor, etc.).
 
 > Retail tip baked into the product: *if your backtested Max Drawdown is 20%, prepare yourself for a 30% drawdown in live trading.*
 
@@ -76,7 +76,7 @@ Need step-by-step control (e.g. for debugging)? Read on.
 
 ## Quick start
 
-This is the canonical way to run QuantBacktest locally. It works the same on
+This is the canonical way to run QuantEdge locally. It works the same on
 **macOS / Linux** and **Windows** — where a command differs, both are shown.
 Lines beginning with `#` are notes or optional steps you can skip.
 
@@ -123,7 +123,7 @@ cp .env.example .env             # Windows (PowerShell): Copy-Item .env.example 
 
 ```bash
 python scripts/init_db.py                               # create tables + seed assets/strategies
-# ^ Idempotent. Skip if you already have a populated quantbacktest.db.
+# ^ Idempotent. Skip if you already have a populated quantedge.db.
 
 python scripts/load_initial_data.py --timeframes 1d 1h  # fetch DAILY + HOURLY history for every asset
 # ^ Downloads from the network (a few minutes). Skip if your DB is already loaded.
@@ -193,9 +193,9 @@ lsof -ti:8000 | xargs kill -9        # macOS / Linux (repeat for :5173)
 # Windows: netstat -ano | findstr "8000 5173"   then   taskkill /PID <pid> /F
 
 # 2) Wipe the database — ONLY if you want fresh data (then re-run step 2):
-rm -f quantbacktest.db*              # macOS / Linux
-# Windows (PowerShell): Remove-Item quantbacktest.db* -Force
-# Windows (cmd):        del quantbacktest.db*
+rm -f quantedge.db*              # macOS / Linux
+# Windows (PowerShell): Remove-Item quantedge.db* -Force
+# Windows (cmd):        del quantedge.db*
 ```
 
 ### Alternative: one-command Docker stack (Postgres)

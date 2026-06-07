@@ -1,4 +1,4 @@
-# Makefile for the QuantBacktest academic PDF (iCorsi submission).
+# Makefile for the QuantEdge academic PDF (iCorsi submission).
 # Usage:
 #   make pdf      # build main.pdf with latexmk (pdflatex + biber)
 #   make watch    # rebuild on every change (latexmk -pvc)

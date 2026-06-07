@@ -1,6 +1,6 @@
-# QuantBacktest — User Guide
+# QuantEdge — User Guide
 
-This guide is for **end users** of the QuantBacktest web app — retail traders, students, anyone evaluating a trading strategy on historical data. If you are looking to *contribute code*, read [`CONTRIBUTING.md`](../CONTRIBUTING.md) instead; if you are looking for the *system architecture*, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
+This guide is for **end users** of the QuantEdge web app — retail traders, students, anyone evaluating a trading strategy on historical data. If you are looking to *contribute code*, read [`CONTRIBUTING.md`](../CONTRIBUTING.md) instead; if you are looking for the *system architecture*, read [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
 The walkthrough assumes you have run the [Quick Start in `README.md`](../README.md#quick-start) and have both the backend (`uvicorn`, port 8000) and the frontend (`npm run dev`, port 5173) running locally. If not, do that first.
 
@@ -83,7 +83,7 @@ The `images/` folder is created lazily; you can add it under `docs/images/` and 
 
 ## 3. Picking a strategy
 
-QuantBacktest ships **11 strategies** organised into five families. The full catalogue with math, parameters, citations, and "wins in / loses in" lives in [`strategies.md`](strategies.md). The short version:
+QuantEdge ships **11 strategies** organised into five families. The full catalogue with math, parameters, citations, and "wins in / loses in" lives in [`strategies.md`](strategies.md). The short version:
 
 | Strategy (slug) | Family | When it tends to work | When it tends to bleed |
 |---|---|---|---|
@@ -288,7 +288,7 @@ or when using the production Docker image).
 | **Frontend shows "Network error" on submit** | Vite dev server cannot reach the backend (proxy 502). | Check the backend is on port 8000; verify `FRONTEND_API_URL` in `.env` matches. |
 | **Backtest dates greyed-out for hourly** | Hourly data is capped at ~730 days back by yfinance. | Either pick a more recent window, or use daily, or extend the date range via `POST /assets/{symbol}/refresh` with `timeframe=1h` (the `CryptoFetcher` can reach further via Binance fallback). |
 | **Sharpe ratio looks impossibly high** | Likely a look-ahead-bias regression in a custom strategy. | Run `pytest tests/test_engine_no_lookahead.py` — if it passes, the engine is clean and the bias is in the strategy. Review `generate_signals` for use of `bars.iloc[t+1]` or similar future-leak patterns. |
-| **`pytest` fails with `database is locked`** | A lingering uvicorn process is holding `quantbacktest.db`. | Stop uvicorn (`Ctrl-C`) then re-run `pytest`. |
+| **`pytest` fails with `database is locked`** | A lingering uvicorn process is holding `quantedge.db`. | Stop uvicorn (`Ctrl-C`) then re-run `pytest`. |
 | **`make pdf` in `docs/academic/` errors** | A LaTeX package is missing. | Run `tlmgr install <package-name>` for the missing one. Common ones: `todonotes`, `csquotes`, `biblatex`. |
 
 For anything not covered here, open a GitHub Issue (see [`../CONTRIBUTING.md`](../CONTRIBUTING.md#asking-for-help)).

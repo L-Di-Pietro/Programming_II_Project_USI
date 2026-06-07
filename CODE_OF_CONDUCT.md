@@ -1,6 +1,6 @@
 # Code of Conduct
 
-QuantBacktest is an academic project built by a small student team at USI Lugano (*Programming in Finance II*, Project 2.8, Spring 2026). Even at this scale we hold ourselves and any future contributors to the same professional standards expected of any open-source project. This code of conduct is inspired by the [Contributor Covenant v2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/); please consult that document for the full canonical text.
+QuantEdge is an academic project built by a small student team at USI Lugano (*Programming in Finance II*, Project 2.8, Spring 2026). Even at this scale we hold ourselves and any future contributors to the same professional standards expected of any open-source project. This code of conduct is inspired by the [Contributor Covenant v2.1](https://www.contributor-covenant.org/version/2/1/code_of_conduct/); please consult that document for the full canonical text.
 
 ---
 
