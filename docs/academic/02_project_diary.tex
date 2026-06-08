@@ -365,6 +365,45 @@ nightly run; no new code or feature work landed in this window. This pass theref
 records only the nightly commit itself in \texttt{CHANGELOG.md} (pre-release timeline
 bullet in the Week of 2026-06-01 block) and in this subsection. No code was modified.
 
+\subsection*{Mobile banner, project rebrand, and launcher refinement (2026-06-07)}
+
+Three commits landed on 2026-06-07 and were merged as PR~\#30.
+
+Commit \texttt{7ca67e8} (``Add mobile banner and disable tour on mobile'') introduced
+\texttt{MobileDesktopBanner}, a non-dismissible section rendered only when the viewport
+is below the desktop breakpoint ($<1024$~px). The banner lists the three headline
+features --- backtesting, chart inspection, and KPI analysis --- and directs mobile
+users to switch to a laptop or desktop for the full experience. A companion
+\texttt{useIsMobile} hook provides the media-query subscription; it deliberately mirrors
+the single breakpoint already used by \texttt{MobileNav} so there is one canonical
+definition of ``mobile'' in the codebase. The \texttt{OnboardingTour} and the SideNav
+``Replay tutorial'' button are both suppressed when \texttt{isMobile} is true, since the
+tour spotlights elements that are either hidden or repositioned on narrow viewports.
+
+Commit \texttt{da11eaf} (``Rebrand QuantBacktest to QuantEdge'') performed a project-wide
+name change. All occurrences of the old name were replaced in a single commit spanning
+documentation (\texttt{README.md}, \texttt{ARCHITECTURE.md}, \texttt{CLAUDE.md},
+\texttt{ONBOARDING.md}, \texttt{AGENTS.md}, \texttt{CHANGELOG.md}, \texttt{CITATIONS.md},
+\texttt{CONTRIBUTING.md}, \texttt{SECURITY.md}, \texttt{CODE\_OF\_CONDUCT.md}), the
+academic \LaTeX{} bundle, \texttt{docs/api.md}, \texttt{docs/strategies.md},
+\texttt{docs/user-guide.md}, \texttt{docs/architecture-diagrams/*.mmd},
+\texttt{frontend/index.html} (page title), \texttt{frontend/package.json},
+\texttt{pyproject.toml}, \texttt{docker-compose.yml} service names,
+\texttt{backend/config.py}, \texttt{backend/main.py}, and
+\texttt{backend/analytics/report\_pdf.py}. This is a cosmetic change only: no APIs,
+schemas, database columns, or test assertions were altered.
+
+Commit \texttt{a0b8ac2} (``Check ports early to fail fast'') made a targeted improvement
+to \texttt{run.py}. In earlier versions the port-availability check for \texttt{:8000}
+and \texttt{:5173} happened late in the startup sequence, after the virtual environment
+was created, dependencies were installed, and the user had responded to any interactive
+prompts. A port conflict discovered at that point wasted several minutes of setup work.
+The fix moves \texttt{check\_ports\_free} to the second step of \texttt{main()},
+immediately after the Python/Node version check, so the script aborts in under a second
+if either port is already in use. The duplicate call that had been placed later in the
+function was removed. A top-level comment documents the seven startup phases in order so
+the execution sequence is self-evident at a glance.
+
 \subsection*{Things we tried and abandoned}
 
 A few decisions did not survive the four weeks:

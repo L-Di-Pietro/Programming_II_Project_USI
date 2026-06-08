@@ -36,7 +36,7 @@ Goal: run **SMA Crossover on SPY (S&P 500 ETF) from 2020-01-01 to 2024-12-31, da
    # → Local: http://localhost:5173
    ```
 
-2. **Open the app.** Browse to <http://localhost:5173>. You will land on the **Dashboard**. On your first visit the app starts an **onboarding tour** that walks you through the core workflow step-by-step. You can replay it at any time via the "Replay tour" link in the app footer.
+2. **Open the app.** Browse to <http://localhost:5173>. You will land on the **Dashboard**. On your first visit on **desktop** the app starts an **onboarding tour** that walks you through the core workflow step-by-step; you can replay it at any time via the "Replay tour" link in the sidebar. On **mobile / tablet** (viewport narrower than 1024 px) the tour is suppressed and a banner is shown instead, listing the headline features and directing you to open the app on a larger screen for the full experience.
 
 3. **Click "New Backtest"** in the sidebar (desktop) or in the navigation drawer (mobile/tablet — tap the menu icon in the top bar).
 

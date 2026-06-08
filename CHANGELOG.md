@@ -12,6 +12,13 @@ Hash references use the short SHA (e.g. `abcdef1`); resolve them with `git show 
 
 ### Added
 
+- **`MobileDesktopBanner` component and `useIsMobile` hook** (`7ca67e8`) —
+  `MobileDesktopBanner` is shown only on viewports narrower than the desktop
+  breakpoint (`lg`, 1024 px); it lists the three headline features and directs
+  mobile users to open the app on a larger screen. The companion `useIsMobile`
+  hook mirrors the single breakpoint already used by `MobileNav`. The onboarding
+  tour and the SideNav "Replay tutorial" button are both suppressed on mobile so
+  the tour does not compete with the banner.
 - **Mobile-responsive navigation** (`b9414a7`) — `MobileNav` component provides a
   drawer + fixed top bar for phone/tablet layouts with safe-area inset support and
   touch-friendly targets; `SideNav` extracted as a standalone component;
@@ -56,6 +63,17 @@ Hash references use the short SHA (e.g. `abcdef1`); resolve them with `git show 
 
 ### Changed
 
+- **Project rebranded from QuantBacktest to QuantEdge** (`da11eaf`) —
+  All occurrences of the old name replaced in documentation, configuration,
+  frontend, and backend files; `frontend/index.html` title, `pyproject.toml`
+  package name, `docker-compose.yml` service names, academic LaTeX bundle, and
+  all Markdown docs updated in a single pass.
+- **`run.py` port check moved to start of `main()`** (`a0b8ac2`) — port
+  availability for `:8000` and `:5173` is now validated immediately after the
+  Python/Node version check, before venv creation, dependency installation, or
+  any interactive prompt; the duplicate check that had been placed later in the
+  startup sequence is removed. A top-level execution-order comment documents the
+  seven startup phases.
 - **`exportReportHtml` print path hardened** (`1ebcae4`) — the "Print / Save as PDF" button now calls `window.__printReport`, which pre-sizes every Plotly chart to explicit A4 dimensions (580 px wide, 300/360 px tall) before invoking `window.print()`. A new `@page { size: A4; margin: 12mm }` rule and an expanded `@media print` block fix the `.doc` overflow (which caused Safari to render the whole print job blank after the first page), cap chart widths to the A4 content column to prevent truncation, and reflow the monthly-returns heatmap table so all 12 month columns and the Year total fit without clipping. `sizeForScreen` restores responsive chart sizing after the dialog closes; `beforeprint`/`afterprint` handlers cover the same sequence for a direct Cmd/Ctrl+P.
 - **DB URL normalised to psycopg v3 dialect** (`postgresql+psycopg://`) in
   `backend/database/connection.py`; `DATABASE_URL` is accepted in either dialect and
@@ -263,6 +281,10 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 - `2026-06-05 855c0a6` added github nickname — added `[SAGaldini]` GitHub handle for Stefano Angelo Galdini in `docs/academic/main.tex` author list; defined missing `\keystroke` macro in preamble (Stefano Angelo Galdini; merged via PR \#26).
 - `2026-06-05 1de8ab2` chore(docs): nightly auto-refresh 2026-06-05 (automated — Claude Code; merged via PR \#27). Recorded `855c0a6` (GitHub nickname and `\keystroke` macro fix) in `CHANGELOG.md` and `docs/academic/02_project_diary.tex`.
 - `2026-06-06 57c8425` chore(docs): nightly auto-refresh 2026-06-06 (automated — Claude Code; merged via PR \#28). Only doc-only commits in the 24-hour window; recorded the nightly commit (`1de8ab2`, PR \#27) in the pre-release timeline and project diary. No code was modified.
+- `2026-06-07 7ca67e8` Add mobile banner and disable tour on mobile — `MobileDesktopBanner` component shown only on viewports below `lg` (1024 px), `useIsMobile` hook (mirrors `MobileNav` breakpoint), onboarding tour and SideNav replay button suppressed on mobile (Luca Di Pietro).
+- `2026-06-07 da11eaf` Rebrand QuantBacktest to QuantEdge — project-wide name change across all documentation, configuration, frontend, and backend files (Luca Di Pietro).
+- `2026-06-07 a0b8ac2` Check ports early to fail fast — port availability check for `:8000`/`:5173` moved to the top of `main()`, before venv/dep setup and interactive prompts; duplicate later check removed; execution-order comment added (Luca Di Pietro).
+- `2026-06-07 38d0b3a` Merge pull request \#30 from L-Di-Pietro/Little-Final-Fixes (Luca Di Pietro).
 
 ### Week of 2026-05-25 — *Documentation pass*
 
@@ -291,4 +313,4 @@ GitHub Copilot's bot account (`copilot-swe-agent[bot]`) appears in a single merg
 
 ---
 
-_Last verified against code: 2026-06-07._
+_Last verified against code: 2026-06-08._
