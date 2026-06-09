@@ -404,6 +404,28 @@ if either port is already in use. The duplicate call that had been placed later 
 function was removed. A top-level comment documents the seven startup phases in order so
 the execution sequence is self-evident at a glance.
 
+\subsection*{Nightly documentation pass (2026-06-08)}
+
+The nightly documentation-refresh workflow fired at 02:00~UTC on 2026-06-08. The
+24-hour window contained three commits merged as PR~\#30: \texttt{7ca67e8} (mobile banner
+and tour suppression on mobile), \texttt{da11eaf} (project-wide rebrand from QuantBacktest
+to QuantEdge), and \texttt{a0b8ac2} (early port-conflict check in \texttt{run.py}). This
+pass recorded those commits in \texttt{CHANGELOG.md} (new entries in the
+\texttt{[Unreleased]} Added and Changed sections, and four pre-release timeline bullets in
+the Week of 2026-06-01 block) and in the preceding diary subsection.
+\texttt{docs/user-guide.md} was updated to mention the mobile banner in the navigation
+overview. No code was modified.
+
+\subsection*{Nightly documentation pass (2026-06-09)}
+
+The nightly documentation-refresh workflow fired at 02:00~UTC on 2026-06-09. The only
+commits in the preceding 24-hour window were the automated documentation commit
+\texttt{0f485e4} (``chore(docs): nightly auto-refresh 2026-06-08'', merged as PR~\#31)
+and its merge commit. Both are documentation-only changes produced by the previous
+nightly run; no new code or feature work landed in this window. This pass therefore
+records only the nightly commit itself in \texttt{CHANGELOG.md} (pre-release timeline
+bullet in the Week of 2026-06-01 block) and in this subsection. No code was modified.
+
 \subsection*{Things we tried and abandoned}
 
 A few decisions did not survive the four weeks:

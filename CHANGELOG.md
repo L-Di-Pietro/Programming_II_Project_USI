@@ -285,6 +285,7 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 - `2026-06-07 da11eaf` Rebrand QuantBacktest to QuantEdge — project-wide name change across all documentation, configuration, frontend, and backend files (Luca Di Pietro).
 - `2026-06-07 a0b8ac2` Check ports early to fail fast — port availability check for `:8000`/`:5173` moved to the top of `main()`, before venv/dep setup and interactive prompts; duplicate later check removed; execution-order comment added (Luca Di Pietro).
 - `2026-06-07 38d0b3a` Merge pull request \#30 from L-Di-Pietro/Little-Final-Fixes (Luca Di Pietro).
+- `2026-06-08 0f485e4` chore(docs): nightly auto-refresh 2026-06-08 (automated — Claude Code; merged via PR \#31). Recorded `7ca67e8`, `da11eaf`, and `a0b8ac2` (mobile banner, project rebrand, launcher port-check) in `CHANGELOG.md` ([Unreleased] Added/Changed entries and pre-release timeline) and `docs/academic/02_project_diary.tex`; updated `docs/user-guide.md` navigation step to mention the mobile banner.
 
 ### Week of 2026-05-25 — *Documentation pass*
 
@@ -313,4 +314,4 @@ GitHub Copilot's bot account (`copilot-swe-agent[bot]`) appears in a single merg
 
 ---
 
-_Last verified against code: 2026-06-08._
+_Last verified against code: 2026-06-09._
