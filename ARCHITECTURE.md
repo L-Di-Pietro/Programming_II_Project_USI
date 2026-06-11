@@ -177,10 +177,12 @@ In v1 we ship two sizing modes:
 
 ### Slippage model
 
-Two options exposed as user parameters:
+Exposed as a user parameter:
 
 - **Bps slippage**: `fill_price = bar_open * (1 + side * slippage_bps / 10_000)`
-- **ATR slippage**: `fill_price = bar_open + side * k * ATR_t` for some user `k`
+
+An ATR-scaled variant (`fill_price = bar_open + side * k * ATR_t`) is a candidate
+v1.1+ extension; v1 ships the bps model only.
 
 ### Commission model
 
@@ -394,4 +396,4 @@ Mentioned in the spec as an optional non-trivial DB feature. A `pgvector` column
 
 ---
 
-_Last verified against code: 2026-05-24._
+_Last verified against code: 2026-06-11._

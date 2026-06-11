@@ -24,11 +24,11 @@ Retail quantitative traders lose money for two related reasons:
 - **Daily and hourly bar resolution** with per-asset-class native trading calendars (NYSE for equities/ETF, 24/5 for FX, 24/7 for crypto) — see [`docs/calendars.md`](docs/calendars.md).
 - **11 strategies** across five families (trend, momentum, breakout, mean reversion, benchmark) — see [`docs/strategies.md`](docs/strategies.md) for the full catalogue.
 - **Event-driven backtest engine** with strict bar-`t` → bar-`t+1` fill semantics (no look-ahead) at any timeframe.
-- **Configurable execution model**: commission (bps), slippage (bps or ATR-scaled), fixed-fraction or volatility-targeted position sizing.
+- **Configurable execution model**: commission (bps), slippage (bps), fixed-fraction or volatility-targeted position sizing, optional max-drawdown circuit breaker.
 - **Standard performance dashboard**: equity curve, drawdown curve, monthly returns heatmap, trade-P&L scatter, rolling Sharpe, full KPI grid.
 - **Benchmark overlays** — same-asset buy-and-hold and SPY buy-and-hold curves are computed at run time and toggled into every chart via a shared legend.
 - **Shared crosshair tooltip** across all charts so values stay aligned when you hover anywhere on the timeline.
-- **One-click PDF export** of the AI-generated report from the results page.
+- **PDF & HTML report export** — from the Dashboard's per-run *AI Report* menu: a print-ready PDF (rendered server-side by headless Chromium, with a section picker) or a self-contained interactive HTML file.
 - **Six-agent architecture** (4 deterministic; 2 LLM-backed — run in demo mode with `NullProvider` unless Gemini is configured via env).
 - **SQL persistence** — every run is reproducible, every trade is logged.
 - **React + TypeScript web frontend** with interactive Plotly charts.
@@ -325,4 +325,4 @@ Each metric's docstring cites its formula source.
 
 ---
 
-_Last verified against code: 2026-05-24._
+_Last verified against code: 2026-06-11._
