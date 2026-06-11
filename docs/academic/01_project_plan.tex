@@ -28,8 +28,9 @@ provides:
         mean-reversion, benchmark), each implementing a uniform signal contract.
   \item An event-driven backtest engine that enforces look-ahead-bias prevention by
         construction.
-  \item Configurable commission (bps), slippage (bps or ATR-scaled), and
-        position-sizing modes (fixed fraction or volatility-targeted).
+  \item Configurable commission (bps), slippage (bps), position-sizing modes
+        (fixed fraction or volatility-targeted), and an optional max-drawdown
+        circuit breaker.
   \item Standard performance dashboard: equity curve, drawdown, monthly heatmap,
         trade-P\&L scatter, rolling Sharpe, full KPI grid.
   \item Buy-and-hold and SPY benchmark overlays computed and persisted at run time.
@@ -49,21 +50,20 @@ academic calendar allows:
 
 \begin{itemize}
   \item \textbf{Python 3.11+ / FastAPI / SQLAlchemy 2 / Pydantic v2} on the backend.
-        FastAPI gives us OpenAPI for free (the live schema at \texttt{/openapi.json}
-        is the source of truth for the typed frontend client). SQLAlchemy's generic
-        types let the same schema run on SQLite in development and on PostgreSQL in
+        FastAPI gives us OpenAPI for free (the live \texttt{/openapi.json} schema is
+        the source of truth for the typed frontend client); SQLAlchemy's generic
+        types let the same schema run on SQLite in development and PostgreSQL in
         production via a single \texttt{DATABASE\_URL} switch.
   \item \textbf{React 18 + TypeScript + Vite + TailwindCSS + Plotly.js} on the
-        frontend. Plotly produces interactive charts without manual SVG plumbing;
-        TypeScript catches schema mismatches against the OpenAPI-typed client.
+        frontend: interactive charts without manual SVG plumbing, and compile-time
+        schema checking against the OpenAPI-typed client.
   \item \textbf{pytest + Vitest} for tests. The single most important test is
         \texttt{tests/test\_engine\_no\_lookahead.py}, which injects an oracle
         strategy that ``knows'' the future close \textemdash{} the engine must still
         only let it trade at next-bar open.
-  \item \textbf{LLM via a provider abstraction.} \texttt{LLMProvider} (in
-        \texttt{backend/llm/base.py}) has two implementations: \texttt{NullProvider}
-        (deterministic, used by tests) and \texttt{GeminiProvider} (Google Gemini,
-        opt-in). LLM features are off by default.
+  \item \textbf{LLM via a provider abstraction:} \texttt{LLMProvider} with a
+        deterministic \texttt{NullProvider} (used by tests) and an opt-in
+        \texttt{GeminiProvider}; LLM features are off by default.
 \end{itemize}
 
 \subsection{Four-week timeline}
@@ -86,7 +86,3 @@ and submission), staffed by four contributors. Targets per week:
         expansion from 5 to 11; benchmark overlays; shared crosshair and legend;
         CI workflows; full documentation pass.
 \end{itemize}
-
-The four-contributor team meant any single week's deliverable could be split across
-two pairs (frontend + backend), which is reflected in the merge-PR history in
-Section~\ref{sec:diary}.
