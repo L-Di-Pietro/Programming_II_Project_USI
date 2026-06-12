@@ -311,7 +311,7 @@ The documentation set that ships with this repository, beyond the files already 
 - [`docs/architecture-diagrams/`](./docs/architecture-diagrams/) — Mermaid sources for the system-flow, agent-call-graph, and DB-schema diagrams.
 
 **Academic submission (iCorsi)**
-- [`docs/academic/main.tex`](./docs/academic/main.tex) — LaTeX source of the academic PDF. Build with `cd docs/academic && make pdf`.
+- [`docs/academic/QuantEdge_Project_Documentation.tex`](./docs/academic/QuantEdge_Project_Documentation.tex) — LaTeX source of the academic PDF. Build with `cd docs/academic && make pdf`.
 
 ## Citing standard formulas
 

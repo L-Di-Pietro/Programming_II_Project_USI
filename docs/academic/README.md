@@ -6,7 +6,7 @@ This folder contains the LaTeX source of the academic PDF submitted on iCorsi fo
 
 | File | Purpose |
 |---|---|
-| [`main.tex`](main.tex) | Document root. `\documentclass`, packages, title page, `\input{}`s the six section files, prints the bibliography. |
+| [`QuantEdge_Project_Documentation.tex`](QuantEdge_Project_Documentation.tex) | Document root. `\documentclass`, packages, title page, `\input{}`s the six section files, prints the bibliography. |
 | [`01_project_plan.tex`](01_project_plan.tex) | Section 1 — problem statement, scope, tech-stack rationale, four-week timeline. |
 | [`02_project_diary.tex`](02_project_diary.tex) | Section 2 — week-by-week narrative with commit hashes and merge-PR cross-references. |
 | [`03_methodology.tex`](03_methodology.tex) | Section 3 — event-driven backtest semantics, KPI formulas, calendar handling, strategy taxonomy, LLM-provider abstraction. |
@@ -45,14 +45,14 @@ From this directory:
 make pdf
 ```
 
-This runs `latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex`, which itself calls `pdflatex` and `biber` as many times as needed to converge cross-references and the bibliography. The output is `main.pdf` in the same folder.
+This runs `latexmk -pdf -interaction=nonstopmode -halt-on-error QuantEdge_Project_Documentation.tex`, which itself calls `pdflatex` and `biber` as many times as needed to converge cross-references and the bibliography. The output is `QuantEdge_Project_Documentation.pdf` in the same folder.
 
 Other targets:
 
 ```bash
 make watch       # rebuild on every change (latexmk -pvc); great for editing
-make clean       # delete aux/log/bcf/blg/toc etc., keep main.pdf
-make distclean   # delete everything including main.pdf
+make clean       # delete aux/log/bcf/blg/toc etc., keep QuantEdge_Project_Documentation.pdf
+make distclean   # delete everything including QuantEdge_Project_Documentation.pdf
 ```
 
 ### Overleaf alternative
@@ -60,8 +60,8 @@ make distclean   # delete everything including main.pdf
 If the team prefers to compile on Overleaf rather than locally:
 
 1. Create a new Overleaf project.
-2. Upload every file in this folder (`main.tex`, the six `0?_*.tex` files, `references.bib`, and `Makefile` for reference).
-3. Set the main document to `main.tex`.
+2. Upload every file in this folder (`QuantEdge_Project_Documentation.tex`, the six `0?_*.tex` files, `references.bib`, and `Makefile` for reference).
+3. Set the main document to `QuantEdge_Project_Documentation.tex`.
 4. Set the compiler to **pdfLaTeX** and the bibliography engine to **biber** (Overleaf detects this automatically from `biblatex`'s options).
 5. Click *Recompile*.
 
