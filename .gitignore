@@ -32,6 +32,8 @@ dist/
 *.db-shm
 *.db-wal
 *.sqlite3
+# Exception: the seeded app DB is committed so a fresh clone has data out of the box.
+!quantedge.db
 
 # --- Local config ------------------------------------------------------------
 .env
