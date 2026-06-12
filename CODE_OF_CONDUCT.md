@@ -48,9 +48,9 @@ This Code of Conduct applies within all project spaces — the GitHub repository
 
 ## 5. Reporting
 
-If you experience or witness behaviour that violates this Code of Conduct, please report it confidentially to the project maintainers at:
+If you experience or witness behaviour that violates this Code of Conduct, please report it confidentially to a project maintainer via the repository's contributors page:
 
-> **`usi-prog2-team@example.com`** &nbsp;*<!-- TEAM: replace with the actual shared address before publication. The placeholder is intentional; the contact line should not be empty. -->*
+> **[Project maintainers](https://github.com/L-Di-Pietro/Programming_II_Project_USI/graphs/contributors)** — reach out to any maintainer listed there.
 
 All complaints will be reviewed and investigated promptly and fairly. Maintainers are obligated to respect the privacy and security of the reporter of any incident.
 
