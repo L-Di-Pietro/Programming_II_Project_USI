@@ -38,11 +38,8 @@ for t in range(len(bars)):
 
 The signal contract is uniformly \texttt{pd.Series[int]} with values in
 $\{-1, 0, +1\}$ for ``short, flat, long''. Strategies do not multiply their own
-signals by a position-size factor; the engine handles sizing via either
-\emph{fixed fractional} (a fraction of equity per trade) or \emph{volatility
-targeting} (position scaled inversely to realised volatility). An optional
-circuit-breaker forces the run flat if equity draws down beyond a user-supplied
-threshold.
+signals by a position-size factor; the engine handles sizing via
+\emph{fixed fractional} allocation (a fraction of equity per trade).
 
 \subsection{Performance metrics}
 \label{sec:kpi}
@@ -123,7 +120,7 @@ count slightly; the lookup is calibrated against the
 
 \subsection{Strategy taxonomy}
 
-The eleven shipped strategies populate five families. Each family responds to a
+The ten shipped strategies populate four families. Each family responds to a
 different market regime; running them side-by-side makes that regime sensitivity
 visible, which is the explicit pedagogical motive for shipping the breadth.
 
@@ -137,18 +134,20 @@ visible, which is the explicit pedagogical motive for shipping the breadth.
   \item \textbf{Mean reversion} (Bollinger \cite{bollinger2001}, CCI \cite{lambert1980},
         RSI \cite{wilder1978}, Stochastic Oscillator \cite{lane1984}): trade fades within
         range-bound regimes; bleed in trends.
-  \item \textbf{Benchmark} (Buy and Hold): always long; serves as the reference both
-        for active strategies and for the on-chart same-asset overlay.
 \end{itemize}
 
-All eleven strategies share the same signal contract and therefore the same engine
-path. Adding a twelfth is a single-file change plus a registry edit; the frontend's
+A buy-and-hold curve (always long) is computed alongside every run as the
+reference overlay, but it is not one of the four families and is not selectable
+as a strategy in its own right.
+
+All ten strategies share the same signal contract and therefore the same engine
+path. Adding an eleventh is a single-file change plus a registry edit; the frontend's
 parameter form regenerates from the new JSON Schema.
 
 \subsection{The LLM-provider abstraction}
 
-Two of the six runtime agents \textemdash{} the Orchestrator and the Explanation
-Agent \textemdash{} are LLM-backed, and every call they make goes through
+The Explanation Agent \textemdash{} the one LLM-backed agent of the five
+\textemdash{} routes every call it makes through
 \texttt{LLMProvider.generate(\ldots)}. Two implementations ship:
 \texttt{NullProvider} (deterministic canned text) and \texttt{GeminiProvider}
 (Google's Gemini API). The abstraction earns its keep three ways: tests use

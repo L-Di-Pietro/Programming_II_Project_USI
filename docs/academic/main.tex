@@ -91,10 +91,10 @@ traders, built as the final project for USI Lugano's \emph{Programming in Financ
 course. The system targets the two failure modes that cause most retail-backtest losses:
 look-ahead bias (architecturally prevented by enforcing bar-$t \to$ bar-$t{+}1$ fills in
 the engine) and unrealistic execution assumptions (commission and slippage exposed as
-first-class user parameters). It ships eleven trading strategies across five families,
+first-class user parameters). It ships ten trading strategies across four families,
 multi-asset support (equities, ETFs, FX, crypto) with native trading calendars per asset
-class, both daily and hourly bar resolution, and a six-agent backend in which only two
-of the six agents are LLM-backed and are opt-in by default. This document covers the
+class, both daily and hourly bar resolution, and a five-agent backend whose single
+LLM-backed agent (the Explanation Agent) is opt-in by default. This document covers the
 project plan, development diary, methodology, sample results with an economic
 reflection, lessons learned, and an acknowledgement of the generative-AI tools used.
 \end{abstract}

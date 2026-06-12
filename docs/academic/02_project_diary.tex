@@ -15,8 +15,8 @@ directory layout we would carry through the project: \texttt{backend/} with
 \texttt{agents/}, \texttt{api/}, \texttt{analytics/}, \texttt{backtest/},
 \texttt{data/}, \texttt{database/}, \texttt{llm/}, \texttt{strategies/}
 subpackages, a \texttt{frontend/} folder primed for Vite, \texttt{tests/}, and a
-pinned \texttt{requirements.txt}. The six agent boundaries (data, strategy,
-backtest, analytics, orchestrator, explanation) were committed to at this stage
+pinned \texttt{requirements.txt}. The five agent boundaries (data, strategy,
+backtest, analytics, explanation) were committed to at this stage
 rather than discovered later, and held for the whole project.
 
 \subsection*{Week~2 \textemdash{} First domain feature + first LLM call (2026-05-08)}
@@ -57,7 +57,7 @@ leaked into \texttt{frontend/src/}. The data layer consolidated on yfinance as
 primary source across all asset classes, with ccxt/Binance and Stooq fallbacks
 (PR~\#5, \texttt{c2b6cce}); fixed-fractional sizing was corrected for crypto and
 FX (PR~\#6, \texttt{ae082ef}). PR~\#7 (\texttt{b0676ed}) doubled the strategy
-catalogue to eleven (MACD, Ichimoku, Keltner, Time Series Momentum, Stochastic,
+catalogue to ten (MACD, Ichimoku, Keltner, Time Series Momentum, Stochastic,
 CCI), each registered, schema-exposed, and unit-tested on a known fixture.
 PR~\#8 (\texttt{c0801c7}) added the
 benchmark overlays: same-asset and SPY buy-and-hold curves computed and persisted
@@ -141,8 +141,4 @@ A few decisions did not survive the four weeks:
         Compose with Postgres but it slowed local iteration noticeably. SQLite became
         the default and the schema was kept on SQLAlchemy generic types so a
         \texttt{DATABASE\_URL} swap reaches Postgres without code changes.
-  \item \textbf{LLM tool-use via the provider SDK's native function calling.} The
-        Orchestrator Agent parses tool calls from a JSON envelope in the model
-        output rather than relying on Gemini's native function-calling API, because
-        the latter is not portable to other providers.
 \end{itemize}

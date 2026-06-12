@@ -122,12 +122,12 @@ Full version: [`CLAUDE.md#how-to-add-a-new-asset-class-or-data-source`](CLAUDE.m
 
 ### …agent
 
-The bar is high — first ask whether the new responsibility fits inside one of the existing six (Orchestrator, Data, Strategy, Backtest, Analytics, Explanation). If you genuinely need a seventh:
+The bar is high — first ask whether the new responsibility fits inside one of the existing five (Data, Strategy, Backtest, Analytics, Explanation). If you genuinely need a sixth:
 
 1. `backend/agents/<name>_agent.py`, inheriting from `BaseAgent[TIn, TOut]`.
 2. Define Pydantic `Input` and `Output` models.
 3. Implement `_run(payload)`. Never override `run`.
-4. Register with the orchestrator's tool table if the LLM should be able to call it.
+4. Wire it into the relevant `backend/api/routes/` router so the API can reach it.
 5. Add a `tests/test_<name>_agent.py` with at least a happy-path and one error-path test.
 6. Add a section to [`docs/agents.md`](docs/agents.md) and to [`AGENTS.md`](AGENTS.md#7-where-to-put-a-new-agent-if-you-really-need-one).
 

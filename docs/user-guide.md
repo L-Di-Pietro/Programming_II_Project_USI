@@ -80,7 +80,7 @@ All screenshots below were captured from a live local instance (desktop viewport
 
 ## 3. Picking a strategy
 
-QuantEdge ships **11 strategies** organised into five families. The full catalogue with math, parameters, citations, and "wins in / loses in" lives in [`strategies.md`](strategies.md). The short version:
+QuantEdge ships **10 strategies** organised into four families. The full catalogue with math, parameters, citations, and "wins in / loses in" lives in [`strategies.md`](strategies.md). The short version:
 
 | Strategy (slug) | Family | When it tends to work | When it tends to bleed |
 |---|---|---|---|
@@ -94,12 +94,13 @@ QuantEdge ships **11 strategies** organised into five families. The full catalog
 | **CCI** (`cci`) | Mean reversion | Range-bound markets that respect ±100 thresholds | Strong trends pinning CCI beyond ±100 |
 | **RSI Mean Reversion** (`rsi-mean-reversion`) | Mean reversion | Range-bound markets | Strong trends (keeps fading the move) |
 | **Stochastic Oscillator** (`stochastic-oscillator`) | Mean reversion | Range-bound markets that respect Lane's bands | Trends saturating %K near 0 or 100 |
-| **Buy & Hold** (`buy-and-hold`) | Benchmark | Any sustained bull market | Drawdowns (by construction, never exits) |
+
+A **buy-and-hold benchmark** is not in this list because it is not selectable in the strategy picker — it is computed automatically as the reference overlay on every run (see below).
 
 **Rules of thumb for choosing**:
 
 - If you are **new to backtesting**, start with SMA Crossover or RSI Mean Reversion. Both have intuitive parameters and produce easy-to-read equity curves.
-- If you are **comparing your active strategy to a baseline**, also run Buy & Hold for the same asset and window. The Results page also automatically overlays buy-and-hold of the same asset and SPY on every equity chart for context.
+- If you are **comparing your active strategy to a baseline**, you don't need to do anything extra: the Results page automatically overlays buy-and-hold of the same asset and SPY on every equity chart for context.
 - **Never** tune parameters by repeatedly running the full backtest. That is the canonical recipe for overfitting (López de Prado, 2018, ch. 7). The Strategy Agent exposes a walk-forward split for proper out-of-sample evaluation.
 
 ---

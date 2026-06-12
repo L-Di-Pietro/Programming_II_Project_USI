@@ -22,14 +22,14 @@ Retail quantitative traders lose money for two related reasons:
 
 - **Multi–asset-class** backtesting across the seeded universe: 20 US mega-caps (AAPL, NVDA, MSFT, TSLA, JPM, …), 5 ETFs (SPY, QQQ, IWM, TLT, GLD), 5 crypto pairs (BTC-USD, ETH-USD, BNB-USD, XRP-USD, SOL-USD), and 6 FX pairs (EURUSD, GBPUSD, USDCHF, EURCHF, EURGBP, GBPCHF). Full list in [`docs/data-sources.md`](docs/data-sources.md).
 - **Daily and hourly bar resolution** with per-asset-class native trading calendars (NYSE for equities/ETF, 24/5 for FX, 24/7 for crypto) — see [`docs/calendars.md`](docs/calendars.md).
-- **11 strategies** across five families (trend, momentum, breakout, mean reversion, benchmark) — see [`docs/strategies.md`](docs/strategies.md) for the full catalogue.
+- **10 strategies** across four families (trend, momentum, breakout, mean reversion) — see [`docs/strategies.md`](docs/strategies.md) for the full catalogue. A buy-and-hold benchmark is computed alongside every run but is not itself a selectable strategy.
 - **Event-driven backtest engine** with strict bar-`t` → bar-`t+1` fill semantics (no look-ahead) at any timeframe.
-- **Configurable execution model**: commission (bps), slippage (bps), fixed-fraction or volatility-targeted position sizing, optional max-drawdown circuit breaker.
+- **Configurable execution model**: commission (bps), slippage (bps), and fixed-fraction position sizing.
 - **Standard performance dashboard**: equity curve, drawdown curve, monthly returns heatmap, trade-P&L scatter, rolling Sharpe, full KPI grid.
 - **Benchmark overlays** — same-asset buy-and-hold and SPY buy-and-hold curves are computed at run time and toggled into every chart via a shared legend.
 - **Shared crosshair tooltip** across all charts so values stay aligned when you hover anywhere on the timeline.
 - **PDF & HTML report export** — from the Dashboard's per-run *AI Report* menu: a print-ready PDF (rendered server-side by headless Chromium, with a section picker) or a self-contained interactive HTML file.
-- **Six-agent architecture** (4 deterministic; 2 LLM-backed — run in demo mode with `NullProvider` unless Gemini is configured via env).
+- **Five-agent architecture** (4 deterministic; 1 LLM-backed — the Explanation Agent, which runs in demo mode with `NullProvider` unless Gemini is configured via env).
 - **SQL persistence** — every run is reproducible, every trade is logged.
 - **React + TypeScript web frontend** with interactive Plotly charts.
 - **LLM-ready** — `LLMProvider` abstraction with two implementations: `NullProvider` (default, deterministic) and `GeminiProvider` (Google Gemini, opt-in via `LLM_ENABLED=true` + `GEMINI_API_KEY`).
@@ -226,7 +226,7 @@ Programming_II_Project_USI/
 ├── backend/                           ← FastAPI backend
 │   ├── main.py                        ← app factory, lifespan hooks
 │   ├── config.py                      ← Pydantic Settings
-│   ├── agents/                        ← 6 specialized agents
+│   ├── agents/                        ← 5 runtime agents (+ dormant orchestrator.py)
 │   ├── api/                           ← REST routes & Pydantic schemas
 │   ├── analytics/                     ← KPIs & chart payload builders
 │   ├── backtest/                      ← event loop, portfolio, execution, risk
@@ -277,7 +277,7 @@ For the deep-dive, see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 | Iteration | Focus |
 |---|---|
-| **v1** *(this delivery)* | Single-asset backtester, 11 strategies, full UI, daily + hourly bars, benchmark overlays, AI report (Gemini opt-in) |
+| **v1** *(this delivery)* | Single-asset backtester, 10 strategies, full UI, daily + hourly bars, benchmark overlays, AI report (Gemini opt-in) |
 | v1.1 | Walk-forward / out-of-sample UI, parameter sweeps |
 | v1.2 | Multi-run comparison view, strategy similarity search |
 | v2.0 | Multi-asset portfolio strategies, minute-level data, paper-trading mode |

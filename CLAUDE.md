@@ -69,7 +69,7 @@ npm run build                              # production build
 | `backend/config.py` | Single source of truth for env-driven settings |
 | `backend/database/models.py` | All SQLAlchemy tables — **the schema lives here** |
 | `backend/database/connection.py` | Engine + `get_session()` dependency |
-| `backend/agents/` | The 6 specialized agents |
+| `backend/agents/` | The 5 runtime agents (Data, Strategy, Backtest, Analytics, Explanation); `orchestrator.py` is dormant scaffolding, not on the request path |
 | `backend/llm/` | LLMProvider abstraction (`base`, `null_provider`, `gemini_provider`) |
 | `backend/data/fetchers/` | One file per data source (`equity_fetcher.py`, etc.) |
 | `backend/data/cleaner.py` | OHLCV validation, gap fill, NYSE calendar reindex |

@@ -24,13 +24,12 @@ provides:
   \item Daily and hourly bar resolution, each indexed against the \emph{native}
         trading calendar of its asset class (NYSE for equities and ETFs, 24$\times$5
         for FX, 24$\times$7 for crypto).
-  \item Eleven strategies across five families (trend, momentum, breakout,
-        mean-reversion, benchmark), each implementing a uniform signal contract.
+  \item Ten strategies across four families (trend, momentum, breakout,
+        mean-reversion), each implementing a uniform signal contract.
   \item An event-driven backtest engine that enforces look-ahead-bias prevention by
         construction.
-  \item Configurable commission (bps), slippage (bps), position-sizing modes
-        (fixed fraction or volatility-targeted), and an optional max-drawdown
-        circuit breaker.
+  \item Configurable commission (bps), slippage (bps), and fixed-fraction
+        position sizing.
   \item Standard performance dashboard: equity curve, drawdown, monthly heatmap,
         trade-P\&L scatter, rolling Sharpe, full KPI grid.
   \item Buy-and-hold and SPY benchmark overlays computed and persisted at run time.
@@ -83,6 +82,6 @@ and submission), staffed by four contributors. Targets per week:
         export of the AI report.
   \item \textbf{Week~4 \textemdash{} 2026-05-18 to 2026-05-24.} Data-layer
         hardening (yfinance as primary across all classes); strategy catalogue
-        expansion from 5 to 11; benchmark overlays; shared crosshair and legend;
+        expansion from 5 to 10; benchmark overlays; shared crosshair and legend;
         CI workflows; full documentation pass.
 \end{itemize}

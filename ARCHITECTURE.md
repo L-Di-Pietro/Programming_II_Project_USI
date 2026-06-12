@@ -9,7 +9,7 @@ A deep-dive into the design of QuantEdge. Read [`README.md`](./README.md) first 
 1. **Reproducibility over speed.** A backtest run on the same data with the same parameters must produce bit-identical results, every time. This rules out: live API calls during backtests, time-dependent randomness without a fixed seed, floating-point ordering ambiguity in the engine.
 2. **Look-ahead bias is unacceptable.** Architecturally impossible (not just policy-impossible). Tested with an oracle strategy.
 3. **Realism over optimism.** Commissions and slippage are *required* user inputs, not optional. The defaults are deliberately conservative.
-4. **Composable agents over monolith.** Six narrowly-scoped agents, each with a clear contract and tool set, beats one god-class.
+4. **Composable agents over monolith.** Five narrowly-scoped agents, each with a clear contract and tool set, beats one god-class.
 5. **The schema is the API.** Pydantic schemas in `backend/api/schemas.py` are the source of truth for both backend serialization and frontend types (via `openapi-typescript` codegen).
 
 ---
@@ -28,12 +28,9 @@ A deep-dive into the design of QuantEdge. Read [`README.md`](./README.md) first 
 │                       FastAPI Backend                               │
 │                                                                     │
 │   ┌──────────────────────────────────────────────────────────────┐ │
-│   │   Orchestrator Agent (LLM; demo mode unless Gemini env set)    │ │
-│   │   ── routes structured / NL requests to deterministic agents   │ │
-│   └──────────────────────────────────────────────────────────────┘ │
-│   ┌──────────────────────────────────────────────────────────────┐ │
 │   │  Data Agent  │  Strategy Agent  │  Backtest Agent  │           │ │
 │   │  Analytics Agent  │  Explanation Agent (LLM; demo by default)  │ │
+│   │  ── API routes call these structured agents directly           │ │
 │   └──────────────────────────────────────────────────────────────┘ │
 │   ┌──────────────────────────────────────────────────────────────┐ │
 │   │  LLMProvider abstraction  → NullProvider / GeminiProvider      │ │
@@ -64,19 +61,9 @@ A deep-dive into the design of QuantEdge. Read [`README.md`](./README.md) first 
 
 ## The agents
 
-Every agent inherits `BaseAgent[TIn, TOut]`. The public `run(payload)` wraps `_run(payload)` with timing logs and uniform error wrapping (`AgentError`), so the API layer can map any agent failure to a clean HTTP response.
+Every agent inherits `BaseAgent[TIn, TOut]`. The public `run(payload)` wraps `_run(payload)` with timing logs and uniform error wrapping (`AgentError`), so the API layer can map any agent failure to a clean HTTP response. The API routes call these five agents directly; there is no orchestration layer on the request path.
 
-### 1. Orchestrator Agent — LLM-backed (demo mode by default)
-
-**Role.** Receives a natural-language request ("run an SMA crossover on AAPL for the last 5 years with 0.05% commission"), dispatches the other five agents as tools in a Python tool-use loop, and returns a single natural-language answer.
-
-**Surface:** one op — `OrchestratorInput(user_message, history, max_steps=8) → OrchestratorOutput(final_answer, steps)`.
-
-**Implementation.** The loop parses tool calls from the LLM's output via simple JSON extraction (so it works with any provider, not just providers with native function-calling). Each tool maps to one of the five other agents below.
-
-**Default behaviour.** Because `backend/config.py` defaults to `LLM_ENABLED=false`, the orchestrator short-circuits in a fresh checkout — the API exposes structured endpoints directly and the orchestrator is bypassed. Flipping `LLM_ENABLED=true` + `LLM_PROVIDER=gemini` + `GEMINI_API_KEY=…` (or copying `.env.example`, which already sets the first two) activates it.
-
-### 2. Data Agent — deterministic
+### 1. Data Agent — deterministic
 
 **Role.** Fetches, cleans, and stores OHLCV bars; reports freshness; lists assets. Triggers nightly incremental refreshes via APScheduler.
 
@@ -89,16 +76,16 @@ Every agent inherits `BaseAgent[TIn, TOut]`. The public `run(payload)` wraps `_r
 - `_FETCHERS` — `equity`/`etf` → `EquityFetcher`, `crypto` → `CryptoFetcher`, `fx` → `FXFetcher`.
 - `_CALENDAR_FOR` — `equity`/`etf` → `"nyse"`, `fx` → `"24x5"`, `crypto` → `"24x7"`.
 
-### 3. Strategy Agent — deterministic
+### 2. Strategy Agent — deterministic
 
 **Role.** Stateless utility over `backend.strategies` registry. No DB access.
 
 **Operations:**
-- `"list"` — return metadata (slug, name, description, category, JSON-Schema for params) for all 11 registered strategies.
+- `"list"` — return metadata (slug, name, description, category, JSON-Schema for params) for the registered strategies. The public `/strategies` endpoint serves the 10 selectable ones; the buy-and-hold entry is registered for benchmark use only and hidden from the picker.
 - `"build"` — instantiate a strategy from `(slug, params)`; validates `params` against the strategy's Pydantic `config_cls`.
 - `"walk_forward_split"` — chronological train/test split of a bars DataFrame; validates `0.1 < train_pct < 0.9`.
 
-### 4. Backtest Agent — deterministic
+### 3. Backtest Agent — deterministic
 
 **Role.** Drives an end-to-end backtest run.
 
@@ -111,7 +98,7 @@ Every agent inherits `BaseAgent[TIn, TOut]`. The public `run(payload)` wraps `_r
 6. Compute the **buy-and-hold** and **SPY buy-and-hold** benchmark equity curves and persist them to `benchmark_equity_curve` so the UI can overlay them on the chart without recomputation.
 7. Mark the run `completed` (or `failed` with an error message).
 
-### 5. Analytics Agent — deterministic
+### 4. Analytics Agent — deterministic
 
 **Role.** Presentation layer over persisted run data.
 
@@ -120,7 +107,7 @@ Every agent inherits `BaseAgent[TIn, TOut]`. The public `run(payload)` wraps `_r
 - `"chart"` — build a Plotly figure (JSON) for one of five chart kinds: `equity`, `drawdown`, `heatmap`, `trade_pnl`, `rolling_sharpe`.
 - `"benchmark_metrics"` — derive metrics from a stored benchmark equity curve using the same metric functions as the strategy (with `trade_pnls=None` for buy-and-hold, so the trade-block KPIs are zeroed).
 
-### 6. Explanation Agent — LLM-backed (demo mode by default)
+### 5. Explanation Agent — LLM-backed (demo mode by default)
 
 **Role.** Translates run data into plain language. Caches generated reports.
 
@@ -170,10 +157,7 @@ The unit test `tests/test_engine_no_lookahead.py` injects an "oracle" strategy t
 
 ### Position sizing
 
-In v1 we ship two sizing modes:
-
-- **Fixed fractional**: each new entry uses `risk_fraction * current_equity` worth of cash, integer-rounded to whole shares (or fractional units for crypto/FX).
-- **Volatility-targeted**: scale position size inversely with realized volatility (rolling 20-bar standard deviation of log returns) so the per-position risk in dollar terms is constant.
+In v1 the engine sizes positions by **fixed fractional** allocation: each new entry uses `risk_fraction * current_equity` worth of cash, integer-rounded to whole shares (or fractional units for crypto/FX).
 
 ### Slippage model
 
@@ -187,10 +171,6 @@ v1.1+ extension; v1 ships the bps model only.
 ### Commission model
 
 `commission_cost = qty * fill_price * commission_bps / 10_000`. Symmetric on entry and exit.
-
-### Risk circuit breaker
-
-Optional max-drawdown circuit breaker: if equity drops more than `max_dd_pct` from peak, close all positions and halt the strategy. Off by default; controlled by user param.
 
 ---
 
@@ -304,7 +284,7 @@ Empty in v1; populated when LLM is enabled.
 | Method | Path | Purpose |
 |---|---|---|
 | GET  | `/healthz` | Liveness probe; returns `{status, llm_enabled, llm_provider}` |
-| GET  | `/strategies` | List all 11 registered strategies + their `params_schema` |
+| GET  | `/strategies` | List the 10 selectable strategies + their `params_schema` (the buy-and-hold benchmark is hidden from this list) |
 | GET  | `/assets` | List active assets in the universe |
 | POST | `/assets/{symbol}/refresh?timeframe=…` | Trigger a manual data refresh for one timeframe |
 | POST | `/backtests` | Submit a backtest run — **synchronous**: blocks until `BacktestAgent.run()` returns, then responds with the persisted summary |
@@ -346,7 +326,7 @@ Implementations:
 
 `LLMFactory.from_settings()` is the single dispatch point: it returns `NullProvider` whenever `LLM_ENABLED=false`, regardless of `LLM_PROVIDER`. To activate Gemini, set `LLM_ENABLED=true`, `LLM_PROVIDER=gemini`, and `GEMINI_API_KEY=…` in `.env`. The committed `.env.example` ships with the first two already set, so a fresh `cp .env.example .env` activates Gemini as soon as an API key is supplied; without a key, LLM endpoints fail loudly rather than silently fall back.
 
-The Explanation Agent and Orchestrator both depend only on the abstract `LLMProvider`, so adding a new provider is a single file in `backend/llm/` plus a branch in `LLMFactory`.
+The Explanation Agent depends only on the abstract `LLMProvider`, so adding a new provider is a single file in `backend/llm/` plus a branch in `LLMFactory`.
 
 ---
 
@@ -372,7 +352,7 @@ A backtest run is reproducible if and only if:
 - [x] Data is read from the local DB (not a live API)
 - [x] Strategy parameters are stored in `backtest_runs.params`
 - [x] Commission and slippage are stored in `backtest_runs`
-- [x] Random seeds are fixed (relevant for vol-targeting if it ever uses simulation)
+- [x] Random seeds are fixed (no stochastic components in the v1 engine)
 - [x] The engine iterates bars in deterministic order (sorted by `ts`)
 - [x] Floating-point reductions are deterministic (avoid `set` ordering, parallel non-deterministic sums)
 

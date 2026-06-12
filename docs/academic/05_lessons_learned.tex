@@ -7,15 +7,15 @@
 Every strategy in \texttt{backend/strategies/} declares a Pydantic \texttt{Config}
 class; \texttt{GET /strategies} serialises it as a JSON Schema; the React form
 component renders a complete parameter UI from that schema with no per-strategy
-frontend code. Adding the sixth-through-eleventh strategies (PR~\#7) cost zero
+frontend code. Adding the sixth-through-tenth strategies (PR~\#7) cost zero
 frontend work as a result \textemdash{} the single biggest productivity
 multiplier in the project.
 
-\paragraph{The six-agent abstraction.} Splitting the runtime into named agents,
+\paragraph{The five-agent abstraction.} Splitting the runtime into named agents,
 each inheriting \texttt{BaseAgent[TIn, TOut]} with a single public
-\texttt{run(payload)} method, gave us seam-by-seam testability and a natural
-docking point for the LLM orchestrator. The boundary between the two LLM-backed
-agents and the four deterministic agents was the right boundary: it kept the test
+\texttt{run(payload)} method, gave us seam-by-seam testability and kept the LLM
+surface isolated behind one agent. The boundary between the one LLM-backed
+agent and the four deterministic agents was the right boundary: it kept the test
 suite reproducible while leaving the LLM path open as an opt-in feature.
 
 \paragraph{The $\{-1, 0, +1\}$ signal contract.} Forbidding strategies to manage
@@ -38,12 +38,6 @@ constraint that propagates into the UI (date pickers had to gain a per-timeframe
 maximum-look-back constraint) and into the data layer (the Crypto Fetcher learned
 to fall back to Binance via \texttt{ccxt}). We absorbed the cap; the alternatives
 (paid intraday data, scraping) cost more than the limitation imposes.
-
-\paragraph{LLM tool-call JSON parsing.} The Orchestrator Agent parses tool calls
-out of the model's response by extracting a JSON envelope. This is fragile:
-models occasionally wrap the JSON in markdown fences or prose. We chose
-provider-portability over robustness for v1; a future iteration could fall back
-to provider-native function calling where available.
 
 \paragraph{Asynchronous backtest execution.} The first design had submission
 return immediately and the UI poll for status; we backed it out to a synchronous

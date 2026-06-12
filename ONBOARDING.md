@@ -64,7 +64,7 @@ backend/
 ├── api/
 │   ├── schemas.py                   ← Pydantic API contract
 │   └── routes/                      Backtest, data, strategies, explain
-├── agents/                          Six specialized agents (see below)
+├── agents/                          Five runtime agents (see below)
 ├── data/
 │   ├── fetchers/                    BaseFetcher + one per source
 │   └── cleaner.py                   ← Calendar reindex lives here
@@ -90,7 +90,7 @@ docs/                                Deep-dive: data-sources, calendars, strateg
 scripts/                             init_db.py, load_initial_data.py
 ```
 
-### The six agents (`backend/agents/`)
+### The five runtime agents (`backend/agents/`)
 
 | Agent          | Role                                                   |
 |----------------|--------------------------------------------------------|
@@ -99,10 +99,11 @@ scripts/                             init_db.py, load_initial_data.py
 | `AnalyticsAgent` | Reads run rows, computes KPIs and chart payloads on demand |
 | `StrategyAgent`| Registry + parameter validation for the strategy library |
 | `ExplanationAgent` | LLM-backed; `NullProvider` in v1 returns canned text |
-| `Orchestrator` | Tool-use loop that the LLM agents call into |
 
 Each agent inherits `BaseAgent[TIn, TOut]` and wraps `_run` with logging,
-timing, and uniform error wrapping (`AgentError`).
+timing, and uniform error wrapping (`AgentError`). (`orchestrator.py` also
+exists but is dormant scaffolding — the API routes call the five agents
+directly, so it is not on the request path.)
 
 ---
 
@@ -168,7 +169,7 @@ cap; the crypto path then attempts Binance before giving up.
 
 ### Annualization
 
-Vol/Sharpe/Sortino and the VOL_TARGET sizing scale via
+Vol/Sharpe/Sortino scale via
 `backend.analytics.periods.periods_per_year(timeframe, asset_class)`.
 The lookup is canonical: 252 × 6.5 = 1638 for hourly equity (elapsed
 market hours per year), 8760 for hourly crypto (24 × 365), etc.
@@ -309,7 +310,7 @@ the cleaner.
 - [`CLAUDE.md`](CLAUDE.md) — guide for Claude Code (and humans) in this repo
 - [`docs/calendars.md`](docs/calendars.md) — formal calendar definitions, algorithms
 - [`docs/data-sources.md`](docs/data-sources.md) — every fetcher, intraday matrix
-- [`docs/strategies.md`](docs/strategies.md) — all 11 strategies with math and citations
+- [`docs/strategies.md`](docs/strategies.md) — all 10 strategies with math and citations
 - [`docs/agents.md`](docs/agents.md) — agent responsibilities
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — deep architecture & design rationale
 

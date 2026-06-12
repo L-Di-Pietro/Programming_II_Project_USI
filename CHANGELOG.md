@@ -118,6 +118,20 @@ Hash references use the short SHA (e.g. `abcdef1`); resolve them with `git show 
 
 ### Docs
 
+- **Documentation accuracy pass (2026-06-12)** — corrected every doc to match
+  what the product actually exposes: the strategy count is now **10 selectable
+  strategies across four families** (buy-and-hold is the benchmark overlay, not
+  a selectable strategy, and is hidden from the picker by
+  `backend/api/routes/strategies.py`), and the backend is described as a
+  **five-agent** runtime (Data, Strategy, Backtest, Analytics, Explanation) with
+  a single LLM-backed agent (Explanation) — the dormant `orchestrator.py` is no
+  longer presented as part of the live system. Mentions of volatility-targeted
+  position sizing and the max-drawdown circuit breaker were removed from the
+  documentation (these remain in `backend/backtest/risk.py` but are not surfaced
+  in the UI). The Calmar ratio is retained, since it is computed, served by
+  `/metrics`, and rendered in reports. Touches `main.pdf` + its LaTeX sources,
+  `README.md`, `ARCHITECTURE.md`, `AGENTS.md`, `ONBOARDING.md`, `CONTRIBUTING.md`,
+  `CLAUDE.md`, and the `docs/` guides.
 - **Final submission pass (2026-06-11)** — the academic report's results table
   (`docs/academic/04_sample_results.tex`) is now populated from a real
   SMA-crossover/SPY backtest executed against the final codebase, the two
@@ -157,8 +171,8 @@ This is the state of the codebase as submitted to iCorsi for Project 2.8 (Spring
 
 ### Added
 
-- **11 trading strategies** across five families (trend, momentum, breakout, mean-reversion, benchmark), with auto-generated UI parameter forms driven by Pydantic `Config` classes; see [`docs/strategies.md`](docs/strategies.md). The six strategies added on top of the original five (MACD, Ichimoku, Keltner, Time Series Momentum, Stochastic, CCI) shipped in `b0676ed`.
-- **Six-agent backend architecture** (Orchestrator, Data, Strategy, Backtest, Analytics, Explanation), all inheriting `BaseAgent[TIn, TOut]`; see [`docs/agents.md`](docs/agents.md).
+- **10 selectable trading strategies** across four families (trend, momentum, breakout, mean-reversion), with auto-generated UI parameter forms driven by Pydantic `Config` classes; see [`docs/strategies.md`](docs/strategies.md). A buy-and-hold curve is also registered for benchmark use but is hidden from the strategy picker. The strategies added on top of the original set (MACD, Ichimoku, Keltner, Time Series Momentum, Stochastic, CCI) shipped in `b0676ed`.
+- **Five-agent backend architecture** (Data, Strategy, Backtest, Analytics, Explanation), all inheriting `BaseAgent[TIn, TOut]`; see [`docs/agents.md`](docs/agents.md).
 - **Event-driven backtest engine** with strict bar-`t` → bar-`t+1` fill semantics enforced in `backend/backtest/engine.py` and asserted by an oracle strategy in `tests/test_engine_no_lookahead.py`.
 - **Asset universe**: 20 US mega-caps, 5 ETFs, 5 crypto pairs, 6 FX pairs; full list in [`docs/data-sources.md`](docs/data-sources.md). TSLA added in `376d30e`; the bulk of the universe added in `e3ae698`.
 - **Multi-timeframe bars** (daily *and* hourly) with composite primary key `(asset_id, ts, timeframe)` and per-asset-class native trading calendars (NYSE for equities/ETFs, 24×5 for FX, 24×7 for crypto); see `1f13139` and [`docs/calendars.md`](docs/calendars.md).
@@ -198,7 +212,7 @@ This is the state of the codebase as submitted to iCorsi for Project 2.8 (Spring
 ### Docs
 
 - **Strategy catalogue** rewritten with one block per strategy: math, parameters, "wins in / loses in", citation (`79e200a`).
-- **Architecture deep-dive** (`ARCHITECTURE.md`) refreshed against the current six-agent layout (`79e200a`).
+- **Architecture deep-dive** (`ARCHITECTURE.md`) refreshed against the current five-agent layout (`79e200a`).
 - **`CLAUDE.md`** rewritten as a terse decision-grid for AI-assisted contributors (`79e200a`).
 - **`ONBOARDING.md`** added for first-week orientation (`79e200a`).
 - **`docs/agents.md`**, **`docs/calendars.md`**, **`docs/data-sources.md`** added for technical depth (`79e200a`).
