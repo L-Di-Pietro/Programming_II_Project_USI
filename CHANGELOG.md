@@ -287,6 +287,7 @@ The work that produced **v1.0.0-rc1** is organised here by week so the academic 
 - `2026-06-07 38d0b3a` Merge pull request \#30 from L-Di-Pietro/Little-Final-Fixes (Luca Di Pietro).
 - `2026-06-08 0f485e4` chore(docs): nightly auto-refresh 2026-06-08 (automated — Claude Code; merged via PR \#31). Recorded `7ca67e8`, `da11eaf`, and `a0b8ac2` (mobile banner, project rebrand, launcher port-check) in `CHANGELOG.md` ([Unreleased] Added/Changed entries and pre-release timeline) and `docs/academic/02_project_diary.tex`; updated `docs/user-guide.md` navigation step to mention the mobile banner.
 - `2026-06-09 e7fbd8c` chore(docs): nightly auto-refresh 2026-06-09 (automated — Claude Code; merged via PR \#32). Only doc-only commits in the 24-hour window; recorded the nightly commit (`0f485e4`, PR \#31) in the pre-release timeline and project diary. No code was modified.
+- `2026-06-10 9933aa6` chore(docs): nightly auto-refresh 2026-06-10 (automated — Claude Code; merged via PR \#33). Only doc-only commits in the 24-hour window; recorded the nightly commit (`e7fbd8c`, PR \#32) in the pre-release timeline and project diary. No code was modified.
 
 ### Week of 2026-05-25 — *Documentation pass*
 
@@ -315,4 +316,4 @@ GitHub Copilot's bot account (`copilot-swe-agent[bot]`) appears in a single merg
 
 ---
 
-_Last verified against code: 2026-06-10._
+_Last verified against code: 2026-06-12._
