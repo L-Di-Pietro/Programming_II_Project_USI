@@ -55,12 +55,11 @@ Goal: run **SMA Crossover on SPY (S&P 500 ETF) from 2020-01-01 to 2024-12-31, da
 10. **Click "Run Backtest"**. The button switches to a loading state while the backend runs `BacktestAgent.run(...)` synchronously. A run on five years of daily SPY data with SMA Crossover typically completes in well under a second on a laptop.
 
 11. **You land on the Results page.** It shows:
-    - An **equity curve** at the top, with two benchmark overlays toggleable from the legend (same-asset buy-and-hold and SPY buy-and-hold — both of which are this asset in this case, so they coincide).
-    - A **drawdown curve** below it.
-    - A **monthly returns heatmap**.
-    - A **trade-P&L scatter** and a **rolling Sharpe** chart in the secondary panel.
-    - A **metrics grid** on the right with three categories: return, risk, trade.
-    - An **AI report card** at the bottom (in demo mode by default — see [§8](#8-ai-report-and-report-download)).
+    - A **KPI grid** across the top with the return, risk, and trade metrics.
+    - An **equity curve** below it, with benchmark overlays toggleable from the buttons above the grid (same-asset buy-and-hold, plus SPY buy-and-hold for non-SPY assets — when the traded asset *is* SPY the two would coincide, so the engine persists only one).
+    - **Drawdown**, **monthly returns heatmap**, **trade-P&L scatter**, and **rolling Sharpe** tabs on the same chart panel.
+    - A **trade log** at the bottom.
+    - An **AI Analysis** button (top right) that opens the AI Strategy Analyst modal (in demo mode by default — see [§8](#8-ai-report-and-report-download)).
 
 You have just executed a real event-driven backtest with realistic frictions. The rest of this guide is about getting more out of subsequent runs.
 
@@ -68,22 +67,20 @@ You have just executed a real event-driven backtest with realistic frictions. Th
 
 ## 2. Screenshots
 
-> 🛠️ TODO(team): drop real screenshots into `docs/images/` and replace the placeholders below.
+All screenshots below were captured from a live local instance (desktop viewport, 1440×900).
 
-- ![Dashboard with prior runs](images/dashboard.png) — *TODO(team): screenshot of the Dashboard listing five recent runs.*
-- ![New Backtest form](images/new-backtest.png) — *TODO(team): screenshot of the configuration form with SPY + SMA Crossover selected.*
-- ![Results page hero](images/results-hero.png) — *TODO(team): screenshot of the Results page top-half — equity curve + metrics grid.*
-- ![Equity curve with benchmark overlays](images/equity-curve.png) — *TODO(team): screenshot showing the shared legend with strategy / same-asset B&H / SPY B&H lines toggled.*
-- ![Monthly heatmap](images/monthly-heatmap.png) — *TODO(team): screenshot of the monthly returns heatmap.*
-- ![AI report card](images/ai-report.png) — *TODO(team): screenshot of the LLM-generated report, with the "demo mode" badge visible.*
-
-The `images/` folder is created lazily; you can add it under `docs/images/` and the relative paths above will resolve.
+- ![Dashboard with prior runs](images/dashboard.png) — *the Dashboard listing five completed runs across four asset classes, with per-run AI-report actions.*
+- ![New Backtest form](images/new-backtest.png) — *the configuration form with SPY + SMA Crossover selected; the parameter fields are auto-generated from the strategy's JSON Schema.*
+- ![Results page hero](images/results-hero.png) — *the Results page top-half for the SMA Crossover / SPY run — KPI grid plus equity curve.*
+- ![Equity curve with benchmark overlays](images/equity-curve.png) — *a QQQ run with both benchmark overlays toggled on: strategy (STR), same-asset buy-and-hold (B&H), and SPY buy-and-hold (SPX) share one legend and one KPI grid.*
+- ![Monthly heatmap](images/monthly-heatmap.png) — *the monthly returns heatmap (5 years × 12 months + annual column) with the trade log below.*
+- ![AI report card](images/ai-report.png) — *the AI Strategy Analyst modal in demo mode (NullProvider): the demo banner is visible at the top of the report body.*
 
 ---
 
 ## 3. Picking a strategy
 
-QuantEdge ships **11 strategies** organised into five families. The full catalogue with math, parameters, citations, and "wins in / loses in" lives in [`strategies.md`](strategies.md). The short version:
+QuantEdge ships **10 strategies** organised into four families. The full catalogue with math, parameters, citations, and "wins in / loses in" lives in [`strategies.md`](strategies.md). The short version:
 
 | Strategy (slug) | Family | When it tends to work | When it tends to bleed |
 |---|---|---|---|
@@ -97,12 +94,13 @@ QuantEdge ships **11 strategies** organised into five families. The full catalog
 | **CCI** (`cci`) | Mean reversion | Range-bound markets that respect ±100 thresholds | Strong trends pinning CCI beyond ±100 |
 | **RSI Mean Reversion** (`rsi-mean-reversion`) | Mean reversion | Range-bound markets | Strong trends (keeps fading the move) |
 | **Stochastic Oscillator** (`stochastic-oscillator`) | Mean reversion | Range-bound markets that respect Lane's bands | Trends saturating %K near 0 or 100 |
-| **Buy & Hold** (`buy-and-hold`) | Benchmark | Any sustained bull market | Drawdowns (by construction, never exits) |
+
+A **buy-and-hold benchmark** is not in this list because it is not selectable in the strategy picker — it is computed automatically as the reference overlay on every run (see below).
 
 **Rules of thumb for choosing**:
 
 - If you are **new to backtesting**, start with SMA Crossover or RSI Mean Reversion. Both have intuitive parameters and produce easy-to-read equity curves.
-- If you are **comparing your active strategy to a baseline**, also run Buy & Hold for the same asset and window. The Results page also automatically overlays buy-and-hold of the same asset and SPY on every equity chart for context.
+- If you are **comparing your active strategy to a baseline**, you don't need to do anything extra: the Results page automatically overlays buy-and-hold of the same asset and SPY on every equity chart for context.
 - **Never** tune parameters by repeatedly running the full backtest. That is the canonical recipe for overfitting (López de Prado, 2018, ch. 7). The Strategy Agent exposes a walk-forward split for proper out-of-sample evaluation.
 
 ---
@@ -195,7 +193,7 @@ The Results page renders five chart kinds, each built by `backend/analytics/visu
 
 ## 7. Reading the KPI panel
 
-The metrics grid on the right of the Results page groups KPIs into three categories. Formulas live in [`../CITATIONS.md`](../CITATIONS.md#section-c--algorithms--formulas) and in the academic methodology section ([`academic/03_methodology.tex`](academic/03_methodology.tex)).
+The metrics grid across the top of the Results page groups KPIs into three categories. Formulas live in [`../CITATIONS.md`](../CITATIONS.md#section-c--algorithms--formulas) and in the academic methodology section ([`academic/03_methodology.tex`](academic/03_methodology.tex)).
 
 ### 7.1 Return metrics
 
@@ -233,7 +231,7 @@ For the **benchmark overlays**, the same KPI panel is computed against the bench
 
 ### Demo mode (the default)
 
-Out of the box, [`backend/config.py`](../backend/config.py) sets `LLM_ENABLED=false`. The Explanation Agent then uses `NullProvider`, which returns deterministic canned text. The AI Report card on the Results page renders with a **"demo mode"** badge so you cannot mistake the canned text for a real LLM response.
+Out of the box, [`backend/config.py`](../backend/config.py) sets `LLM_ENABLED=false`. The Explanation Agent then uses `NullProvider`, which returns deterministic canned text. The AI Strategy Analyst modal (the **AI Analysis** button on the Results page) renders with a **"demo mode"** banner so you cannot mistake the canned text for a real LLM response.
 
 This is intentional — it keeps the test suite deterministic, keeps tutorial setup free of API-key requirements, and avoids quietly calling an LLM in CI.
 
@@ -250,21 +248,23 @@ To get a real LLM-generated report:
    LLM_MODEL=gemini-3.5-flash        # or another Gemini model you have access to
    ```
 3. Restart the backend (`uvicorn` will pick up the new env vars).
-4. On the Results page, click **"Generate report"** on the AI Report card. The "demo mode" badge disappears and a real Gemini-generated report appears, grounded on the run's metrics, trades, and equity curve.
+4. Open **AI Analysis** on the Results page (the report generates on first open), or click **Generate** in the Dashboard's *AI Report* column. The "demo mode" banner disappears and a real Gemini-generated report appears, grounded on the run's metrics, trades, and equity curve.
 
-The report is **cached per run** in the `llm_conversations` table. The Results page's "Regenerate" button is a `POST` (it triggers a fresh call); the initial card render is a `GET` (it returns the cached version if any).
+The report is **cached per run** in the `llm_conversations` table. The modal's "Regenerate" button is a `POST` (it triggers a fresh call); the initial render is a `GET` (it returns the cached version if any).
 
 ### Report download — HTML (offline)
 
-In the AI Analyst modal, open the **Report actions** menu and choose **"Download HTML"**.
-The browser-side `exportReportHtml` utility builds a self-contained HTML file that inlines
-the Plotly charts and the IBM Plex font bundle, then triggers a download. The resulting
-file is fully viewable offline — no live server or backend round-trip is required. This
-works in demo mode too.
+In the Dashboard's *AI Report* column, open the per-run actions menu and choose
+**"Download HTML"** (the menu also offers **"See Report"**, which opens the interactive
+report in a new tab — as does the modal's **"View Report"** button). The browser-side
+`exportReportHtml` utility builds a self-contained HTML file that inlines the Plotly
+charts and the IBM Plex font bundle, then triggers a download. The resulting file is
+fully viewable offline — no live server or backend round-trip is required. This works
+in demo mode too.
 
 ### Report download — PDF (server-rendered)
 
-In the AI Analyst modal, open the **Report actions** menu and choose **"Download PDF"**.
+In the same Dashboard per-run actions menu, choose **"Download PDF"**.
 A `PdfSectionsDialog` lets you select which sections to include (charts, metrics, trade
 log, etc.). After confirming, the frontend assembles the full report document in `"pdf"`
 mode and POSTs it to `POST /backtests/{run_id}/report.pdf`. The backend loads it in
@@ -295,4 +295,4 @@ For anything not covered here, open a GitHub Issue (see [`../CONTRIBUTING.md`](.
 
 ---
 
-_Last verified against code: 2026-06-02._
+_Last verified against code: 2026-06-11._

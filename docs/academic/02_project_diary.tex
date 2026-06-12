@@ -1,440 +1,128 @@
 \section{Project diary}
 \label{sec:diary}
 
-The four-week development cycle was punctuated by eight merged pull requests and a
-handful of direct-to-\texttt{main} commits for docs and trivia. The narrative below
-follows the actual order of decisions, with commit hashes given so a reviewer can
-verify any claim from \texttt{git log}.
+The development cycle ran from 2026-04-25 to 2026-06-12 and was punctuated by 33
+merged pull requests \textemdash{} 15 of them opened automatically by the nightly
+documentation agent \textemdash{} plus a handful of direct-to-\texttt{main} commits
+for docs and trivia. The narrative below follows the actual order of decisions,
+with commit hashes given so a reviewer can verify any claim from \texttt{git log}.
 
 \subsection*{Week~1 \textemdash{} Foundation (2026-04-25 to 2026-04-29)}
 
 The first commit (\texttt{4ff85c1}) bootstrapped an empty repository. Four days
 later, \texttt{ecdf3bb} (``Initial project scaffold for QuantEdge'') landed the
-full directory layout we would carry through the project: a \texttt{backend/}
-package with \texttt{agents/}, \texttt{api/}, \texttt{analytics/},
-\texttt{backtest/}, \texttt{data/}, \texttt{database/}, \texttt{llm/},
-\texttt{strategies/} subpackages; a \texttt{frontend/} folder primed for Vite; a
-\texttt{tests/} folder; and \texttt{requirements.txt} pinning the backend stack.
-The agent boundaries were committed to at this stage rather than discovered later
-\textemdash{} we used the breakdown in the rubric (data, strategy, backtest,
-analytics, orchestrator, explanation) as the starting point and held to it.
+directory layout we would carry through the project: \texttt{backend/} with
+\texttt{agents/}, \texttt{api/}, \texttt{analytics/}, \texttt{backtest/},
+\texttt{data/}, \texttt{database/}, \texttt{llm/}, \texttt{strategies/}
+subpackages, a \texttt{frontend/} folder primed for Vite, \texttt{tests/}, and a
+pinned \texttt{requirements.txt}. The five agent boundaries (data, strategy,
+backtest, analytics, explanation) were committed to at this stage
+rather than discovered later, and held for the whole project.
 
 \subsection*{Week~2 \textemdash{} First domain feature + first LLM call (2026-05-08)}
 
-Two commits on the same day represent the project's two first proofs of life. PR~\#1
-(\texttt{376d30e}, ``feat: add TSLA as new equity asset'') validated the end-to-end
-data path: register an asset in the seed list, run \texttt{load\_initial\_data.py},
-see daily bars appear in the database. \texttt{8997d20} (``feat: add LLM generated
-report'') validated the LLM seam: we wanted to make sure the \texttt{LLMProvider}
-abstraction could carry a real response before we built the rest of the analytics
-layer around it.
-
-We deliberately wrote the LLM feature \emph{first} as a worst-case probe. If it
-worked, every other deterministic feature would be easier; if it failed, we had time
-to redesign. It worked, and the rest of the project never had to compromise its
-determinism for the sake of the AI report.
+Two same-day commits were the project's two proofs of life. PR~\#1
+(\texttt{376d30e}, ``feat: add TSLA as new equity asset'') validated the
+end-to-end data path: seed an asset, run \texttt{load\_initial\_data.py}, see
+daily bars in the database. \texttt{8997d20} (``feat: add LLM generated
+report'') validated the LLM seam. We deliberately wrote the LLM feature
+\emph{first} as a worst-case probe: if the \texttt{LLMProvider} abstraction could
+carry a real response, every deterministic feature after it would be easier. It
+worked, and the rest of the project never had to compromise its determinism for
+the sake of the AI report.
 
 \subsection*{Week~3 \textemdash{} Frontend MVP, hourly bars, charts (2026-05-12 to 2026-05-16)}
 
 Frontend Version~1 (\texttt{1f2f5c7}) landed on 2026-05-12. The same day, PR~\#2
 (\texttt{1f13139}, ``Add native calendars and hourly bar support'') reshaped the
-data layer: the OHLCV composite primary key became \texttt{(asset\_id, ts,
-timeframe)}, so daily and hourly bars could coexist for the same asset, and the
-\texttt{OHLCVCleaner} learned to reindex onto NYSE for equities, a bespoke
-24$\times$5 window for FX, and 24$\times$7 for crypto. This was the project's most
-intricate single change: a missed edge case in any of the three calendars would have
-silently misstated the annualisation factor for every Sharpe ratio we report.
+data layer: the OHLCV primary key became \texttt{(asset\_id, ts, timeframe)} so
+daily and hourly bars coexist, and the cleaner learned to reindex onto NYSE for
+equities, 24$\times$5 for FX, and 24$\times$7 for crypto \textemdash{} the
+project's most intricate single change, since a calendar edge case would silently
+misstate every reported Sharpe ratio. A flurry of
+chart fixes followed (\texttt{3e22d4c}, \texttt{162ceba}, \texttt{ab1e2de}),
+\texttt{a3b6635} chunked bulk upserts past SQLite's parameter ceiling and added
+LLM retries, and the first client-side PDF export shipped via \texttt{jsPDF}
+(\texttt{0a7edb1}).
 
-The chart suite then went through a flurry of small fixes (\texttt{3e22d4c},
-\texttt{162ceba}, \texttt{ab1e2de}) that brought the strategy-category badges,
-chart-tooltip alignment, and sidebar navigation up to standard. \texttt{a3b6635}
-(``Chunk upserts, add LLM retries, and fix time indexes'') addressed the SQLite
-parameter-count ceiling we hit when bulk-loading multi-year hourly history.
+\subsection*{Week~4 \textemdash{} CI hardening, data layer, strategies, benchmarks (2026-05-19 to 2026-05-24)}
 
-Late in the week, the PDF-export feature shipped (\texttt{0a7edb1}). The choice to
-render the report client-side via \texttt{jsPDF} rather than server-side via a
-headless browser kept the backend dependency footprint small and avoided the need
-for the OS-level Chromium libraries that other PDF approaches require.
+The week opened with two Claude Code GitHub Actions workflows:
+\texttt{claude.yml} (\texttt{3d50b41}) for \texttt{@claude} mentions and
+\texttt{claude-code-review.yml} (\texttt{6a38f60}) for an automatic review pass
+on every PR \textemdash{} both respond only to explicit human triggers and never
+self-merge. PR~\#4 (\texttt{4ce0311}, \texttt{820d610}) added the
+\texttt{check-no-build-artifacts.yml} workflow after TypeScript compile outputs
+leaked into \texttt{frontend/src/}. The data layer consolidated on yfinance as
+primary source across all asset classes, with ccxt/Binance and Stooq fallbacks
+(PR~\#5, \texttt{c2b6cce}); fixed-fractional sizing was corrected for crypto and
+FX (PR~\#6, \texttt{ae082ef}). PR~\#7 (\texttt{b0676ed}) doubled the strategy
+catalogue to ten (MACD, Ichimoku, Keltner, Time Series Momentum, Stochastic,
+CCI), each registered, schema-exposed, and unit-tested on a known fixture.
+PR~\#8 (\texttt{c0801c7}) added the
+benchmark overlays: same-asset and SPY buy-and-hold curves computed and persisted
+at run time, toggleable from a single shared chart legend. \texttt{d1efa3f}
+(Quick-Start docs) and \texttt{4a9e6ae} (yfinance 0.2.46 $\to$ 1.3.0, which
+pulled in \texttt{curl\_cffi}) closed the week.
 
-\subsection*{Week~4 \textemdash{} CI hardening, data layer, strategies, benchmarks (2026-05-19 to 2026-05-22)}
+\subsection*{Interim documentation pass (2026-05-24)}
 
-The week opened with two Claude Code GitHub Actions workflows: \texttt{claude.yml}
-(\texttt{3d50b41}) for \texttt{@claude} mentions on issues and PRs, and
-\texttt{claude-code-review.yml} (\texttt{6a38f60}) for an automatic
-\texttt{/code-review} pass on every PR. The team's view of generative AI as a
-collaborator-not-author shaped both workflows: they only respond to explicit human
-triggers and they never self-merge.
+\texttt{79e200a} refreshed the existing docs against the then-current code state,
+and a second same-day pass created the artefacts the rubric requires, this PDF
+among them \textemdash{} an interim milestone, not the submission:
+\texttt{AGENTS.md}, \texttt{CHANGELOG.md}, \texttt{CONTRIBUTING.md},
+\texttt{CITATIONS.md}, \texttt{AI\_USAGE.md}, \texttt{SECURITY.md},
+\texttt{CODE\_OF\_CONDUCT.md}, \texttt{docs/user-guide.md}, \texttt{docs/api.md},
+\texttt{docs/architecture-diagrams/}, and the \texttt{docs/academic/} bundle.
 
-Build-artefact hygiene then dominated two days (\texttt{4ce0311},
-\texttt{820d610}). TypeScript compile outputs had begun leaking into
-\texttt{frontend/src/}, which would have polluted every diff. PR~\#4 added the
-\texttt{check-no-build-artifacts.yml} workflow that fails the build if any
-\texttt{.js}, \texttt{.d.ts}, or stale \texttt{.tsbuildinfo} appears where it
-should not.
+\subsection*{Weeks~5--6 \textemdash{} Automation, deployment, and report hardening (2026-05-24 to 2026-06-07)}
 
-The data layer consolidated on yfinance as the primary source across every asset
-class (PR~\#5, \texttt{c2b6cce}). The Binance \texttt{ccxt} fallback remained for
-crypto hourly windows older than the 730-day yfinance cap, and Stooq remained for
-FX EOD fallback. Fixed-fractional sizing was corrected for crypto and FX (PR~\#6,
-\texttt{ae082ef}).
+On the evening of 2026-05-24, PR~\#9 (\texttt{612e39e}) introduced
+\texttt{nightly-docs.yml}: a GitHub Actions job that wakes at 02:00~UTC, runs
+Claude Code headless with a read-only Bash allowlist, and opens a PR whenever it
+finds documentation drift \textemdash{} it never touches \texttt{main} directly.
+\texttt{4dfc948} and PR~\#10 (\texttt{58a4811}) fixed its authentication;
+PR~\#12 (\texttt{01d9c30}) bumped all workflows to the Node-24 action majors.
 
-PR~\#7 (\texttt{b0676ed}, ``added 6 new strategies'') doubled the strategy
-catalogue to eleven by adding MACD Crossover, Ichimoku Cloud, Keltner Channels,
-Time Series Momentum, Stochastic Oscillator, and CCI. Each was added to the
-registry, exposed via JSON Schema so the frontend form rendered automatically, and
-covered by a unit test that asserts the signal series on a known fixture.
+Substantive engineering continued alongside. PR~\#16 (\texttt{ed31a92},
+\texttt{b8c9332}, \texttt{533dedb}) hardened \texttt{run.py}: TTY detection
+before the API-key prompt, a fail-fast port check, and tolerant \texttt{.env}
+parsing. \texttt{e1dd918} added a production frontend Dockerfile and Postgres URL
+normalisation for Railway. On 2026-05-29 a frontend polish sprint
+(\texttt{b3acd7d}, PR~\#18, \texttt{45dddf4}) shipped the onboarding tour, a
+unified loading screen, and run-detail prefetching; PR~\#19 (\texttt{38816c3},
+\texttt{fd57ede}) made the downloadable report a self-contained interactive HTML
+file; and \texttt{1acc780} introduced per-browser backtest isolation \textemdash{}
+an anonymous \texttt{client\_id} forwarded as \texttt{X-Client-Id} scopes
+\texttt{GET /backtests} to the caller, with a test that two clients cannot see
+each other's runs.
 
-PR~\#8 (\texttt{c0801c7}, ``Support benchmark overlays (API + UI)'') and its
-sibling commits (\texttt{be6cf8a}, \texttt{55fa4b0}, \texttt{d432105}) brought the
-chart suite to its final polish: a same-asset buy-and-hold and an SPY buy-and-hold
-curve are now computed and persisted at run time, every chart shares a single
-legend that toggles them, and a shared crosshair tooltip keeps values aligned
-when the mouse hovers anywhere on the timeline.
+PR~\#21 (\texttt{b7996f6}, 2026-06-01) replaced the \texttt{jsPDF} export with a
+print-quality pipeline: the frontend \texttt{POST}s the report HTML to
+\texttt{/backtests/\{run\_id\}/report.pdf}, where headless Chromium (Playwright)
+renders A4 output identical to the interactive report. \texttt{b6718ce} pinned the
+backend image to \texttt{python:3.11-slim-bookworm} after a floating tag broke
+Chromium's fonts; \texttt{b9414a7} added mobile-first navigation; and
+\texttt{1ebcae4} (2026-06-03) fixed Plotly print sizing. Finally, PR~\#30
+(2026-06-07) added the \texttt{MobileDesktopBanner}, suppressed the tour below the
+desktop breakpoint (\texttt{7ca67e8}), rebranded QuantBacktest to QuantEdge across
+every file (\texttt{da11eaf}), and moved the port check earlier so conflicts abort
+in under a second (\texttt{a0b8ac2}).
 
-The week closed with \texttt{d1efa3f} (Quick-Start docs) and \texttt{4a9e6ae}
-(yfinance/httpx/curl\_cffi version bumps). The yfinance bump from 0.2.46 to 1.3.0
-required adding \texttt{curl\_cffi} as a transitive dependency \textemdash{} a
-small change that we noted in \texttt{CHANGELOG.md} because it could surprise
-contributors who ran into install issues on locked-down corporate machines.
+\subsection*{Week~7 \textemdash{} Steady state and final pass (2026-06-08 to 2026-06-12)}
 
-\subsection*{Documentation pass (2026-05-24)}
-
-\texttt{79e200a} (``Updated all the current documentation files'') refreshed the
-existing docs \textemdash{} \texttt{README.md}, \texttt{ARCHITECTURE.md},
-\texttt{CLAUDE.md}, \texttt{ONBOARDING.md}, and the four
-\texttt{docs/\{agents,calendars,data-sources,strategies\}.md} \textemdash{} against
-the final code state. A second pass on the same day created the artefacts the
-rubric requires (this PDF among them): \texttt{AGENTS.md}, \texttt{CHANGELOG.md},
-\texttt{CONTRIBUTING.md}, \texttt{CITATIONS.md}, \texttt{AI\_USAGE.md},
-\texttt{SECURITY.md}, \texttt{CODE\_OF\_CONDUCT.md},
-\texttt{docs/user-guide.md}, \texttt{docs/api.md},
-\texttt{docs/architecture-diagrams/}, and this \texttt{docs/academic/} bundle.
-
-\subsection*{Post-submission CI automation (2026-05-24)}
-
-On the same evening as the submission, PR~\#9 (\texttt{612e39e}, ``chore(ci): add
-nightly headless docs-refresh workflow'') introduced \texttt{nightly-docs.yml}: a
-GitHub Actions job that wakes at 02:00~UTC each night, runs Claude Code in headless
-mode with a read-only Bash allowlist, and opens a pull request whenever it finds
-documentation drift against the last 24~hours of commits. The workflow never touches
-\texttt{main} directly.
-
-Two small fixes followed immediately. \texttt{4dfc948} switched the authentication
-method to \texttt{CLAUDE\_CODE\_OAUTH\_TOKEN} (the token type the
-\texttt{claude-code-action} expects), and PR~\#10 (\texttt{58a4811}) granted the
-\texttt{id-token: write} permission that the action requires to mint a GitHub OIDC
-token at startup.
-
-\subsection*{Node 24 Actions upgrade (2026-05-24)}
-
-GitHub announced the retirement of Node 20--based runner actions on 2026-06-02.
-Commit \texttt{01d9c30} (PR~\#12) bumped the three flagged actions
-(\texttt{actions/checkout}, \texttt{actions/setup-python}, \texttt{actions/setup-node})
-to their v6 majors across all four workflows in a single pass. The permissions comment
-in \texttt{nightly-docs.yml} was updated to record why \texttt{id-token: write} is
-required: \texttt{claude-code-action} mints a GitHub OIDC token at startup regardless
-of which model-auth path is active, so the permission is not optional.
-
-\subsection*{Second nightly documentation pass (2026-05-25)}
-
-The nightly documentation-refresh workflow fired for a second time at 02:00~UTC on
-2026-05-25 (commit \texttt{6f940ac}, merged as PR~\#13). This pass recorded the
-Node~24 Actions upgrade (\texttt{01d9c30}) that had landed the previous day: it
-added the corresponding bullet to the \texttt{[Unreleased]} CI section of
-\texttt{CHANGELOG.md}, inserted \texttt{01d9c30} into the pre-release timeline, and
-added the ``Node~24 Actions upgrade'' subsection to this diary. The workflow
-produced no code changes, confirming that its read-only Bash allowlist and
-documentation-only write scope are functioning as intended.
-
-\subsection*{Launcher hardening and production Docker setup (2026-05-28)}
-
-The commits merged as PR~\#16 (\texttt{ed31a92}, \texttt{b8c9332}, \texttt{533dedb})
-substantially hardened \texttt{run.py}. The script now detects whether
-\texttt{stdin} is a TTY before prompting for the Gemini API key, so it does not
-block in CI or other non-interactive contexts. A new \texttt{check\_ports\_free}
-step runs before any server is started and reports which process is holding the
-conflicting port together with a \texttt{kill} hint, replacing a previously silent
-bind failure. Env-file parsing was also improved to strip surrounding quotes and
-inline comments, making \texttt{.env} files written by hand or by other tools
-parse correctly.
-
-\texttt{e1dd918} (``Normalize DB URL and add frontend Dockerfile'') addressed the
-two missing pieces for Railway deployment. \texttt{frontend/Dockerfile.prod}
-provides a multi-stage build that compiles the Vite app with \texttt{VITE\_API\_URL}
-baked in and serves the resulting \texttt{dist/} with an SPA-fallback static server.
-The backend \texttt{Dockerfile} CMD was switched to exec form so Railway's injected
-\texttt{\$PORT} is expanded by the shell rather than passed as a literal string.
-\texttt{psycopg[binary]} was added to \texttt{requirements.txt} for production
-Postgres connectivity, and \texttt{backend/database/connection.py} now normalises
-both the old \texttt{postgresql://} and the new \texttt{postgresql+psycopg://}
-dialect strings at engine-creation time, so existing \texttt{DATABASE\_URL}
-environment variables continue to work without change.
-
-\subsection*{Frontend polish and backtest isolation (2026-05-29)}
-
-The day's work divided into two tracks that shipped in the same afternoon.
-
-The first was a front-end polish sprint. The most visible addition was an interactive
-onboarding tour (\texttt{b3acd7d}): \texttt{OnboardingTour} is mounted once at the app
-root and spotlights one UI element per step. \textit{Active} steps ask the user to
-click the highlighted control before the tour advances, so first-time users learn by
-doing rather than by reading a static help page. The tour is replayable via a ``Replay
-tour'' footer link at any time. A companion commit (\texttt{a7ffe1c}, PR~\#18) replaced
-the per-page ad-hoc spinners across \texttt{NewBacktest}, \texttt{RunResults}, and
-\texttt{Strategies} with a single \texttt{PipelineLoadingScreen} component, and
-\texttt{45dddf4} eliminated a redundant network round-trip by prefetching the completed
-run detail inside \texttt{NewBacktest} and forwarding it via React Router state to
-\texttt{RunResults}, so the results page renders immediately on navigation.
-
-The AI Analyst modal received two related changes. \texttt{6056272} removed the private
-\texttt{MetricsGrid} that had been duplicated inside the modal and replaced it with the
-shared \texttt{MetricsPanel} component, rendered as a top strip with a new
-\texttt{tourHook} prop to suppress the onboarding anchor when mounted inside a modal.
-\texttt{fd57ede} switched the download action from a PDF (which required a synchronous
-\texttt{jsPDF} render pass) to an interactive HTML report produced by
-\texttt{exportReportHtml} (\texttt{38816c3}, PR~\#19). The HTML exporter inlines Plotly
-and the newly added IBM Plex font bundle (WOFF2, self-hosted) so the exported file is
-fully self-contained and viewable offline without a live server.
-
-The second track was backtest isolation (\texttt{1acc780}). Previously
-\texttt{GET /backtests} returned every run in the database, meaning two browsers would
-see each other's history. The fix introduces an anonymous per-browser
-\texttt{client\_id}: \texttt{frontend/src/api/clientId.ts} generates a UUID on first
-load and persists it in \texttt{localStorage}; an Axios interceptor forwards it as
-\texttt{X-Client-Id} on every request. The \texttt{BacktestRun} model gains a
-nullable, indexed \texttt{client\_id} column; \texttt{POST /backtests} persists the
-header value; \texttt{GET /backtests} filters to the caller's runs and returns an
-empty list when the header is absent. A new integration test
-(\texttt{tests/test\_backtest\_isolation.py}) asserts that two clients cannot see each
-other's runs.
-
-\subsection*{PDF export via headless Chromium (2026-06-01)}
-
-Commit \texttt{b7996f6} (PR~\#21) replaced the earlier \texttt{jsPDF} single-pass
-render with a server-side pipeline that produces print-quality A4 output. The
-frontend assembles the full report document client-side using \texttt{exportReportHtml}
-in a dedicated \texttt{"pdf"} mode --- the same utility that powers the interactive
-HTML download --- and then \texttt{POST}s the self-contained HTML to the new
-\texttt{POST /backtests/\{run\_id\}/report.pdf} endpoint. On the backend,
-\texttt{backend/analytics/report\_pdf\_render.py} opens a headless Chromium instance
-via Playwright's synchronous API, feeds it the HTML with \texttt{page.set\_content()},
-waits for the embedded runtime to set \texttt{window.\_\_REPORT\_READY\_\_ = true}
-(signalling that all Plotly figures have finished drawing), activates the report's
-\texttt{@media print} CSS, and calls \texttt{page.pdf()} with A4 dimensions and
-comfortable margins. The result is pixel-identical to the interactive report because
-the same browser engine that displays it also renders it for the PDF.
-
-Playwright is declared as an optional dependency in \texttt{requirements.txt} and its
-\texttt{import} is deferred inside the route handler, so a missing Chromium installation
-degrades only the \texttt{/report.pdf} endpoint and does not affect the rest of the
-application. The production \texttt{Dockerfile} was updated to install the Playwright
-Chromium bundle so the endpoint is available in the Railway deployment without any
-manual setup step. A companion \texttt{PdfSectionsDialog} component lets the user
-choose which sections to include in the rendered document before initiating the download.
-
-\subsection*{Dockerfile base image pinned to bookworm (2026-06-01)}
-
-Commit \texttt{b6718ce} (``Fix backend build: pin base image to
-\texttt{python:3.11-slim-bookworm}'') addressed a build regression introduced by the
-Chromium PDF feature shipped in PR~\#21. The floating \texttt{python:3.11-slim} tag
-had quietly resolved to Debian trixie (13) on the Railway builder, where Playwright
-1.49's \texttt{playwright install -{}-with-deps chromium} step fails because two font
-packages have been renamed between Debian 12 and 13 (\texttt{ttf-unifont} and
-\texttt{ttf-ubuntu-font-family}). Pinning the image to
-\texttt{python:3.11-slim-bookworm} (Debian~12, which Playwright's own test matrix
-covers) restored the build. A \texttt{\# Don't un-pin} comment was added in the
-\texttt{Dockerfile} to record the reason for future contributors. This is a good
-illustration of why production Dockerfiles should pin to an explicit OS image and not
-rely on the ``latest minor'' behaviour of a floating tag.
-
-\subsection*{Mobile-responsive navigation and UI (2026-06-01)}
-
-Commit \texttt{b9414a7} (``Add responsive mobile nav and UI improvements'') introduced
-mobile-first navigation to the frontend. The two principal additions are
-\texttt{MobileNav}, a drawer + fixed top bar that collapses the \texttt{SideNav} on
-narrow viewports, and \texttt{ScrollHint}, a thin wrapper that adds a scroll-affordance
-cue to horizontally overflowing tables and the monthly returns heatmap.
-
-Beyond navigation, the commit applied a systematic mobile-friendliness pass to nearly
-every component on the results page: minimum touch-target sizes on interactive elements,
-\texttt{touchAction: pan-y} on Plotly figures to prevent scroll capture, responsive grid
-layouts in \texttt{MetricsPanel} and \texttt{TradeList}, and clamped font/dimension sizes
-so the dense KPI grid remains legible on a phone without horizontal overflow. The
-\texttt{viewport-fit=cover} meta tag was added to \texttt{index.html} to honour safe-area
-insets on notched iOS/Android devices.
-
-The design principle behind this change was \emph{additive responsiveness}: all
-breakpoints are expressed via Tailwind's responsive prefix system, so the desktop layout
-is unchanged and mobile improvements layer on top rather than forking a separate code
-path.
-
-\subsection*{Nightly documentation pass (2026-06-02)}
-
-The nightly documentation-refresh workflow fired at 02:00~UTC on 2026-06-02 (commit
-\texttt{57b0e6c}, merged as PR~\#23). This pass caught the two changes that had landed
-on 2026-06-01 after the previous refresh window: the Dockerfile base-image pin
-(\texttt{b6718ce}) and the mobile-responsive navigation overhaul (\texttt{b9414a7}).
-Both were recorded in \texttt{CHANGELOG.md} (new \texttt{Fixed} entry and an extended
-\texttt{Added} bullet respectively) and in this diary (the preceding two subsections).
-Additionally, \texttt{docs/user-guide.md}'s ``Click New Backtest'' step was updated to
-mention the mobile navigation drawer for phone and tablet users. No code was modified.
-
-\subsection*{Print path hardening (2026-06-03)}
-
-Commit \texttt{1ebcae4} (``Add print sizing and \_\_printReport'') fixed a cluster of
-print-quality defects in the self-contained HTML report produced by
-\texttt{exportReportHtml}.
-
-The root cause was a mismatch between how Plotly sizes charts on screen (responsive,
-typically $\approx 900$~px wide) and the A4 print content column ($\approx 580$~px). When
-the user triggered \texttt{window.print()}, Plotly's \texttt{ResizeObserver} did not refire
-for the narrower print viewport, so charts overflowed and were clipped. Safari aggravated
-the problem further: it fires the \texttt{beforeprint} event \emph{before} switching to
-\texttt{@media print}, so a resize triggered there was still measured against the full
-screen viewport rather than the page column. An unrelated Safari bug rendered the entire
-print job blank when \texttt{.doc} carried \texttt{overflow: hidden}.
-
-The fix introduces \texttt{window.\_\_printReport}: clicking ``Print / Save as PDF'' now
-calls \texttt{Plotly.relayout} on every figure with explicit \texttt{width: 580} and
-\texttt{height: 300} (360 for taller charts) before invoking \texttt{window.print()} with
-a 250~ms settling delay, giving Plotly time to commit the resized SVGs before the browser
-snapshot. Because the resize is \emph{explicit} rather than container-driven, it is
-independent of when the browser switches media query. After the dialog closes,
-\texttt{sizeForScreen} calls \texttt{Plotly.relayout} with \texttt{autosize: true} and
-fires \texttt{Plots.resize} to restore the full-width interactive layout.
-\texttt{beforeprint}/\texttt{afterprint} listeners apply the same sequence when the user
-presses \keystroke{Cmd/Ctrl + P} directly.
-
-CSS changes accompanied the runtime fix: \texttt{overflow: visible} was set on
-\texttt{.doc} in \texttt{@media print}, the monthly-returns heatmap received
-\texttt{width: 100\%; table-layout: fixed; font-size: 8.5px} so all 14 columns
-(label + 12 months + Year) fit without clipping, and an \texttt{@page \{ size: A4;
-margin: 12mm \}} rule pinned the paper format rather than relying on the user's browser
-default.
-
-\subsection*{Nightly documentation pass (2026-06-04)}
-
-The nightly documentation-refresh workflow fired at 02:00~UTC on 2026-06-04. This pass
-caught commit \texttt{1ebcae4} (``Add print sizing and \_\_printReport'') by Filippo
-Selmi, which had landed on 2026-06-03 after the previous nightly window closed. The
-commit was recorded in \texttt{CHANGELOG.md} (new \texttt{Changed} entry under
-\texttt{[Unreleased]} and a pre-release timeline bullet in the Week of 2026-06-01 block)
-and in the preceding diary subsection. No code was modified.
-
-\subsection*{GitHub nickname and macro fix (2026-06-05)}
-
-Commit \texttt{855c0a6} (``added github nickname'') by Stefano Angelo Galdini made two
-changes to \texttt{docs/academic/main.tex}. First, it added the missing
-\texttt{\textbackslash keystroke} macro definition --- a thin \texttt{\textbackslash fbox}
-wrapper that typesets keyboard shortcuts as outlined boxes --- which had been used in the
-project diary since the print-hardening subsection (\texttt{1ebcae4}) but was never declared
-in the preamble, causing a compile error on a fresh \LaTeX{} toolchain. Second, it added
-Stefano's GitHub handle \texttt{[SAGaldini]} to the cover-page author list, matching the
-format already used by the other three contributors. The \texttt{CHANGELOG.md} Contributors
-table was updated accordingly: the handle column changes from ``\textit{commits under real
-name; no separate handle}'' to \texttt{SAGaldini} and the non-merge commit count advances
-from 6 to~7.
-
-\subsection*{Nightly documentation pass (2026-06-05)}
-
-The nightly documentation-refresh workflow fired at 02:00~UTC on 2026-06-05. This pass
-caught commit \texttt{855c0a6} (``added github nickname and updated report'') by Stefano
-Angelo Galdini, which had landed on 2026-06-05 after the previous nightly window closed.
-The commit was recorded in \texttt{CHANGELOG.md} (a new pre-release timeline bullet in the
-Week of 2026-06-01 block, updated GitHub handle and commit count in the Contributors table,
-and the ``last verified'' date bumped to 2026-06-05) and in the preceding diary subsection.
-No code was modified.
-
-\subsection*{Nightly documentation pass (2026-06-06)}
-
-The nightly documentation-refresh workflow fired at 02:00~UTC on 2026-06-06. The only
-commits in the preceding 24-hour window were the automated documentation commit
-\texttt{1de8ab2} (``chore(docs): nightly auto-refresh 2026-06-05'', merged as PR~\#27)
-and its merge commit. Both are documentation-only changes produced by the previous
-nightly run; no new code or feature work landed in this window. This pass therefore
-records only the nightly commit itself in \texttt{CHANGELOG.md} (pre-release timeline
-bullet in the Week of 2026-06-01 block) and in this subsection. No code was modified.
-
-\subsection*{Nightly documentation pass (2026-06-07)}
-
-The nightly documentation-refresh workflow fired at 02:00~UTC on 2026-06-07. The only
-commits in the preceding 24-hour window were the automated documentation commit
-\texttt{57c8425} (``chore(docs): nightly auto-refresh 2026-06-06'', merged as PR~\#28)
-and its merge commit. Both are documentation-only changes produced by the previous
-nightly run; no new code or feature work landed in this window. This pass therefore
-records only the nightly commit itself in \texttt{CHANGELOG.md} (pre-release timeline
-bullet in the Week of 2026-06-01 block) and in this subsection. No code was modified.
-
-\subsection*{Mobile banner, project rebrand, and launcher refinement (2026-06-07)}
-
-Three commits landed on 2026-06-07 and were merged as PR~\#30.
-
-Commit \texttt{7ca67e8} (``Add mobile banner and disable tour on mobile'') introduced
-\texttt{MobileDesktopBanner}, a non-dismissible section rendered only when the viewport
-is below the desktop breakpoint ($<1024$~px). The banner lists the three headline
-features --- backtesting, chart inspection, and KPI analysis --- and directs mobile
-users to switch to a laptop or desktop for the full experience. A companion
-\texttt{useIsMobile} hook provides the media-query subscription; it deliberately mirrors
-the single breakpoint already used by \texttt{MobileNav} so there is one canonical
-definition of ``mobile'' in the codebase. The \texttt{OnboardingTour} and the SideNav
-``Replay tutorial'' button are both suppressed when \texttt{isMobile} is true, since the
-tour spotlights elements that are either hidden or repositioned on narrow viewports.
-
-Commit \texttt{da11eaf} (``Rebrand QuantBacktest to QuantEdge'') performed a project-wide
-name change. All occurrences of the old name were replaced in a single commit spanning
-documentation (\texttt{README.md}, \texttt{ARCHITECTURE.md}, \texttt{CLAUDE.md},
-\texttt{ONBOARDING.md}, \texttt{AGENTS.md}, \texttt{CHANGELOG.md}, \texttt{CITATIONS.md},
-\texttt{CONTRIBUTING.md}, \texttt{SECURITY.md}, \texttt{CODE\_OF\_CONDUCT.md}), the
-academic \LaTeX{} bundle, \texttt{docs/api.md}, \texttt{docs/strategies.md},
-\texttt{docs/user-guide.md}, \texttt{docs/architecture-diagrams/*.mmd},
-\texttt{frontend/index.html} (page title), \texttt{frontend/package.json},
-\texttt{pyproject.toml}, \texttt{docker-compose.yml} service names,
-\texttt{backend/config.py}, \texttt{backend/main.py}, and
-\texttt{backend/analytics/report\_pdf.py}. This is a cosmetic change only: no APIs,
-schemas, database columns, or test assertions were altered.
-
-Commit \texttt{a0b8ac2} (``Check ports early to fail fast'') made a targeted improvement
-to \texttt{run.py}. In earlier versions the port-availability check for \texttt{:8000}
-and \texttt{:5173} happened late in the startup sequence, after the virtual environment
-was created, dependencies were installed, and the user had responded to any interactive
-prompts. A port conflict discovered at that point wasted several minutes of setup work.
-The fix moves \texttt{check\_ports\_free} to the second step of \texttt{main()},
-immediately after the Python/Node version check, so the script aborts in under a second
-if either port is already in use. The duplicate call that had been placed later in the
-function was removed. A top-level comment documents the seven startup phases in order so
-the execution sequence is self-evident at a glance.
-
-\subsection*{Nightly documentation pass (2026-06-08)}
-
-The nightly documentation-refresh workflow fired at 02:00~UTC on 2026-06-08. The
-24-hour window contained three commits merged as PR~\#30: \texttt{7ca67e8} (mobile banner
-and tour suppression on mobile), \texttt{da11eaf} (project-wide rebrand from QuantBacktest
-to QuantEdge), and \texttt{a0b8ac2} (early port-conflict check in \texttt{run.py}). This
-pass recorded those commits in \texttt{CHANGELOG.md} (new entries in the
-\texttt{[Unreleased]} Added and Changed sections, and four pre-release timeline bullets in
-the Week of 2026-06-01 block) and in the preceding diary subsection.
-\texttt{docs/user-guide.md} was updated to mention the mobile banner in the navigation
-overview. No code was modified.
-
-\subsection*{Nightly documentation pass (2026-06-09)}
-
-The nightly documentation-refresh workflow fired at 02:00~UTC on 2026-06-09. The only
-commits in the preceding 24-hour window were the automated documentation commit
-\texttt{0f485e4} (``chore(docs): nightly auto-refresh 2026-06-08'', merged as PR~\#31)
-and its merge commit. Both are documentation-only changes produced by the previous
-nightly run; no new code or feature work landed in this window. This pass therefore
-records only the nightly commit itself in \texttt{CHANGELOG.md} (pre-release timeline
-bullet in the Week of 2026-06-01 block) and in this subsection. No code was modified.
-
-\subsection*{Nightly documentation pass (2026-06-10)}
-
-The nightly documentation-refresh workflow fired at 02:00~UTC on 2026-06-10. The only
-commits in the preceding 24-hour window were the automated documentation commit
-\texttt{e7fbd8c} (``chore(docs): nightly auto-refresh 2026-06-09'', merged as PR~\#32)
-and its merge commit. Both are documentation-only changes produced by the previous
-nightly run; no new code or feature work landed in this window. This pass therefore
-records only the nightly commit itself in \texttt{CHANGELOG.md} (pre-release timeline
-bullet in the Week of 2026-06-01 block) and in this subsection. No code was modified.
+Across the project's second half, from 2026-05-25, the nightly workflow fired
+every night, producing 15 merged PRs through \#33. On nights following human
+commits it recorded them in \texttt{CHANGELOG.md}, this diary, and the user
+guide; on quiet nights it recorded only the previous nightly commit itself. No
+nightly run ever modified code, confirming that the documentation-only write
+scope and read-only Bash allowlist behave as designed. The final pass spanned
+2026-06-11--12: it populated Table~\ref{tab:results} from a backtest executed
+against the final codebase, captured the user-guide screenshots from a live local
+instance, brought the architecture documentation in line with the project's five
+agents and ten strategies, added the deployed web-app URL, compressed this diary
+\textemdash{} which nightly appends had grown well past the rubric's page budget
+\textemdash{} and recompiled this PDF for the 2026-06-12 submission.
 
 \subsection*{Nightly documentation pass (2026-06-12)}
 
@@ -448,21 +136,14 @@ bullet in the Week of 2026-06-01 block) and in this subsection. No code was modi
 
 \subsection*{Things we tried and abandoned}
 
-A few decisions did not survive the four weeks:
+A few decisions did not survive the project:
 
 \begin{itemize}
   \item \textbf{Asynchronous backtest submission.} The first design queued runs and
         polled status via WebSocket. We backed it out because synchronous \texttt{POST}
         worked well enough at v1 scale and removed an entire layer of state to debug.
-        The Dashboard still polls \texttt{GET /backtests} every five seconds so it
-        will surface any future async-submission feature without UI changes.
   \item \textbf{Postgres in development from day one.} We initially set up Docker
         Compose with Postgres but it slowed local iteration noticeably. SQLite became
         the default and the schema was kept on SQLAlchemy generic types so a
         \texttt{DATABASE\_URL} swap reaches Postgres without code changes.
-  \item \textbf{LLM tool-use via the provider SDK's native function calling.} The
-        Orchestrator Agent now parses tool calls from a JSON envelope in the model
-        output rather than relying on Gemini's native function-calling API, because
-        the latter is not directly portable to other providers. The cost is a
-        small parsing step; the benefit is provider-agnostic tool dispatch.
 \end{itemize}

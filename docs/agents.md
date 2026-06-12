@@ -1,18 +1,17 @@
 # Agents
 
-Six specialized agents wire the deterministic services and the LLM
+Five specialized agents wire the deterministic services and the LLM
 services into a coherent system. Four agents are deterministic and
-always run; two are LLM-backed and operate in demo mode (`NullProvider`)
+always run; one is LLM-backed and operates in demo mode (`NullProvider`)
 unless Gemini is configured via env.
 
 | # | Agent | Mode | Real operations (dispatch by `op`) |
 |---|---|---|---|
-| 1 | Orchestrator | LLM (demo by default) | one op — `user_message → final_answer` via a Python tool-use loop calling the five agents below |
-| 2 | Data | deterministic | `refresh`, `freshness`, `list_assets` |
-| 3 | Strategy | deterministic | `list`, `build`, `walk_forward_split` |
-| 4 | Backtest | deterministic | one op — run a single backtest end-to-end and persist trades / equity / metrics / benchmark curves |
-| 5 | Analytics | deterministic | `metrics`, `chart` (5 kinds: `equity, drawdown, heatmap, trade_pnl, rolling_sharpe`), `benchmark_metrics` |
-| 6 | Explanation | LLM (demo by default) | `explain_metric`, `explain_strategy`, `compare_runs`, `answer_question`, `report_run` (+ persisted report cache) |
+| 1 | Data | deterministic | `refresh`, `freshness`, `list_assets` |
+| 2 | Strategy | deterministic | `list`, `build`, `walk_forward_split` |
+| 3 | Backtest | deterministic | one op — run a single backtest end-to-end and persist trades / equity / metrics / benchmark curves |
+| 4 | Analytics | deterministic | `metrics`, `chart` (5 kinds: `equity, drawdown, heatmap, trade_pnl, rolling_sharpe`), `benchmark_metrics` |
+| 5 | Explanation | LLM (demo by default) | `explain_metric`, `explain_strategy`, `compare_runs`, `answer_question`, `report_run` (+ persisted report cache) |
 
 ## Common contract
 
@@ -28,24 +27,16 @@ to a 400/500 response.
 
 ## When to call an agent vs an inline service
 
-The agents are coordinated by the Orchestrator (when LLM is on) or by the
-API routes directly (in v1). For very simple deterministic operations the
-API can call into the underlying service directly — e.g. listing
-strategies just iterates `STRATEGY_REGISTRY`. Use an agent when the
-operation needs:
+The agents are coordinated by the API routes directly. For very simple
+deterministic operations the API can call into the underlying service
+directly — e.g. listing strategies just iterates `STRATEGY_REGISTRY`. Use
+an agent when the operation needs:
 
 - Database access
 - Multiple steps (e.g. fetch + clean + store)
 - A natural place to log structured events
-- Future LLM tool-use (the Orchestrator dispatches by agent name)
 
 ## Implementation notes per agent
-
-### Orchestrator
-
-Receives a natural-language request as `OrchestratorInput(user_message, history, max_steps=8)` and returns `OrchestratorOutput(final_answer, steps)`. The tool-use loop is real Python: it parses tool calls from the LLM response via JSON extraction (provider-agnostic; not the SDK's native function-calling), dispatches them to the other five agents, feeds the result back, and continues until the LLM emits a final answer or `max_steps` is exhausted.
-
-By default the orchestrator short-circuits because `backend/config.py` defaults to `LLM_ENABLED=false`, so the API exposes the structured endpoints directly. Flipping `LLM_ENABLED=true` (which `.env.example` already does) plus supplying `LLM_PROVIDER=gemini` + `GEMINI_API_KEY` activates it without touching application code.
 
 ### Data Agent
 
@@ -59,7 +50,7 @@ By default the orchestrator short-circuits because `backend/config.py` defaults 
 
 Stateless utility wrapping `backend.strategies`. No DB access. Three ops:
 
-- `list` — return metadata for all 11 registered strategies (slug, name, description, category, JSON Schema for params).
+- `list` — return metadata for the registered strategies (slug, name, description, category, JSON Schema for params). The public `/strategies` endpoint serves the 10 selectable strategies; the buy-and-hold entry is benchmark-only and hidden from the picker.
 - `build` — instantiate a strategy from `(slug, params)`, validating `params` against the strategy's Pydantic `config_cls`.
 - `walk_forward_split` — chronological train/test split of a bars DataFrame; validates `0.1 < train_pct < 0.9`.
 

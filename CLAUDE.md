@@ -35,7 +35,11 @@ reads `.github/prompts/nightly-doc-update.md` and opens a PR titled
 ## Common commands
 
 ```bash
-# Backend
+# One-command setup + launch (creates venv, installs deps, writes .env, prompts
+# for the Gemini key, inits DB, loads data, starts backend :8000 + frontend :5173)
+python run.py            # flags: --no-data --no-browser --reload-data --reset-key --reset-venv --exit-after-health
+
+# Manual step-by-step (what run.py automates; useful for debugging one stage)
 python -m venv .venv && source .venv/bin/activate   # Win: py -m venv .venv; .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 cp .env.example .env                       # Win: Copy-Item .env.example .env
@@ -65,7 +69,7 @@ npm run build                              # production build
 | `backend/config.py` | Single source of truth for env-driven settings |
 | `backend/database/models.py` | All SQLAlchemy tables — **the schema lives here** |
 | `backend/database/connection.py` | Engine + `get_session()` dependency |
-| `backend/agents/` | The 6 specialized agents |
+| `backend/agents/` | The 5 runtime agents (Data, Strategy, Backtest, Analytics, Explanation); `orchestrator.py` is dormant scaffolding, not on the request path |
 | `backend/llm/` | LLMProvider abstraction (`base`, `null_provider`, `gemini_provider`) |
 | `backend/data/fetchers/` | One file per data source (`equity_fetcher.py`, etc.) |
 | `backend/data/cleaner.py` | OHLCV validation, gap fill, NYSE calendar reindex |
@@ -198,4 +202,4 @@ Search for `# TODO:` markers — most are tied to v1.1+ features (walk-forward U
 
 ---
 
-_Last verified against code: 2026-05-24._
+_Last verified against code: 2026-06-11._

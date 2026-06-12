@@ -15,7 +15,7 @@ that makes the rigorous path the easy one.
 
 \subsection{Scope}
 
-The system delivered in this submission (\texttt{v1.0.0-rc1}, tagged 2026-05-24)
+The system delivered for the 2026-06-12 submission (\texttt{v1.0.0})
 provides:
 
 \begin{itemize}
@@ -24,12 +24,12 @@ provides:
   \item Daily and hourly bar resolution, each indexed against the \emph{native}
         trading calendar of its asset class (NYSE for equities and ETFs, 24$\times$5
         for FX, 24$\times$7 for crypto).
-  \item Eleven strategies across five families (trend, momentum, breakout,
-        mean-reversion, benchmark), each implementing a uniform signal contract.
+  \item Ten strategies across four families (trend, momentum, breakout,
+        mean-reversion), each implementing a uniform signal contract.
   \item An event-driven backtest engine that enforces look-ahead-bias prevention by
         construction.
-  \item Configurable commission (bps), slippage (bps or ATR-scaled), and
-        position-sizing modes (fixed fraction or volatility-targeted).
+  \item Configurable commission (bps), slippage (bps), and fixed-fraction
+        position sizing.
   \item Standard performance dashboard: equity curve, drawdown, monthly heatmap,
         trade-P\&L scatter, rolling Sharpe, full KPI grid.
   \item Buy-and-hold and SPY benchmark overlays computed and persisted at run time.
@@ -44,32 +44,32 @@ documented in the roadmap section of \texttt{README.md} as candidates for v1.1+.
 \subsection{Tech-stack rationale}
 
 The choices reflect a preference for tools that minimise the gap between the
-production-leaning quality the rubric expects and the four-week timeline the
+production-leaning quality the rubric expects and the timeline the
 academic calendar allows:
 
 \begin{itemize}
   \item \textbf{Python 3.11+ / FastAPI / SQLAlchemy 2 / Pydantic v2} on the backend.
-        FastAPI gives us OpenAPI for free (the live schema at \texttt{/openapi.json}
-        is the source of truth for the typed frontend client). SQLAlchemy's generic
-        types let the same schema run on SQLite in development and on PostgreSQL in
+        FastAPI gives us OpenAPI for free (the live \texttt{/openapi.json} schema is
+        the source of truth for the typed frontend client); SQLAlchemy's generic
+        types let the same schema run on SQLite in development and PostgreSQL in
         production via a single \texttt{DATABASE\_URL} switch.
   \item \textbf{React 18 + TypeScript + Vite + TailwindCSS + Plotly.js} on the
-        frontend. Plotly produces interactive charts without manual SVG plumbing;
-        TypeScript catches schema mismatches against the OpenAPI-typed client.
+        frontend: interactive charts without manual SVG plumbing, and compile-time
+        schema checking against the OpenAPI-typed client.
   \item \textbf{pytest + Vitest} for tests. The single most important test is
         \texttt{tests/test\_engine\_no\_lookahead.py}, which injects an oracle
         strategy that ``knows'' the future close \textemdash{} the engine must still
         only let it trade at next-bar open.
-  \item \textbf{LLM via a provider abstraction.} \texttt{LLMProvider} (in
-        \texttt{backend/llm/base.py}) has two implementations: \texttt{NullProvider}
-        (deterministic, used by tests) and \texttt{GeminiProvider} (Google Gemini,
-        opt-in). LLM features are off by default.
+  \item \textbf{LLM via a provider abstraction:} \texttt{LLMProvider} with a
+        deterministic \texttt{NullProvider} (used by tests) and an opt-in
+        \texttt{GeminiProvider}; LLM features are off by default.
 \end{itemize}
 
-\subsection{Four-week timeline}
+\subsection{Project timeline}
 
-The project ran from 2026-04-25 (initial commit) to 2026-05-24 (documentation pass
-and submission), staffed by four contributors. Targets per week:
+The project ran from 2026-04-25 (initial commit) to 2026-06-12 (final submission),
+staffed by four contributors. The first four weeks built a feature-complete
+release candidate; the rest hardened, deployed, and polished it to the deadline:
 
 \begin{itemize}
   \item \textbf{Week~1 \textemdash{} 2026-04-27 to 2026-05-03.} Scaffold the
@@ -83,10 +83,11 @@ and submission), staffed by four contributors. Targets per week:
         export of the AI report.
   \item \textbf{Week~4 \textemdash{} 2026-05-18 to 2026-05-24.} Data-layer
         hardening (yfinance as primary across all classes); strategy catalogue
-        expansion from 5 to 11; benchmark overlays; shared crosshair and legend;
-        CI workflows; full documentation pass.
+        expansion from 5 to 10; benchmark overlays; shared crosshair and legend;
+        CI workflows; interim documentation pass.
+  \item \textbf{Weeks~5--7 \textemdash{} 2026-05-25 to 2026-06-12.} Deployment and
+        operational hardening (one-command launcher, Docker/Railway, per-browser
+        run isolation); a print-quality headless-Chromium PDF pipeline; the
+        QuantEdge rebrand; a nightly documentation-refresh workflow; and the final
+        results/screenshots/recompile pass.
 \end{itemize}
-
-The four-contributor team meant any single week's deliverable could be split across
-two pairs (frontend + backend), which is reflected in the merge-PR history in
-Section~\ref{sec:diary}.

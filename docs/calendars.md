@@ -99,7 +99,7 @@ you want a different policy.
 
 ## Annualization lookup
 
-Vol, Sharpe, Sortino, and the `VOL_TARGET` sizing mode all need a
+Vol, Sharpe, and Sortino all need a
 "periods per year" factor that depends on **both** the bar timeframe and
 the asset class's native calendar. The canonical lookup is
 `backend/analytics/periods.py:periods_per_year(timeframe, asset_class)`:

@@ -1,11 +1,9 @@
 \section{Methodology: economics, mathematics, data science}
 \label{sec:methodology}
 
-This section makes the project's analytical contract precise. We define the
-event-driven backtest semantics that enforce look-ahead-bias prevention, write the
-KPI formulas in their general form with the per-asset-class annualisation factor,
-explain why each asset class uses its native trading calendar, summarise the
-strategy taxonomy, and motivate the LLM-provider abstraction.
+This section makes the project's analytical contract precise: the event-driven
+backtest semantics, the KPI formulas with their per-asset-class annualisation
+factor, the strategy taxonomy, and the LLM-provider abstraction.
 
 \subsection{Event-driven backtest semantics and look-ahead bias}
 \label{sec:lookahead}
@@ -27,17 +25,12 @@ In pseudocode the engine loop is:
 
 \begin{lstlisting}[language=Python]
 for t in range(len(bars)):
-    # 1. Generate the target position from data up to and including bar t.
+    # Target position from data up to and including bar t.
     target = strategy.generate_signals(bars[:t+1]).iloc[t]   # in {-1, 0, 1}
-
-    # 2. If t == len(bars) - 1 there is no t+1 open to fill at; skip.
-    if t == len(bars) - 1: break
-
-    # 3. Decide order from delta (target - current).
+    if t == len(bars) - 1: break       # no t+1 open to fill at
     delta = target - portfolio.current_position
     if delta == 0: continue
-
-    # 4. Fill at bar (t+1) open. Apply slippage and commission.
+    # Fill at bar (t+1) open, applying slippage and commission.
     fill_price = bars.iloc[t+1].open * (1 + sign(delta) * slippage_bps / 10_000)
     commission = abs(delta * portfolio.size) * fill_price * commission_bps / 10_000
     portfolio.apply(delta, fill_price, commission)
@@ -45,10 +38,8 @@ for t in range(len(bars)):
 
 The signal contract is uniformly \texttt{pd.Series[int]} with values in
 $\{-1, 0, +1\}$ for ``short, flat, long''. Strategies do not multiply their own
-signals by a position-size factor; the engine handles sizing via either
-\emph{fixed fractional} (a fraction of equity per trade) or \emph{volatility
-targeting} (inverse ATR scaling). A circuit-breaker stops the run if equity draws
-down beyond a user-supplied threshold.
+signals by a position-size factor; the engine handles sizing via
+\emph{fixed fractional} allocation (a fraction of equity per trade).
 
 \subsection{Performance metrics}
 \label{sec:kpi}
@@ -129,9 +120,9 @@ count slightly; the lookup is calibrated against the
 
 \subsection{Strategy taxonomy}
 
-The eleven shipped strategies populate five families. Each family responds well to a
-different market regime, which is the explicit pedagogical motive for shipping the
-breadth: running them side-by-side makes the regime sensitivity of each visible.
+The ten shipped strategies populate four families. Each family responds to a
+different market regime; running them side-by-side makes that regime sensitivity
+visible, which is the explicit pedagogical motive for shipping the breadth.
 
 \begin{itemize}
   \item \textbf{Trend} (SMA Crossover \cite{pardo2008}, MACD Crossover \cite{appel2005},
@@ -143,25 +134,25 @@ breadth: running them side-by-side makes the regime sensitivity of each visible.
   \item \textbf{Mean reversion} (Bollinger \cite{bollinger2001}, CCI \cite{lambert1980},
         RSI \cite{wilder1978}, Stochastic Oscillator \cite{lane1984}): trade fades within
         range-bound regimes; bleed in trends.
-  \item \textbf{Benchmark} (Buy and Hold): always long; serves as the reference both
-        for active strategies and for the on-chart same-asset overlay.
 \end{itemize}
 
-All eleven strategies share the same signal contract and therefore the same engine
-path. Adding a twelfth is a single-file change plus a registry edit; the frontend's
-parameter form regenerates from the new JSON Schema with no UI work required.
+A buy-and-hold curve (always long) is computed alongside every run as the
+reference overlay, but it is not one of the four families and is not selectable
+as a strategy in its own right.
+
+All ten strategies share the same signal contract and therefore the same engine
+path. Adding an eleventh is a single-file change plus a registry edit; the frontend's
+parameter form regenerates from the new JSON Schema.
 
 \subsection{The LLM-provider abstraction}
 
-Two of the six runtime agents \textemdash{} the Orchestrator and the Explanation
-Agent \textemdash{} are LLM-backed. Every call they make goes through
-\texttt{LLMProvider.generate(\ldots)} in \texttt{backend/llm/base.py}. Two
-implementations ship: \texttt{NullProvider}, which returns deterministic canned
-text, and \texttt{GeminiProvider}, which calls Google's Gemini API. Three reasons
-justify the abstraction. First, the test suite uses \texttt{NullProvider}
-exclusively, so tests are reproducible without an API key. Second, switching
-provider is a one-line config change rather than a code change; this is the
-practical insurance against vendor lock-in. Third, the abstraction makes the
-project's policy explicit: \emph{the deterministic surface of the product is the
-default}, and any non-determinism is a conscious opt-in by the operator
+The Explanation Agent \textemdash{} the one LLM-backed agent of the five
+\textemdash{} routes every call it makes through
+\texttt{LLMProvider.generate(\ldots)}. Two implementations ship:
+\texttt{NullProvider} (deterministic canned text) and \texttt{GeminiProvider}
+(Google's Gemini API). The abstraction earns its keep three ways: tests use
+\texttt{NullProvider} exclusively and stay reproducible without an API key;
+switching provider is a config change, not a code change; and it makes the
+project's policy explicit \textemdash{} \emph{the deterministic surface is the
+default}, and any non-determinism is a conscious operator opt-in
 (\texttt{LLM\_ENABLED=true} plus a populated \texttt{GEMINI\_API\_KEY}).

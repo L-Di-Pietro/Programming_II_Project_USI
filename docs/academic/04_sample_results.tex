@@ -1,12 +1,12 @@
 \section{Sample results and economic reflection}
 \label{sec:results}
 
-This section reports a representative backtest, contextualises it against the two
-benchmark overlays the system computes automatically, and reflects on what the
+This section reports a representative backtest, contextualises it against the
+benchmark overlay the system computes automatically, and reflects on what the
 result implies about the strategy's regime sensitivity. The numeric cells in
-Table~\ref{tab:results} are populated by the team from a run they execute
-themselves, so the table represents the actual code path rather than a fabricated
-example.
+Table~\ref{tab:results} are taken from a run executed against the final codebase
+on 2026-06-11, so the table represents the actual code path rather than a
+fabricated example.
 
 \subsection{Run methodology}
 
@@ -16,92 +16,92 @@ daily bars (\texttt{timeframe="1d"}). Strategy parameters:
 \texttt{fast\_window=20}, \texttt{slow\_window=50}, \texttt{allow\_short=false}.
 Execution parameters: \texttt{initial\_cash=10\,000}, \texttt{commission\_bps=5},
 \texttt{slippage\_bps=2}, \texttt{sizing\_mode="fixed\_fraction"},
-\texttt{risk\_fraction=1.0}, no max-DD circuit breaker. The annualisation factor
+\texttt{risk\_fraction=1.0}. The annualisation factor
 is $k=252$ (NYSE daily, Section~\ref{sec:calendars}).
 
 \paragraph{Reproducibility.} The exact API call:
 
 \begin{lstlisting}[language=bash]
-curl -s -X POST http://127.0.0.1:8000/backtests \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "asset_symbol": "SPY",
-    "strategy_slug": "sma-crossover",
-    "start_date":   "2020-01-01T00:00:00",
-    "end_date":     "2024-12-31T00:00:00",
-    "params":       {"fast_window": 20, "slow_window": 50, "allow_short": false},
-    "timeframe":    "1d"
-  }'
+curl -s -X POST http://127.0.0.1:8000/backtests -H 'Content-Type: application/json' \
+  -d '{"asset_symbol": "SPY", "strategy_slug": "sma-crossover",
+       "start_date": "2020-01-01T00:00:00", "end_date": "2024-12-31T00:00:00",
+       "params": {"fast_window": 20, "slow_window": 50, "allow_short": false},
+       "timeframe": "1d"}'
 \end{lstlisting}
 
-Then \texttt{GET /backtests/\{run\_id\}/metrics} and the two
-\texttt{/benchmark/\{kind\}/metrics} endpoints supply the table values.
+Then \texttt{GET /backtests/\{run\_id\}/metrics} and
+\texttt{GET /backtests/\{run\_id\}/benchmark/buy\_and\_hold/metrics} supply the
+table values. Because the traded asset here \emph{is} SPY, the same-asset and
+S\&P~500 overlays would coincide, so \texttt{BacktestAgent} deliberately persists
+only the former; runs on any other asset carry both.
 
 \subsection{Results table}
-
-\todo[inline]{TEAM: replace the \emph{TBD} cells in Table~\ref{tab:results} below
-with the numbers your actual run returned. The table compiles either way; the
-TBDs make the gap visible to a reviewer.}
 
 \begin{table}[ht]
 \centering
 \small
 \renewcommand{\arraystretch}{1.2}
-\begin{tabular}{lccc}
+\begin{tabular}{lcc}
 \toprule
-\textbf{Metric} & \textbf{SMA Crossover} & \textbf{Same-asset B\&H} & \textbf{SPY B\&H} \\
+\textbf{Metric} & \textbf{SMA Crossover} & \textbf{Buy-and-hold (SPY)} \\
 \midrule
-Total return       & \textit{TBD} & \textit{TBD} & \textit{TBD} \\
-CAGR               & \textit{TBD} & \textit{TBD} & \textit{TBD} \\
-Annualised vol     & \textit{TBD} & \textit{TBD} & \textit{TBD} \\
-Sharpe             & \textit{TBD} & \textit{TBD} & \textit{TBD} \\
-Sortino            & \textit{TBD} & \textit{TBD} & \textit{TBD} \\
-Max drawdown       & \textit{TBD} & \textit{TBD} & \textit{TBD} \\
-Calmar             & \textit{TBD} & \textit{TBD} & \textit{TBD} \\
-Trade count        & \textit{TBD} & 1 & 1 \\
-Win rate           & \textit{TBD} & --- & --- \\
-Profit factor      & \textit{TBD} & --- & --- \\
+Total return          & 51.2\%        & 96.6\% \\
+CAGR                  & 8.6\%         & 14.5\% \\
+Annualised vol        & 12.5\%        & 21.0\% \\
+Sharpe                & 0.73          & 0.75 \\
+Sortino               & 1.08          & 1.16 \\
+Max drawdown          & $-27.9\%$     & $-33.7\%$ \\
+Max drawdown duration & 1\,093 days   & 173 days \\
+Calmar                & 0.31          & 0.43 \\
+Trade count           & 25            & --- \\
+Win rate              & 20.0\%        & --- \\
+Profit factor         & 2.20          & --- \\
 \bottomrule
 \end{tabular}
-\caption{KPIs for the representative SMA-crossover run, alongside the two
-benchmark overlays computed automatically by \texttt{BacktestAgent}. Trade-block
-cells are dashed for benchmarks (buy-and-hold has only one entry and one exit).
-Cells marked \emph{TBD} are filled in by the team from the actual run.}
+\caption{KPIs for the representative SMA-crossover run, alongside the
+buy-and-hold benchmark overlay computed automatically by \texttt{BacktestAgent}.
+Trade-block cells are dashed for the benchmark: the overlay is an equity curve,
+not a traded portfolio, so trade statistics are not computed for it.}
 \label{tab:results}
 \end{table}
 
 \subsection{Economic reflection}
 
-The economic story we expect Table~\ref{tab:results} to tell follows from the
-nature of the strategy and the chosen window. SMA Crossover is a trend-follower:
-it goes long when the 20-day SMA crosses above the 50-day SMA and exits when it
-crosses back. The 2020\textendash{}2024 window spans the COVID drawdown (March
-2020), the equity bull market of 2020\textendash{}2021, the 2022 bear market, and
-the 2023\textendash{}2024 recovery \textemdash{} four distinct regimes inside five
-years. A 20/50 SMA crossover should capture the trends of 2021 and 2023\textendash{}2024
-cleanly, sit in cash during much of 2022, but also lose money to whipsaws around
-the regime transitions (early 2020 and mid-2022).
-
-We therefore expect three observations to hold once the team populates the table:
+The economic story in Table~\ref{tab:results} follows from the nature of the
+strategy and the chosen window. SMA Crossover is a trend-follower: it goes long
+when the 20-day SMA crosses above the 50-day SMA and exits when it crosses back.
+The 2020\textendash{}2024 window spans the COVID drawdown (March 2020), the
+equity bull market of 2020\textendash{}2021, the 2022 bear market, and the
+2023\textendash{}2024 recovery \textemdash{} four distinct regimes inside five
+years. Three observations stand out from the actual run:
 
 \begin{enumerate}
-  \item \textbf{Lower CAGR than SPY buy-and-hold} but \textbf{noticeably lower
-        maximum drawdown}, because the strategy goes flat during 2022's bear
-        market. The pain-adjusted comparison (Calmar) is the more interesting
-        head-to-head.
-  \item \textbf{A Sharpe ratio close to buy-and-hold's} \textemdash{} the
-        strategy's higher hit rate during clear trends is offset by the
-        cost of being in cash through the recoveries.
-  \item \textbf{A trade count modest enough to demand caution.} Five years of daily
-        bars typically produce 10\textendash{}30 trades for a 20/50 SMA system, which
-        is below the rule-of-thumb threshold of $\sim$100 trades for statistical
-        significance. Any strong single-asset result here should be re-tested on
-        several assets before being trusted.
+  \item \textbf{The drawdown-protection thesis only half-delivered.} The strategy
+        captured about half of buy-and-hold's total return (51.2\% vs.\ 96.6\%)
+        but its maximum drawdown was only modestly shallower ($-27.9\%$ vs.\
+        $-33.7\%$), so buy-and-hold wins the pain-adjusted comparison (Calmar
+        0.43 vs.\ 0.31). The culprit is 2022: the bear market was choppy rather
+        than cleanly trending, and bear-market rallies repeatedly pulled the
+        crossover back in just in time for the next leg down. The strategy's 2022
+        calendar return was $-23.2\%$ \textemdash{} \emph{worse} than SPY's own
+        $-18.2\%$ over the same year \textemdash{} in precisely the regime a
+        trend-follower is meant to sidestep.
+  \item \textbf{Per-unit-risk efficiency was preserved, not improved.} The Sharpe
+        ratios are nearly identical (0.73 vs.\ 0.75) at much lower volatility
+        (12.5\% vs.\ 21.0\%): over this window the crossover behaved like a
+        de-levered, smoother version of the index rather than an alpha source.
+        The trade ledger shows the classic trend-following shape \textemdash{} a
+        20\% win rate combined with a 2.20 profit factor, i.e.\ many small
+        whipsaw losses paid for by a few large trend captures (average win
+        $\approx$\,8.8$\times$ average loss).
+  \item \textbf{The result is statistically and psychologically fragile.}
+        Twenty-five trades over five years is far below the $\sim$100-trade
+        rule-of-thumb for statistical significance, and the strategy spent
+        1\,093 days \textemdash{} roughly three of the five years \textemdash{}
+        below its own high-water mark (vs.\ 173 days for buy-and-hold). A
+        backtest that ends in profit can still be untradeable in practice if the
+        user abandons it mid-drawdown.
 \end{enumerate}
-
-\todo[inline]{TEAM: replace the three-point list above with the actual observations
-once Table~\ref{tab:results} is populated. The numbered list is a template; rewrite
-it in your own words to reflect the run you actually executed.}
 
 \subsection{Limitations of the demonstration}
 
@@ -116,6 +116,6 @@ set. It is illustrative, not predictive. Three caveats apply:
         in-sample fit on a single window does not establish edge.
   \item \textbf{The README's retail-trader tip applies} \textemdash{} if the
         backtested maximum drawdown is 20\%, the user should mentally prepare for
-        30\% in live trading, both because of regime change and because realistic
-        slippage on retail accounts is usually worse than the 2-bps default.
+        30\% live, since regime change and realistic retail slippage are both
+        worse than the backtest assumes.
 \end{itemize}

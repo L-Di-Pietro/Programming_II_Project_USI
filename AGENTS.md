@@ -1,6 +1,6 @@
 # AGENTS.md — The AI-collaborator contract for QuantEdge
 
-> This file is the canonical contract for any **AI coding agent** (Claude Code, GitHub Copilot, Cursor, Codex, ChatGPT, Google Gemini, …) that contributes to this repository. It is required by the *Programming in Finance II — Project 2.8* rubric and is intentionally distinct from [`docs/agents.md`](docs/agents.md), which documents the six **runtime agents** that live *inside* the product. This file documents the **collaboration rules** for the agents that help us build it.
+> This file is the canonical contract for any **AI coding agent** (Claude Code, GitHub Copilot, Cursor, Codex, ChatGPT, Google Gemini, …) that contributes to this repository. It is required by the *Programming in Finance II — Project 2.8* rubric and is intentionally distinct from [`docs/agents.md`](docs/agents.md), which documents the five **runtime agents** that live *inside* the product. This file documents the **collaboration rules** for the agents that help us build it.
 >
 > Human contributors should also read this file — the rules it captures (commit-message convention, "never `import openai` outside `backend/llm/`", look-ahead-bias invariant, etc.) apply to everyone. The deep mechanical setup for humans lives in [`CONTRIBUTING.md`](CONTRIBUTING.md); the architectural why lives in [`ARCHITECTURE.md`](ARCHITECTURE.md); the terse decision-grid for *Claude Code in particular* lives in [`CLAUDE.md`](CLAUDE.md).
 
@@ -8,11 +8,11 @@
 
 ## 1. Why this project is organised agentically
 
-QuantEdge is a six-agent system because the work it performs is genuinely heterogeneous: fetching market data, validating strategy parameters, running an event-driven backtest loop, computing KPIs, rendering Plotly charts, and generating natural-language reports each have different determinism guarantees, different failure modes, and different latency profiles. Splitting them apart lets us keep the deterministic surface (data, strategy, backtest, analytics) reproducible bar-for-bar across machines, and isolate the only two non-deterministic agents (orchestrator, explanation) behind a single [`LLMProvider`](backend/llm/base.py) abstraction with a `NullProvider` default. The result is a product where **tests never call an LLM**, **backtests never call a live API**, and the LLM features are opt-in via three environment variables (`LLM_ENABLED=true`, `LLM_PROVIDER=gemini`, `GEMINI_API_KEY=…`). The same separation is what makes the codebase tractable for AI contributors: any non-trivial change is scoped to one agent or to one well-defined seam between two of them.
+QuantEdge is a five-agent system because the work it performs is genuinely heterogeneous: fetching market data, validating strategy parameters, running an event-driven backtest loop, computing KPIs, rendering Plotly charts, and generating natural-language reports each have different determinism guarantees, different failure modes, and different latency profiles. Splitting them apart lets us keep the deterministic surface (data, strategy, backtest, analytics) reproducible bar-for-bar across machines, and isolate the only non-deterministic agent (explanation) behind a single [`LLMProvider`](backend/llm/base.py) abstraction with a `NullProvider` default. The result is a product where **tests never call an LLM**, **backtests never call a live API**, and the LLM features are opt-in via three environment variables (`LLM_ENABLED=true`, `LLM_PROVIDER=gemini`, `GEMINI_API_KEY=…`). The same separation is what makes the codebase tractable for AI contributors: any non-trivial change is scoped to one agent or to one well-defined seam between two of them.
 
 ---
 
-## 2. The six runtime agents — public interface, responsibility, extension point
+## 2. The five runtime agents — public interface, responsibility, extension point
 
 All agents inherit from `BaseAgent[TIn, TOut]` defined in `backend/agents/base.py`. The single public method is:
 
@@ -20,23 +20,9 @@ All agents inherit from `BaseAgent[TIn, TOut]` defined in `backend/agents/base.p
 agent.run(payload: TIn) -> TOut          # wraps _run with timing + AgentError mapping
 ```
 
-Each concrete agent implements `_run(payload)`. The API layer calls `agent.run(...)`, never `_run` directly.
+Each concrete agent implements `_run(payload)`. The API layer calls `agent.run(...)`, never `_run` directly. In v1 the API routes call these agents directly — there is no orchestration layer on the request path.
 
-### 2.1 Orchestrator agent — LLM, demo by default
-
-- **File:** `backend/agents/orchestrator.py`
-- **Responsibility:** Receive a natural-language request, run a Python-side tool-use loop, dispatch tool calls to the five other agents, and return a final answer.
-- **Input / output:** `OrchestratorInput(user_message: str, history: list[ChatTurn] = [], max_steps: int = 8) → OrchestratorOutput(final_answer: str, steps: list[ToolCall])`
-- **Example invocation:**
-  ```python
-  from backend.agents.orchestrator import OrchestratorAgent, OrchestratorInput
-  agent = OrchestratorAgent(db_session)
-  out = agent.run(OrchestratorInput(user_message="What was the Sharpe of run 7?"))
-  print(out.final_answer)
-  ```
-- **How to extend:** Add a new tool by registering it in the orchestrator's tool table; the schema is JSON-extracted from the model output rather than relying on a provider-specific function-calling SDK, so the change is provider-agnostic. If the new tool needs to live in its own agent, build that agent first (see §2.2–§2.6) and register its `run(...)` here.
-
-### 2.2 Data agent — deterministic
+### 2.1 Data agent — deterministic
 
 - **File:** `backend/agents/data_agent.py`
 - **Responsibility:** Fetch, clean, and persist OHLCV bars; report freshness; list assets.
@@ -48,7 +34,7 @@ Each concrete agent implements `_run(payload)`. The API layer calls `agent.run(.
   ```
 - **How to extend (new data source):** subclass `BaseFetcher` in `backend/data/fetchers/<your_fetcher>.py`, wire it into `_FETCHERS` in this file, add the right calendar key to `_CALENDAR_FOR`, and update `docs/data-sources.md`. The cleaner (`backend/data/cleaner.py`) reindexes onto the calendar you choose. See [`CLAUDE.md#how-to-add-a-new-asset-class-or-data-source`](CLAUDE.md).
 
-### 2.3 Strategy agent — deterministic
+### 2.2 Strategy agent — deterministic
 
 - **File:** `backend/agents/strategy_agent.py`
 - **Responsibility:** Stateless registry wrapper. Lists strategies, validates params via Pydantic, builds instances, splits bars for walk-forward.
@@ -56,11 +42,11 @@ Each concrete agent implements `_run(payload)`. The API layer calls `agent.run(.
 - **Example invocation:**
   ```python
   agent = StrategyAgent()
-  out = agent.run(StrategyAgentInput(op="list"))   # returns all 11 strategies + their JSON Schema
+  out = agent.run(StrategyAgentInput(op="list"))   # returns the strategy catalogue + their JSON Schema
   ```
 - **How to extend (new strategy):** subclass `BaseStrategy` in `backend/strategies/<your_strategy>.py`, define a Pydantic `Config` (which becomes `params_schema`), implement `generate_signals(bars) -> pd.Series[int]` returning values in `{-1, 0, 1}`, register it in `backend/strategies/__init__.py`'s `STRATEGY_REGISTRY`, and add a test fixture. The frontend's parameter form is auto-generated from `params_schema`, so you get a UI for free.
 
-### 2.4 Backtest agent — deterministic
+### 2.3 Backtest agent — deterministic
 
 - **File:** `backend/agents/backtest_agent.py`
 - **Responsibility:** End-to-end backtest run. Loads bars from the local DB (never a live API), drives `backend/backtest/engine.py`, persists trades / equity curve / metrics, computes the same-asset and SPY buy-and-hold benchmark curves.
@@ -75,9 +61,9 @@ Each concrete agent implements `_run(payload)`. The API layer calls `agent.run(.
                                      initial_cash=10_000, commission_bps=5, slippage_bps=2,
                                      sizing_mode="fixed_fraction", risk_fraction=1.0))
   ```
-- **How to extend:** the engine itself lives at `backend/backtest/engine.py` (event loop), `backend/backtest/portfolio.py` (position state), `backend/backtest/execution.py` (commission, slippage), `backend/backtest/risk.py` (sizing + circuit breaker). Any new execution model must preserve the **bar-`t` → bar-`t+1` fill rule** — see [§4](#4-the-non-negotiable-invariants-every-ai-contribution-must-respect).
+- **How to extend:** the engine itself lives at `backend/backtest/engine.py` (event loop), `backend/backtest/portfolio.py` (position state), `backend/backtest/execution.py` (commission, slippage), `backend/backtest/risk.py` (position sizing). Any new execution model must preserve the **bar-`t` → bar-`t+1` fill rule** — see [§4](#4-the-non-negotiable-invariants-every-ai-contribution-must-respect).
 
-### 2.5 Analytics agent — deterministic
+### 2.4 Analytics agent — deterministic
 
 - **File:** `backend/agents/analytics_agent.py`
 - **Responsibility:** Compute KPIs from persisted trades + equity, build Plotly figures, derive benchmark KPIs from stored benchmark curves.
@@ -89,7 +75,7 @@ Each concrete agent implements `_run(payload)`. The API layer calls `agent.run(.
   ```
 - **How to extend (new chart):** add the builder to `backend/analytics/visualizations.py`, accept the new `chart_kind` literal here, and the existing `GET /backtests/{run_id}/charts/{kind}` endpoint will surface it. For a new KPI, add a function to `backend/analytics/metrics.py` (docstring with the formula and citation), then have the relevant computation path persist it as a `Metric` row.
 
-### 2.6 Explanation agent — LLM, demo by default
+### 2.5 Explanation agent — LLM, demo by default
 
 - **File:** `backend/agents/explanation_agent.py`
 - **Responsibility:** Generate natural-language interpretations of a run (explain a metric, explain a strategy, compare two runs, answer a free-form question, write a full markdown report). Persists the conversation to `llm_conversations` and caches reports per `run_id`.
@@ -179,12 +165,12 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ## 7. Where to put a new agent (if you really need one)
 
-The bar for adding a seventh agent is high — first ask whether the new responsibility fits inside one of the existing six. If you genuinely need a new agent:
+The bar for adding a sixth agent is high — first ask whether the new responsibility fits inside one of the existing five. If you genuinely need a new agent:
 
 1. Create `backend/agents/<name>_agent.py`. Inherit from `BaseAgent[TIn, TOut]`.
 2. Define Pydantic `Input` / `Output` models in the same file or in a sibling `schemas.py`.
 3. Implement `_run(payload)`; do not override `run` (the base class wraps with timing + error mapping).
-4. Add the agent to the orchestrator's tool table if the LLM should be able to invoke it.
+4. Wire the agent into the relevant `backend/api/routes/` router so the API can reach it.
 5. Add a row to [`docs/agents.md`](docs/agents.md) describing the new agent + its public surface.
 6. Add a corresponding §2.x block to this file.
 7. Add `tests/test_<name>_agent.py` with at least the happy-path and one error-path test.
@@ -195,7 +181,7 @@ The bar for adding a seventh agent is high — first ask whether the new respons
 
 - [`CLAUDE.md`](CLAUDE.md) — the terse decision-grid for Claude Code in particular.
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — full setup mechanics for human contributors.
-- [`docs/agents.md`](docs/agents.md) — the internal architecture of the six runtime agents.
+- [`docs/agents.md`](docs/agents.md) — the internal architecture of the five runtime agents.
 - [`docs/strategies.md`](docs/strategies.md) — the strategy catalogue.
 - [`AI_USAGE.md`](AI_USAGE.md) — disclosure of every AI tool used by the team.
 - [`CITATIONS.md`](CITATIONS.md) — third-party code and formulas.

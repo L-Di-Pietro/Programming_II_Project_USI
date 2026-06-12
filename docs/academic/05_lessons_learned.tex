@@ -7,15 +7,15 @@
 Every strategy in \texttt{backend/strategies/} declares a Pydantic \texttt{Config}
 class; \texttt{GET /strategies} serialises it as a JSON Schema; the React form
 component renders a complete parameter UI from that schema with no per-strategy
-frontend code. Adding the sixth-through-eleventh strategies (PR~\#7) cost zero
-frontend work as a result. This is the single biggest productivity multiplier in
-the project and we would carry it forward to any future codebase.
+frontend code. Adding the sixth-through-tenth strategies (PR~\#7) cost zero
+frontend work as a result \textemdash{} the single biggest productivity
+multiplier in the project.
 
-\paragraph{The six-agent abstraction.} Splitting the runtime into named agents,
+\paragraph{The five-agent abstraction.} Splitting the runtime into named agents,
 each inheriting \texttt{BaseAgent[TIn, TOut]} with a single public
-\texttt{run(payload)} method, gave us seam-by-seam testability and a natural
-docking point for the LLM orchestrator. The boundary between the two LLM-backed
-agents and the four deterministic agents was the right boundary: it kept the test
+\texttt{run(payload)} method, gave us seam-by-seam testability and kept the LLM
+surface isolated behind one agent. The boundary between the one LLM-backed
+agent and the four deterministic agents was the right boundary: it kept the test
 suite reproducible while leaving the LLM path open as an opt-in feature.
 
 \paragraph{The $\{-1, 0, +1\}$ signal contract.} Forbidding strategies to manage
@@ -36,23 +36,14 @@ hours and saved us from a class of subtle correctness bugs.
 \paragraph{Yahoo Finance's 730-day hourly cap.} The cap is a hard external
 constraint that propagates into the UI (date pickers had to gain a per-timeframe
 maximum-look-back constraint) and into the data layer (the Crypto Fetcher learned
-to fall back to Binance via \texttt{ccxt}). We absorbed the cap rather than
-worked around it because the alternatives (paid intraday data, scraping
-alternative sources) carried more cost than the limitation imposes.
-
-\paragraph{LLM tool-call JSON parsing.} The Orchestrator Agent parses tool calls
-out of the model's response by extracting a JSON envelope. This is fragile in two
-ways: the model occasionally wraps the JSON in markdown fences or prose, and
-provider-specific function-calling APIs would handle this better. We chose
-provider-portability over robustness for v1; a future iteration could degrade to
-provider-native function calling when the configured provider supports it.
+to fall back to Binance via \texttt{ccxt}). We absorbed the cap; the alternatives
+(paid intraday data, scraping) cost more than the limitation imposes.
 
 \paragraph{Asynchronous backtest execution.} The first design had submission
 return immediately and the UI poll for status; we backed it out to a synchronous
 \texttt{POST /backtests} because runs on daily bars complete in under a second
 and the async machinery added an entire state-management layer that nothing in
-v1 actually needed. The Dashboard still polls every five seconds, so future
-async submission can be added back without UI changes.
+v1 actually needed (Section~\ref{sec:diary}).
 
 \subsection{What we would do differently}
 
@@ -65,17 +56,15 @@ async submission can be added back without UI changes.
   \item \textbf{Postgres as the default development database.} SQLite was fast to set
         up but does not catch the subset of bugs that only show up under concurrent
         writes or under strict referential integrity. The schema is already
-        Postgres-compatible (SQLAlchemy generics only); the change is a
-        \texttt{DATABASE\_URL} and a Docker Compose file. We would default to
-        Postgres next time and let users opt down to SQLite.
+        Postgres-compatible (SQLAlchemy generics only); next time we would default
+        to Postgres and let users opt down to SQLite.
   \item \textbf{Earlier CI hygiene.} The \texttt{check-no-build-artifacts.yml}
         workflow should have been the first \texttt{.github/workflow} we wrote, not
         the third. Build-artefact leakage produced noisy diffs for a week before we
         formalised the guard.
-  \item \textbf{Smaller, more frequent PRs.} The 32 commits in this project landed via
-        only 8 merged PRs; some PRs touched a dozen files across two subsystems.
-        Reviewers (human or AI) work better on small, focused diffs. We would aim for
-        roughly twice as many PRs of half the size in a future iteration.
+  \item \textbf{Smaller, more frequent PRs.} The 32 development-cycle commits landed
+        via only 8 merged PRs; some touched a dozen files across two subsystems.
+        Reviewers (human or AI) work better on small, focused diffs.
 \end{itemize}
 
 \subsection{What carries forward}
@@ -84,6 +73,5 @@ The patterns we would copy verbatim into the next project: the
 schema-as-API discipline, the agent abstraction with a single public
 \texttt{run} method, the deterministic-by-default LLM stance with
 \texttt{NullProvider} for tests, the per-asset-class trading-calendar layer, the
-$\{-1, 0, +1\}$ signal contract, and the convention that every documentation file
-carries a ``\emph{Last verified against code}'' footer so reviewers know when the
-prose was last reconciled with the source.
+$\{-1, 0, +1\}$ signal contract, and the ``\emph{Last verified against code}''
+footer convention on every documentation file.

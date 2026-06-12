@@ -43,7 +43,7 @@ Versioning follows the live OpenAPI spec at `/openapi.json` (`version: "0.1.0"` 
 
 ### Pagination
 
-No pagination in v1. The only list endpoint that could grow large is `GET /backtests`, which accepts a `limit` query parameter (default `50`). Other list endpoints (`/assets`, `/strategies`) return all rows; the universe is bounded (~36 assets, 11 strategies) and the payloads are < 50 KB.
+No pagination in v1. The only list endpoint that could grow large is `GET /backtests`, which accepts a `limit` query parameter (default `50`). Other list endpoints (`/assets`, `/strategies`) return all rows; the universe is bounded (~36 assets, 10 selectable strategies) and the payloads are < 50 KB.
 
 ### Error envelope
 
@@ -266,8 +266,7 @@ Router: [`backend/api/routes/backtest.py`](../backend/api/routes/backtest.py). T
 | `commission_bps` | `float` (≥ 0) | no | `5.0` | Per-leg commission in basis points. |
 | `slippage_bps` | `float` (≥ 0) | no | `2.0` | Per-leg slippage in basis points. |
 | `risk_fraction` | `float` (0–1] | no | `1.0` | Fraction of equity to risk per position. |
-| `sizing_mode` | `str` | no | `"fixed_fraction"` | Currently `"fixed_fraction"` only; vol-targeting is wired but unexposed. |
-| `max_dd_pct` | `float` ([0, 1]) \| `null` | no | `null` | Optional circuit-breaker: halt the run if equity draws down more than this fraction. |
+| `sizing_mode` | `str` | no | `"fixed_fraction"` | `"fixed_fraction"` only. |
 | `timeframe` | `str` (enum `Timeframe`) | no | `"1d"` | `"1d"` or `"1h"`. |
 
 **Request headers.**

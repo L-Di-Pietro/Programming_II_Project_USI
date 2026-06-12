@@ -10,8 +10,10 @@ It is triggered by `.github/workflows/nightly-docs.yml` at 02:00 UTC. Your edits
 
 - Backend: Python 3.11 / FastAPI / SQLAlchemy 2.x / Pydantic v2. Frontend: React 18 +
   TypeScript + Vite + Tailwind, Plotly.js charts. Tests: pytest (backend) + Vitest.
-- 11 strategies (`backend/strategies/`), 6 agents (`backend/agents/`), 4 API routers
-  (`backend/api/routes/`), 4 frontend pages (`frontend/src/pages/`).
+- 10 selectable strategies (`backend/strategies/`; buy-and-hold is registered for
+  benchmark use only and hidden from the picker), 5 runtime agents
+  (`backend/agents/`; `orchestrator.py` exists but is not on the request path),
+  4 API routers (`backend/api/routes/`), 4 frontend pages (`frontend/src/pages/`).
 - LLM is provider-agnostic (`backend/llm/`): `NullProvider` (default/tests) and
   `GeminiProvider` (opt-in). Look-ahead bias is enforced in `backend/backtest/engine.py`.
 - All standard docs are CURRENT as of the last refresh. Your job is to keep them that

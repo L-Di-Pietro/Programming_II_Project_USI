@@ -1,8 +1,10 @@
 # Strategies
 
-QuantEdge ships **11 strategies** across five families: three
-trend-followers, one time-series momentum model, two breakouts, four
-mean-reverters, and one buy-and-hold benchmark. The variety is
+QuantEdge ships **10 selectable strategies** across four families: three
+trend-followers, one time-series momentum model, two breakouts, and four
+mean-reverters. A buy-and-hold benchmark is computed alongside every run
+as the reference overlay, but it is not one of the four families and is
+not selectable as a strategy in its own right. The variety is
 deliberate — running them side-by-side teaches the most important
 lesson in backtesting: *no strategy works in every regime*. Trend
 followers shine in sustained moves and bleed in chop; mean-reverters do
@@ -421,8 +423,10 @@ commission and slippage as every other strategy.
 same-asset and SPY benchmark equity curves drawn alongside every
 backtest. Registering it as an ordinary strategy means those overlays
 pay the same realistic frictions a user would face if they actually
-held the asset, with zero duplicated engine code. It's also a
-perfectly valid user-selectable baseline run.
+held the asset, with zero duplicated engine code. It is **not** offered
+in the strategy picker, though — the `/strategies` endpoint hides it
+(`backend/api/routes/strategies.py`), so it serves purely as the
+benchmark.
 
 **Citation:** none — it's a definitional benchmark, not a technique.
 

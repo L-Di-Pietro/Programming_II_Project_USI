@@ -1,9 +1,8 @@
 \section{Acknowledgement of generative-AI tools}
 \label{sec:ai}
 
-This section is required by the course rubric and is a compressed version of
-\texttt{AI\_USAGE.md} at the repository root, which carries the full per-tool table
-and policy statement.
+This section condenses \texttt{AI\_USAGE.md} at the repository root, which
+carries the full per-tool table and policy statement.
 
 \subsection*{Team policy}
 
@@ -13,53 +12,41 @@ durable rules governed every contribution:
 \begin{enumerate}
   \item Every line of code that lands in \texttt{main} is reviewed by a human. AI
         output that no team member can explain is not merged.
-  \item No AI tool is given access to credentials, API keys, or production data.
-        The \texttt{.env} file is gitignored; only \texttt{.env.example} (no secrets)
-        ships in the repository.
-  \item The LLM features inside the product itself are opt-in:
-        \texttt{backend/config.py} defaults to \texttt{LLM\_ENABLED=false}, the
-        test suite uses the deterministic \texttt{NullProvider}, and activating
-        the live \texttt{GeminiProvider} requires three environment variables.
+  \item No AI tool is given access to credentials, API keys, or production data;
+        only the secret-free \texttt{.env.example} ships in the repository.
+  \item The LLM features inside the product are opt-in: \texttt{LLM\_ENABLED}
+        defaults to \texttt{false}, tests use the deterministic
+        \texttt{NullProvider}, and the live \texttt{GeminiProvider} requires
+        explicit configuration.
 \end{enumerate}
 
 We take collective responsibility for the whole repository, including text and
-code that was originally drafted by an AI tool and then reviewed and accepted.
+code originally drafted by an AI tool.
 
 \subsection*{Tools used}
 
 \textbf{Claude Code} (Anthropic, CLI agent) was the primary coding assistant for
 multi-file refactors, agent scaffolding, documentation drafts, and the bulk of the
-LaTeX source for this submission; it left footprints in the repository via the
-\texttt{.github/workflows/claude.yml} (issue/PR \texttt{@claude} mention handler)
-and \texttt{.github/workflows/claude-code-review.yml} (per-PR \texttt{/code-review})
+LaTeX source for this submission; its repository footprints are the
+\texttt{claude.yml}, \texttt{claude-code-review.yml}, and \texttt{nightly-docs.yml}
 workflows. \textbf{Claude.ai} (Anthropic, web) was used by team members for design
 discussions and prose drafting. \textbf{ChatGPT} (OpenAI) was used opportunistically
 for isolated syntax checks and LaTeX-table formatting. \textbf{GitHub Copilot}
 (GitHub/OpenAI) provided in-editor autocomplete for routine code; one merge-resolution
-commit (\texttt{b9fc033}) was authored by the \texttt{copilot-swe-agent[bot]} account
-as a one-off, not a sustained authoring pattern. \textbf{Cursor} (Anysphere) was used
+commit (\texttt{b9fc033}) was authored by the \texttt{copilot-swe-agent[bot]} account.
+\textbf{Cursor} (Anysphere) was used
 by one team member as their primary editor for some of the frontend work.
 \textbf{Google Gemini} (web) was used to spot-check factual claims about NYSE hours
-and \texttt{ccxt} pagination semantics; \textbf{Google Gemini API} is also wired into
-the product itself as the optional live \texttt{LLMProvider}, but that is a product
-feature, not a development tool.
-
-The team did \emph{not} use Codex, Replit Ghostwriter, Sourcegraph Cody, Tabnine,
-Codeium, or Amazon CodeWhisperer.
+and \texttt{ccxt} pagination semantics; the Gemini API wired into the product
+itself is a product feature, not a development tool.
 
 \subsection*{Where AI was not used}
 
-The strategy formulas in \texttt{backend/strategies/*.py} were transcribed from the
-academic and practitioner sources cited in \texttt{CITATIONS.md} and
-Section~\ref{sec:methodology}; the team independently re-derived each one before
-implementation. The look-ahead-bias enforcement in
-\texttt{backend/backtest/engine.py} and its oracle-strategy test were designed and
-written by the team. The database schema, the API contract, and the four-week
-project timeline were team decisions, not AI-generated.
-
-\subsection*{Reproducibility caveat}
-
-AI sessions are not natively reproducible across runs or prompt phrasings. We
-mitigate this via diff-level human review, the test suite's coverage of the
-critical correctness invariants, and prompt summaries in the project diary
-(Section~\ref{sec:diary}) for the most impactful changes.
+The strategy formulas in \texttt{backend/strategies/*.py} were transcribed from
+the sources cited in \texttt{CITATIONS.md} and Section~\ref{sec:methodology} and
+independently re-derived by the team. The look-ahead-bias enforcement in
+\texttt{backend/backtest/engine.py} and its oracle-strategy test, the database
+schema, the API contract, and the project timeline were team work, not
+AI-generated. A final caveat: AI sessions are not natively reproducible; we
+mitigate via diff-level human review, the test suite's invariant coverage, and
+prompt summaries in the project diary.
