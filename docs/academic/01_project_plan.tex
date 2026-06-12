@@ -15,7 +15,7 @@ that makes the rigorous path the easy one.
 
 \subsection{Scope}
 
-The system delivered in this submission (\texttt{v1.0.0-rc1}, tagged 2026-05-24)
+The system delivered for the 2026-06-12 submission (\texttt{v1.0.0})
 provides:
 
 \begin{itemize}
@@ -44,7 +44,7 @@ documented in the roadmap section of \texttt{README.md} as candidates for v1.1+.
 \subsection{Tech-stack rationale}
 
 The choices reflect a preference for tools that minimise the gap between the
-production-leaning quality the rubric expects and the four-week timeline the
+production-leaning quality the rubric expects and the timeline the
 academic calendar allows:
 
 \begin{itemize}
@@ -65,10 +65,11 @@ academic calendar allows:
         \texttt{GeminiProvider}; LLM features are off by default.
 \end{itemize}
 
-\subsection{Four-week timeline}
+\subsection{Project timeline}
 
-The project ran from 2026-04-25 (initial commit) to 2026-05-24 (documentation pass
-and submission), staffed by four contributors. Targets per week:
+The project ran from 2026-04-25 (initial commit) to 2026-06-12 (final submission),
+staffed by four contributors. The first four weeks built a feature-complete
+release candidate; the rest hardened, deployed, and polished it to the deadline:
 
 \begin{itemize}
   \item \textbf{Week~1 \textemdash{} 2026-04-27 to 2026-05-03.} Scaffold the
@@ -83,5 +84,10 @@ and submission), staffed by four contributors. Targets per week:
   \item \textbf{Week~4 \textemdash{} 2026-05-18 to 2026-05-24.} Data-layer
         hardening (yfinance as primary across all classes); strategy catalogue
         expansion from 5 to 10; benchmark overlays; shared crosshair and legend;
-        CI workflows; full documentation pass.
+        CI workflows; interim documentation pass.
+  \item \textbf{Weeks~5--7 \textemdash{} 2026-05-25 to 2026-06-12.} Deployment and
+        operational hardening (one-command launcher, Docker/Railway, per-browser
+        run isolation); a print-quality headless-Chromium PDF pipeline; the
+        QuantEdge rebrand; a nightly documentation-refresh workflow; and the final
+        results/screenshots/recompile pass.
 \end{itemize}

@@ -1,10 +1,10 @@
 \section{Project diary}
 \label{sec:diary}
 
-The four-week development cycle was punctuated by eight merged pull requests and a
-handful of direct-to-\texttt{main} commits for docs and trivia; a further 25 PRs
-landed after submission, 15 of them opened automatically by the nightly
-documentation agent. The narrative below follows the actual order of decisions,
+The development cycle ran from 2026-04-25 to 2026-06-12 and was punctuated by 33
+merged pull requests \textemdash{} 15 of them opened automatically by the nightly
+documentation agent \textemdash{} plus a handful of direct-to-\texttt{main} commits
+for docs and trivia. The narrative below follows the actual order of decisions,
 with commit hashes given so a reviewer can verify any claim from \texttt{git log}.
 
 \subsection*{Week~1 \textemdash{} Foundation (2026-04-25 to 2026-04-29)}
@@ -45,7 +45,7 @@ chart fixes followed (\texttt{3e22d4c}, \texttt{162ceba}, \texttt{ab1e2de}),
 LLM retries, and the first client-side PDF export shipped via \texttt{jsPDF}
 (\texttt{0a7edb1}).
 
-\subsection*{Week~4 \textemdash{} CI hardening, data layer, strategies, benchmarks (2026-05-19 to 2026-05-22)}
+\subsection*{Week~4 \textemdash{} CI hardening, data layer, strategies, benchmarks (2026-05-19 to 2026-05-24)}
 
 The week opened with two Claude Code GitHub Actions workflows:
 \texttt{claude.yml} (\texttt{3d50b41}) for \texttt{@claude} mentions and
@@ -65,73 +65,68 @@ at run time, toggleable from a single shared chart legend. \texttt{d1efa3f}
 (Quick-Start docs) and \texttt{4a9e6ae} (yfinance 0.2.46 $\to$ 1.3.0, which
 pulled in \texttt{curl\_cffi}) closed the week.
 
-\subsection*{Documentation pass (2026-05-24)}
+\subsection*{Interim documentation pass (2026-05-24)}
 
-\texttt{79e200a} refreshed the existing docs against the final code state, and a
-second same-day pass created the artefacts the rubric requires, this PDF among
-them: \texttt{AGENTS.md}, \texttt{CHANGELOG.md}, \texttt{CONTRIBUTING.md},
+\texttt{79e200a} refreshed the existing docs against the then-current code state,
+and a second same-day pass created the artefacts the rubric requires, this PDF
+among them \textemdash{} an interim milestone, not the submission:
+\texttt{AGENTS.md}, \texttt{CHANGELOG.md}, \texttt{CONTRIBUTING.md},
 \texttt{CITATIONS.md}, \texttt{AI\_USAGE.md}, \texttt{SECURITY.md},
 \texttt{CODE\_OF\_CONDUCT.md}, \texttt{docs/user-guide.md}, \texttt{docs/api.md},
 \texttt{docs/architecture-diagrams/}, and the \texttt{docs/academic/} bundle.
 
-\subsection*{Post-submission automation and hardening (2026-05-24 to 2026-06-07)}
+\subsection*{Weeks~5--6 \textemdash{} Automation, deployment, and report hardening (2026-05-24 to 2026-06-07)}
 
-On submission evening, PR~\#9 (\texttt{612e39e}) introduced
+On the evening of 2026-05-24, PR~\#9 (\texttt{612e39e}) introduced
 \texttt{nightly-docs.yml}: a GitHub Actions job that wakes at 02:00~UTC, runs
 Claude Code headless with a read-only Bash allowlist, and opens a PR whenever it
-finds documentation drift against the last 24~hours of commits \textemdash{} it
-never touches \texttt{main} directly. \texttt{4dfc948} and PR~\#10
-(\texttt{58a4811}) fixed its authentication and \texttt{id-token: write}
-permission; PR~\#12 (\texttt{01d9c30}) bumped all workflows to the Node-24
-action majors ahead of GitHub's runner retirement.
+finds documentation drift \textemdash{} it never touches \texttt{main} directly.
+\texttt{4dfc948} and PR~\#10 (\texttt{58a4811}) fixed its authentication;
+PR~\#12 (\texttt{01d9c30}) bumped all workflows to the Node-24 action majors.
 
 Substantive engineering continued alongside. PR~\#16 (\texttt{ed31a92},
 \texttt{b8c9332}, \texttt{533dedb}) hardened \texttt{run.py}: TTY detection
-before the API-key prompt, a fail-fast port check with a \texttt{kill} hint, and
-tolerant \texttt{.env} parsing. \texttt{e1dd918} added a production frontend
-Dockerfile and Postgres URL normalisation for Railway deployment. On 2026-05-29
-a frontend polish sprint (\texttt{b3acd7d}, PR~\#18, \texttt{45dddf4},
-\texttt{6056272}) shipped the interactive onboarding tour, a unified loading
-screen, and run-detail prefetching, while PR~\#19 (\texttt{38816c3},
+before the API-key prompt, a fail-fast port check, and tolerant \texttt{.env}
+parsing. \texttt{e1dd918} added a production frontend Dockerfile and Postgres URL
+normalisation for Railway. On 2026-05-29 a frontend polish sprint
+(\texttt{b3acd7d}, PR~\#18, \texttt{45dddf4}) shipped the onboarding tour, a
+unified loading screen, and run-detail prefetching; PR~\#19 (\texttt{38816c3},
 \texttt{fd57ede}) made the downloadable report a self-contained interactive HTML
-file. The same day, \texttt{1acc780} introduced per-browser backtest isolation:
-an anonymous \texttt{client\_id} minted in \texttt{localStorage} and forwarded as
-\texttt{X-Client-Id} scopes \texttt{GET /backtests} to the caller, with an
-integration test asserting two clients cannot see each other's runs.
+file; and \texttt{1acc780} introduced per-browser backtest isolation \textemdash{}
+an anonymous \texttt{client\_id} forwarded as \texttt{X-Client-Id} scopes
+\texttt{GET /backtests} to the caller, with a test that two clients cannot see
+each other's runs.
 
 PR~\#21 (\texttt{b7996f6}, 2026-06-01) replaced the \texttt{jsPDF} export with a
-print-quality pipeline: the frontend assembles the self-contained report HTML and
-\texttt{POST}s it to \texttt{/backtests/\{run\_id\}/report.pdf}, where headless
-Chromium (Playwright) renders A4 output identical to the interactive report.
-\texttt{b6718ce} pinned the backend image to \texttt{python:3.11-slim-bookworm}
-after a floating tag silently resolved to Debian~13 and broke Chromium's font
-dependencies. \texttt{b9414a7} added mobile-first navigation, and
-\texttt{1ebcae4} (2026-06-03) fixed print sizing by relaying out every Plotly
-figure to the A4 column width before \texttt{window.print()}. \texttt{855c0a6}
-(2026-06-05) repaired the missing \texttt{\textbackslash keystroke} macro this
-document uses and completed the author list. Finally, PR~\#30 (2026-06-07) added
-the \texttt{MobileDesktopBanner} and suppressed the onboarding tour below the
-desktop breakpoint (\texttt{7ca67e8}), rebranded the project from QuantBacktest
-to QuantEdge across every file (\texttt{da11eaf}), and moved the port check to
-the second step of \texttt{run.py} so conflicts abort in under a second
-(\texttt{a0b8ac2}).
+print-quality pipeline: the frontend \texttt{POST}s the report HTML to
+\texttt{/backtests/\{run\_id\}/report.pdf}, where headless Chromium (Playwright)
+renders A4 output identical to the interactive report. \texttt{b6718ce} pinned the
+backend image to \texttt{python:3.11-slim-bookworm} after a floating tag broke
+Chromium's fonts; \texttt{b9414a7} added mobile-first navigation; and
+\texttt{1ebcae4} (2026-06-03) fixed Plotly print sizing. Finally, PR~\#30
+(2026-06-07) added the \texttt{MobileDesktopBanner}, suppressed the tour below the
+desktop breakpoint (\texttt{7ca67e8}), rebranded QuantBacktest to QuantEdge across
+every file (\texttt{da11eaf}), and moved the port check earlier so conflicts abort
+in under a second (\texttt{a0b8ac2}).
 
-\subsection*{Steady state and final pass (2026-05-25 to 2026-06-11)}
+\subsection*{Week~7 \textemdash{} Steady state and final pass (2026-06-08 to 2026-06-12)}
 
-From 2026-05-25 onward the nightly workflow fired every night, producing 15
-merged PRs through \#33. On nights following human commits it recorded them in
-\texttt{CHANGELOG.md}, this diary, and the user guide; on quiet nights it
-recorded only the previous nightly commit itself. No nightly run ever modified
-code, confirming that the documentation-only write scope and read-only Bash
-allowlist behave as designed. A final pre-submission pass on 2026-06-11 populated
-Table~\ref{tab:results} from a backtest executed against the final codebase,
-captured the user-guide screenshots from a live local instance, compressed this
-diary \textemdash{} which nightly appends had grown well past the rubric's page
-budget \textemdash{} and recompiled this PDF.
+Across the project's second half, from 2026-05-25, the nightly workflow fired
+every night, producing 15 merged PRs through \#33. On nights following human
+commits it recorded them in \texttt{CHANGELOG.md}, this diary, and the user
+guide; on quiet nights it recorded only the previous nightly commit itself. No
+nightly run ever modified code, confirming that the documentation-only write
+scope and read-only Bash allowlist behave as designed. The final pass spanned
+2026-06-11--12: it populated Table~\ref{tab:results} from a backtest executed
+against the final codebase, captured the user-guide screenshots from a live local
+instance, brought the architecture documentation in line with the project's five
+agents and ten strategies, added the deployed web-app URL, compressed this diary
+\textemdash{} which nightly appends had grown well past the rubric's page budget
+\textemdash{} and recompiled this PDF for the 2026-06-12 submission.
 
 \subsection*{Things we tried and abandoned}
 
-A few decisions did not survive the four weeks:
+A few decisions did not survive the project:
 
 \begin{itemize}
   \item \textbf{Asynchronous backtest submission.} The first design queued runs and
