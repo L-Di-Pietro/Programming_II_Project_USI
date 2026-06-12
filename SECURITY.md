@@ -19,9 +19,9 @@ See [`CHANGELOG.md`](CHANGELOG.md) for the release history.
 
 ## Reporting a vulnerability
 
-Please **do not** open a public GitHub issue for security reports. Instead, email:
+Please **do not** open a public GitHub issue for security reports. Instead, contact a maintainer privately via the repository's contributors page:
 
-> **`usi-prog2-team@example.com`** &nbsp;*<!-- TEAM: replace with the actual shared address before publication. The placeholder is intentional so reviewers can see the convention without exposing a real inbox. -->*
+> **[Project maintainers](https://github.com/L-Di-Pietro/Programming_II_Project_USI/graphs/contributors)** — reach out to any maintainer listed there.
 
 Include:
 
